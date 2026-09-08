@@ -1,0 +1,318 @@
+---
+title: Invent a dataset
+description: Generate a model-ready dataset from scratch, with no source dataset required.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Invent generates a model-ready dataset from scratch—no source dataset required. Choose one or more domains, optionally narrow with subdomains, set a target row count, and the API creates a dataset for your task.
+
+Use [`datasets.create`](/adaptive-data/create-a-dataset) instead when you want to import and adapt an existing dataset.
+
+### What you can build
+
+- **Instruction datasets** pair prompts with generated completions for supervised fine-tuning.
+- **Preference pairs** rank two completions against each other for preference-based training.
+
+### How it works
+
+1. **Choose domains.** Fetch the current domain and subdomain codes with [`datasets.invent_domains`](/api/python/resources/datasets/methods/invent_domains).
+2. **Estimate (optional).** Price the exact request with `estimate=True`. Nothing is created or charged.
+3. **Generate.** Call [`datasets.invent`](/api/python/resources/datasets/methods/invent) to create the dataset and start generation. The call returns immediately with status `running`.
+4. **Poll and download.** Poll [`datasets.get`](/api/python/resources/datasets/methods/get) until the status is `succeeded`, then [download the rows](#download-the-rows).
+
+## Generate a dataset
+
+A single call to `datasets.invent` creates the dataset and starts generating rows from your domain selections. The examples assume you have [installed the Python SDK and set `ADAPTION_API_KEY`](/introduction/getting-started).
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.invent(
+    name="Clinical Q&A",
+    domains=["medical"],
+    rows=1000,
+)
+
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+### Request parameters
+
+| Parameter            | Required    | Notes                                                                                                                                                                    |
+| -------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `rows`               | Yes         | Number of rows to generate. Subject to your plan's per-launch row limit.                                                                                                 |
+| `domains`            | Conditional | Domain codes to generate from. Provide at least one domain or subdomain. See [Choose domains and subdomains](#choose-domains-and-subdomains).                            |
+| `subdomains`         | Conditional | Qualified subdomain codes that narrow generation. Provide at least one domain or subdomain.                                                                              |
+| `name`               | No          | Display name for the invented dataset.                                                                                                                                   |
+| `training_type`      | No          | `instruction_dataset` (default) or `preference_pairs`. See [Choose the training format](#choose-the-training-format).                                                    |
+| `prompt`             | No          | Description of the data to generate. Used to select source material and steer generation. Generated from your domain selections when omitted. Maximum 10,000 characters. |
+| `language_expansion` | No          | Translates or localizes a sample of the generated rows. See [Expand across languages and locales](#expand-across-languages-and-locales).                                 |
+| `estimate`           | No          | Returns a credit estimate without creating or launching a dataset. Defaults to `False`.                                                                                  |
+| `idempotency_key`    | No          | Makes retries safe. Repeating a request with the same key returns the original dataset instead of starting generation again. Maximum 255 characters.                     |
+
+### Price a request first
+
+Set `estimate=True` to price the exact request. Nothing is generated or charged:
+
+```python
+estimate = client.datasets.invent(
+    domains=["medical"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+    estimate=True,
+)
+
+print(f"Estimated credits: {estimate.estimated_credits}")
+print(f"Available credits: {estimate.available_credits}")
+```
+
+## Choose domains and subdomains
+
+Fetch the current codes accepted by `datasets.invent` rather than hardcoding them:
+
+```python
+response = client.datasets.invent_domains()
+
+for domain in response.domains:
+    print(domain.code, domain.title)
+    for subdomain in domain.subdomains:
+        print("  ", subdomain.code, subdomain.title)
+```
+
+### Domain and subdomain fields
+
+| Field        | Description                                                                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`       | The value to send in `domains` or `subdomains`. Domain codes are values such as `medical`; subdomain codes are qualified values such as `medical.symptoms_diagnosis`. |
+| `title`      | Human-readable name for the domain or subdomain.                                                                                                                      |
+| `subdomains` | Subdomains available within a domain. An empty list means the domain has no subdivisions.                                                                             |
+
+### Narrow with subdomains
+
+Pass subdomain codes exactly as returned by `invent_domains`. `subdomains` is a flat list of qualified codes:
+
+```python
+dataset = client.datasets.invent(
+    domains=["medical", "legal"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+)
+```
+
+Here, the medical portion is narrowed to the selected subdomains. The legal portion draws from the full legal domain because no legal subdomains were provided.
+
+### Combine multiple domains
+
+Every code in `domains` contributes to the same generation run. For a domain without subdivisions, pass its domain code and omit subdomains for it.
+
+## Configure generation
+
+After choosing domains, configure the output format, steer what the rows are about, expand languages, and make retries safe.
+
+### Choose the output format
+
+`training_type` defaults to `instruction_dataset`. Set it to `preference_pairs` for chosen and rejected completion pairs:
+
+```python
+dataset = client.datasets.invent(
+    domains=["medical"],
+    rows=1000,
+    training_type="preference_pairs",
+)
+```
+
+Use `instruction_dataset` for standard supervised fine-tuning. Use `preference_pairs` for preference-based training such as DPO. The same formats are described in [Configure Adaptive Data](/adaptive-data/configure-adaptive-data#generate-preference-pairs).
+
+### Steer generation with a prompt
+
+Use `prompt` to describe the specific data you need in plain language:
+
+```python
+dataset = client.datasets.invent(
+    domains=["medical"],
+    rows=1000,
+    prompt="Patient-facing answers in plain language.",
+)
+```
+
+### Expand across languages and locales
+
+`language_expansion` uses the same structure as [language expansion in Adaptive Data](/adaptive-data/configure-adaptive-data#expand-across-languages-and-locales):
+
+- `translate` produces a new row variant for each target language.
+- `localize` produces a new row variant for each country and language pair, using locale-specific wording rather than direct translation alone.
+
+```python
+dataset = client.datasets.invent(
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "translate",
+        "sample_rate": 0.25,
+        "languages": ["es", "fr"],
+    },
+)
+```
+
+`sample_rate` is the fraction of invented rows expanded for each target and must be between `0.01` and `1`. Credits are billed on the expanded output row count.
+
+For localization, pass country and language pairs:
+
+```python
+dataset = client.datasets.invent(
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "localize",
+        "sample_rate": 0.25,
+        "pairs": [{"country": "ES", "language": "ca"}],
+    },
+)
+```
+
+Unknown language or country/language codes return a `400` response with a sample of the supported codes.
+
+### Make retries safe
+
+Provide an idempotency key when a network failure might cause your application to retry the request:
+
+```python
+dataset = client.datasets.invent(
+    domains=["medical"],
+    rows=1000,
+    idempotency_key="clinical-qa-2026-09-02",
+)
+```
+
+Repeating the same request with this key returns the original dataset instead of starting another generation run.
+
+### Put it together
+
+```python
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    prompt="Patient-facing answers in plain language.",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+## Check status and download
+
+Poll `datasets.get` with the invented dataset ID until generation reports `succeeded` or `failed`.
+
+### Poll until generation finishes
+
+```python
+import time
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+```
+
+### Download the rows
+
+Download the completed dataset as JSON Lines, JSON, CSV, or Parquet:
+
+```python
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+See [`datasets.download`](/api/python/resources/datasets/methods/download) for all response and streaming options.
+
+### Complete example
+
+```python
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    prompt="Patient-facing answers in plain language.",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+
+assert dataset_id is not None
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+To train on the generated dataset, pass its ID to [`autoscientist.create`](/autoscientist/running-autoscientist):
+
+```python
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)
+```

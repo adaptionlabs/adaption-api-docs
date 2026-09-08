@@ -1,0 +1,75 @@
+---
+title: FAQ
+description: Frequently asked questions about Adaptive Data, the Adaption API, and the Python SDK.
+---
+
+## What is Blueprint?
+
+[Blueprint](https://www.adaptionlabs.ai/blog/blueprint) is Adaption’s **specification layer** for Adaptive Data: you define goals—length, safety, custom policies—and the platform steers adapted data toward those objectives so requirements are **explicit and persistent**, not one-off prompt tweaks.
+
+In the SDK, the **`brand_controls.blueprint`** field on `datasets.run` is the freeform-prose surface for that layer: a system prompt injected into every generated completion for tone, persona, language, or any guideline that does not fit the structured length/safety/grounding fields. See [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
+
+## How do I authenticate?
+
+Create an API key in the [Adaption app](https://adaptionlabs.ai/app/auth) and either pass it to `Adaption(api_key=...)` or set **`ADAPTION_API_KEY`**. See [Create API keys](/introduction/create-api-keys).
+
+## What are the ways to create a dataset?
+
+All three ingestion paths start with [`datasets.create(source=...)`](/api/python/resources/datasets/methods/create):
+
+1. **Local file** — pass its name and format, PUT the bytes to `upload_instructions.url`, then call `datasets.upload.complete_by_id(...)`. Supported formats include tabular data, documents, spreadsheets, slide decks, HTML, ZIP, and text.
+2. **Hugging Face** — pass the full dataset URL and selected files; server-side import is asynchronous—wait before you adapt.
+3. **Kaggle** — pass the full dataset URL and selected files; add Kaggle credentials under [API keys settings](https://adaptionlabs.ai/app/settings?tab=api_keys).
+
+Details: [Getting started](/introduction/getting-started).
+
+## When should I use file upload vs Hugging Face vs Kaggle?
+
+- **Upload** when files are already local or exported from another system.
+- **Hugging Face** when the canonical dataset lives there and you want specific files without manual download.
+- **Kaggle** when the source of truth is a Kaggle dataset and credentials are registered in [API keys settings](https://adaptionlabs.ai/app/settings?tab=api_keys).
+
+## Can I use PDFs and other unstructured documents as input?
+
+Yes. Adaptive Data accepts raw, document-style inputs—PDFs, OCR'd scans, spreadsheets, slide decks, email threads, and similar formats—via any of the ingestion paths (local upload, Hugging Face, or Kaggle). When document-style data arrives, the app detects that it is unstructured and walks you through a short flow that turns it into a dataset without bespoke preprocessing pipelines. This capability is powered by the Adaptive Data **Forge** feature. See [Processing unstructured documents](/tutorials/processing-unstructured-documents).
+
+## What's the difference between structured and unstructured data?
+
+This distinction is independent of how you bring data into Adaption. **Structured data**—CSV, JSON, JSONL, Parquet, or Hugging Face / Kaggle datasets in those formats—flows through ingestion as-is and you map columns directly. **Unstructured data**—PDFs, scans, slide decks, layout-heavy spreadsheets, and similar document-style files—triggers an additional flow that extracts the content and lets you choose how it splits into rows before column mapping. Either kind can arrive via local upload, Hugging Face, or Kaggle. See [Processing unstructured documents](/tutorials/processing-unstructured-documents).
+
+## What is column mapping?
+
+`column_mapping` tells Adaptive Data which columns hold the **prompt**, optional **completion**, **chat**, or **context**. `prompt` is required for a real run. Examples: [Getting started](/introduction/getting-started).
+
+## How do credits and estimates work?
+
+Call `datasets.run(..., estimate=True)` to validate the request and read **estimated credits** and duration **without** starting a full run—so you can budget jobs and gate CI. Actual usage can still vary with data volume and options.
+
+## How do I wait for a dataset or run to finish?
+
+Use `datasets.wait_for_completion(dataset_id, timeout=...)` (exponential backoff) or handle `DatasetTimeout` for long jobs. You can also poll `get_status` / `get` manually.
+
+## What is hallucination mitigation?
+
+With `brand_controls={"hallucination_mitigation": True}`, the platform applies **grounding** (including web search where applicable) to reduce fabricated content. See [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
+
+## What are reasoning traces?
+
+`recipe_specification={"recipes": {"reasoning_traces": True}}` requests adapted completions that include explicit reasoning—useful for auditing and certain training setups. See [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
+
+## How do length and safety relate to Blueprint?
+
+`brand_controls` exposes **`length`** (`minimal` | `concise` | `detailed` | `extensive`), **`safety_categories`**, and **`blueprint`** (a freeform system prompt for tone, persona, or brand voice) as part of run-level **specification**—the same philosophy described in [Blueprint](https://www.adaptionlabs.ai/blog/blueprint). See [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
+
+## Where are terms and privacy?
+
+- [Terms of service](https://adaptionlabs.ai/terms-of-service)
+- [Privacy policy](https://adaptionlabs.ai/privacy-policy)
+
+## How do I get help?
+
+See [Support](/resources/support) or email [support@adaptionlabs.ai](mailto:support@adaptionlabs.ai).
+
+## Do you support async Python?
+
+Yes. Use `AsyncAdaption` with `await` / `async for` as in [Getting started](/introduction/getting-started).

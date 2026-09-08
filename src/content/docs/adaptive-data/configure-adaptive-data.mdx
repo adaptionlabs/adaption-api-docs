@@ -1,0 +1,265 @@
+---
+title: Configure Adaptive Data
+description: Expand datasets, generate instruction or preference data, apply recipes, limit rows, and control adapted outputs.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+After you [map your columns](/adaptive-data/select-columns), configure how Adaptive Data transforms them. You can expand the dataset, choose its training format, apply recipes, limit the run, and define output requirements.
+
+The SDK examples below assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to an [imported dataset](/adaptive-data/create-a-dataset):
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+```
+
+## Expand across languages and locales
+
+Language expansion can increase the size of a dataset in two ways:
+
+- **Translate** converts existing rows into other languages. Adaptive Data supports up to 242 languages.
+- **Localize** adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone.
+
+### Translate rows
+
+Set `language_expansion.type` to `translate`, then provide [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` is the fraction of source rows expanded for each target language:
+
+```python
+translation = {
+    "type": "translate",
+    "sample_rate": 0.25,
+    "languages": ["es", "fr"],
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    language_expansion=translation,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    language_expansion=translation,
+)
+print(f"Run started: {run.run_id}")
+```
+
+With two target languages and a `0.25` sample rate, the output contains approximately `1 + (0.25 × 2) = 1.5` times as many rows as the input.
+
+### Localize rows
+
+Set `type` to `localize` and provide country/language pairs using [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) and [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    language_expansion={
+        "type": "localize",
+        "sample_rate": 0.25,
+        "pairs": [
+            {"country": "CA", "language": "fr"},
+            {"country": "MX", "language": "es"},
+        ],
+    },
+)
+print(f"Run started: {run.run_id}")
+```
+
+Each pair creates a country- and language-specific variant rather than only translating the text.
+
+<Callout variant="note">
+  Expansion is billed on output rows. Omitting `language_expansion` preserves
+  expansion previously saved in the app; passing `language_expansion=None`
+  explicitly clears it. See the [`datasets.run`
+  reference](/api/python/resources/datasets/methods/run) for the current schema
+  and supported values.
+</Callout>
+
+## Apply recipes
+
+Recipes are optional transformations that operate on the mapped data:
+
+- **Prompt deduplication** removes duplicate prompts to keep examples diverse.
+- **Prompt rephrasing** rewrites prompts for clarity and alignment with the task.
+- **Reasoning traces** add explicit intermediate reasoning to adapted completions.
+
+In the SDK, recipes belong under `recipe_specification.recipes`. You can enable more than one recipe in the same run:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    recipe_specification={
+        "recipes": {
+            "deduplication": True,
+            "prompt_rephrase": True,
+            "reasoning_traces": True,
+        },
+    },
+)
+print(f"Run started: {run.run_id}")
+```
+
+<Callout variant="note">
+  The exact reasoning-trace output depends on the API and recipe version.
+  Inspect the downloaded dataset and see `RecipeSpecification` on the
+  [`datasets.run` reference](/api/python/resources/datasets/methods/run).
+</Callout>
+
+Use reasoning traces when auditability, distillation, or supervised reasoning data matters. Omit them when you need only short final answers and want to reduce token use.
+
+## Generate preference pairs
+
+By default, Adaptive Data produces an instruction dataset for supervised fine-tuning. Set `training_type` to `preference_pairs` when you instead need chosen and rejected responses for preference training such as DPO.
+
+The source mapping stays the same: provide a `prompt` column and, optionally, an existing `completion` column. Adaptive Data generates the preference-pair fields in the output.
+
+```python
+preference_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+)
+print(f"Run started: {run.run_id}")
+```
+
+Use `training_type="instruction_dataset"`—or omit `training_type`—to produce enhanced prompt/completion pairs instead. Language expansion, recipes, job limits, and brand controls can be included in the same preference-pair run. See `training_type` on the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for the current schema.
+
+## Limit rows and estimate a run
+
+Use `job_specification.max_rows` to test mappings and controls on a subset before processing a large dataset. [Request an estimate with `datasets.run`](/api/python/resources/datasets/methods/run) first to validate the same configuration and receive a credit quote without starting adaptation:
+
+```python
+job_specification = {"max_rows": 500}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+Omit `max_rows` when you want to process the full dataset. See `JobSpecification` on the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for all job-level options.
+
+## Configure brand controls
+
+`brand_controls` makes output requirements part of the adaptation run:
+
+- **`length`** controls target verbosity: `minimal`, `concise`, `detailed`, or `extensive`.
+- **`safety_categories`** identifies content-safety categories to enforce.
+- **`hallucination_mitigation`** grounds generations with web search where applicable.
+- **`blueprint`** supplies freeform instructions for tone, persona, audience, language, or product-specific wording.
+
+### Reduce hallucinations
+
+Hallucination mitigation steers generated completions toward verifiable information. Enable it for fact-sensitive data such as customer support, grounded question answering, or compliance workflows:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={"hallucination_mitigation": True},
+)
+```
+
+Grounding can affect latency and credit use. Use `estimate=True` to compare the run before scaling it.
+
+### Control length and safety
+
+Length and safety constraints compose in the same `brand_controls` object. Use the [`datasets.run` reference](/api/python/resources/datasets/methods/run) as the source of truth for supported safety category names:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "length": "concise",
+        "safety_categories": ["harassment", "hate"],
+    },
+)
+```
+
+### Set a Blueprint
+
+Use `blueprint` for qualitative requirements that do not fit a structured field. It acts as a system instruction for generated completions and applies consistently across the run:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "blueprint": (
+            "You are a customer-success assistant for Acme. "
+            "Answer in British English with a warm, direct tone. "
+            "Do not recommend third-party tools."
+        ),
+    },
+)
+```
+
+### Combine brand controls
+
+Structured controls and Blueprint instructions can be used together:
+
+```python
+brand_controls = {
+    "length": "concise",
+    "safety_categories": ["harassment", "hate"],
+    "hallucination_mitigation": True,
+    "blueprint": "Answer in British English with a warm, direct tone.",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+)
+print(f"Run started: {run.run_id}")
+```
+
+After the run completes, [evaluate dataset quality](/adaptive-data/evaluate-dataset-quality) and [download the adapted rows](/api/python/resources/datasets/methods/download).

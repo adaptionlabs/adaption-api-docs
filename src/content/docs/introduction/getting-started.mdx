@@ -1,0 +1,66 @@
+---
+title: Getting started
+description: Install the Adaption Python SDK and authenticate with an API key.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+Adaption brings data optimization and model-training techniques typically reserved for frontier labs to everyday teams.
+
+- **[Adaptive Data](/adaptive-data/overview)** analyzes and improves training data so you can export a model-ready dataset.
+- **[AutoScientist](/autoscientist/overview)** automates the research loop behind model training and alignment to produce a model adapted to your goal.
+
+Both products are available through the Adaption API and Python SDK.
+
+## Install the SDK
+
+```shell
+pip install adaption
+```
+
+## Create an API key
+
+<Steps>
+  <Step>[Sign in](https://adaptionlabs.ai/app/auth) to Adaption.</Step>
+  <Step>
+    Open [**Settings**](https://adaptionlabs.ai/app/settings), then open [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    Create a key and copy it. You will not be able to view the key again.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  Store API keys in environment variables or a secret manager. Do not commit
+  them to source control.
+</Callout>
+
+## Use the key in Python
+
+For local testing, you can pass the key directly:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+For applications and CI, set `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+The SDK reads the environment variable automatically:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## Choose a quickstart
+
+- [Adaptive Data quickstart](/adaptive-data-quickstart) — import, adapt, and export a dataset.
+- [AutoScientist quickstart](/autoscientist-quickstart) — train and download a model.

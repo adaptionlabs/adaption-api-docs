@@ -1,0 +1,141 @@
+/* Mirrors Stainless pagination defaults + solo Next full-width on Welcome. */
+
+@layer starlight.core {
+  .pagination-links,
+  .pagination-links a,
+  .pagination-links a:hover,
+  .pagination-links a[rel="next"],
+  .link-title {
+    all: revert-layer;
+  }
+}
+
+.pagination-links {
+  --stl-ui-pagination-padding: 8px;
+  --stl-ui-pagination-border-radius-inner: var(--stl-ui-layout-border-radius-sml);
+  --stl-ui-pagination-border-radius-outer: calc(
+    var(--stl-ui-pagination-border-radius-inner) + var(--stl-ui-pagination-padding)
+  );
+
+  padding: var(--stl-ui-pagination-padding);
+  background-color: var(--stl-color-faint-background);
+  border: 1px solid var(--stl-color-border);
+  border-radius: var(--stl-ui-pagination-border-radius-outer);
+
+  font-size: var(--stl-typography-scale-sm);
+  letter-spacing: normal;
+
+  display: flex;
+  gap: 8px;
+  color: inherit;
+
+  a {
+    border-radius: var(--stl-ui-pagination-border-radius-inner);
+  }
+}
+
+.pagination-links__link {
+  display: flex;
+  border-radius: var(--stl-ui-pagination-border-radius-inner);
+  padding: 8px 12px;
+  text-decoration: none;
+  align-items: center;
+  color: inherit;
+}
+
+.pagination-links__link--emphasized {
+  background-color: var(--stl-color-background);
+  border: 1px solid var(--stl-color-border);
+  flex: 1 1 50%;
+  gap: 12px;
+}
+
+.pagination-links__link--quiet {
+  flex: 0 1 auto;
+}
+
+.pagination-links__button {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  font-weight: var(--docs-font-weight-body);
+  line-height: 1;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    margin-block: -4px;
+    margin-inline-start: -6px;
+    margin-inline-end: 6px;
+  }
+
+  &.pagination-links__link--quiet {
+    padding-inline: 22px;
+  }
+}
+
+.pagination-links__link__divider {
+  border: 0;
+  border-inline-start: 1px solid var(--stl-color-border);
+  align-self: stretch;
+}
+
+.pagination-links__page-description {
+  padding-block: 4px;
+  padding-inline-start: 8px;
+  padding-inline-end: 2px;
+  line-height: 1.5;
+  flex: 1 1 50%;
+  width: 0;
+
+  h2,
+  p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  h2 {
+    font-size: inherit;
+    font-weight: var(--docs-font-weight-body);
+  }
+  p {
+    font-size: var(--stl-typography-scale-xs);
+    color: var(--stl-color-foreground-muted);
+  }
+}
+
+.pagination-links__link--quiet:hover {
+  background-color: var(--stl-color-background-hover);
+}
+
+.pagination-links__link--emphasized:hover {
+  border-color: var(--stl-color-border-strong);
+  .pagination-links__page-description h2 {
+    text-decoration: underline;
+    text-decoration-color: var(--stl-color-foreground-reduced);
+  }
+}
+
+.pagination-links__link:last-child {
+  flex-direction: row-reverse;
+
+  &.pagination-links__button,
+  .pagination-links__button {
+    flex-direction: row-reverse;
+    svg {
+      margin-inline-start: 6px;
+      margin-inline-end: -6px;
+    }
+  }
+
+  .pagination-links__page-description {
+    padding-inline-start: 2px;
+    padding-inline-end: 8px;
+    text-align: right;
+  }
+}
+
+/* Solo Next (Welcome): full-width card */
+.pagination-links > .pagination-links__link--emphasized:only-child {
+  flex: 1 1 100%;
+}

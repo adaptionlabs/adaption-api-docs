@@ -1,0 +1,29 @@
+/*
+ * Without a right TOC, the content grid column widens, but `main` stays capped
+ * at --stl-content-max-width (~832px), leaving a large empty strip on the right.
+ * Let this page fill the available content column.
+ */
+.page > main:has(.getting-started-page) {
+  justify-self: stretch;
+  max-width: none;
+  width: 100%;
+}
+
+/* Custom layout provides the page title. */
+.page > main:has(.getting-started-page) > .stl-content-panel:first-of-type {
+  display: none;
+}
+
+.page > main:has(.getting-started-page) .stl-footer {
+  display: none;
+}
+
+.getting-started-page {
+  margin-block: 0;
+  padding-bottom: 64px;
+}
+
+/* Kit buttons rendered as links must not pick up prose underlines. */
+.getting-started-page a[data-slot="button"] {
+  text-decoration: none;
+}

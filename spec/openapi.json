@@ -1,0 +1,4683 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/datasets/upload/initiate": {
+      "post": {
+        "operationId": "DatasetController_initiateUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiateResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Initiate a dataset upload",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/upload/complete": {
+      "post": {
+        "operationId": "DatasetController_completeUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Complete a dataset upload and trigger processing",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/upload/initiate-batch": {
+      "post": {
+        "description": "Initiate a batch upload. A batch must be homogeneous: either all document formats (pdf, docx, pptx, xlsx, html, zip) or all tabular formats (csv, json, jsonl, parquet). Mixed batches are rejected. TXT files are permissive and may be included in either kind of batch (or alone, in which case the dataset is tabular); their contents are converted during complete-batch.",
+        "operationId": "DatasetController_initiateBatchUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiateBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiateBatchResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Initiate a batch upload",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/upload/complete-batch": {
+      "post": {
+        "description": "Any TXT files in the batch are converted to csv/jsonl. Batches that still contain documents (pdf/docx/pptx/xlsx/html, or unpacked zip contents) move to awaiting_preprocessing and wait for an explicit launch-preprocessing call. Batches with only tabular formats (csv/json/jsonl/parquet, plus any converted-from-TXT files) move directly to column extraction.",
+        "operationId": "DatasetController_completeBatchUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteBatchResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Complete a batch upload and trigger processing",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets": {
+      "post": {
+        "description": "Unified ingest endpoint. Pass source.url to start an async import — the provider is inferred from the URL host (HuggingFace, Kaggle, or Google Sheets). Omit it to get upload instructions for a presigned S3 PUT.",
+        "operationId": "DatasetController_createDatasetPublic",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDatasetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateDatasetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a dataset from file upload, HuggingFace, Kaggle, or Google Sheets",
+        "tags": [
+          "Dataset"
+        ]
+      },
+      "get": {
+        "operationId": "DatasetController_getDatasets",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of results (max 100, default 20). Used with cursor pagination.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Cursor from the previous response next_cursor field.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status: pending | running | succeeded | failed",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Search by dataset name (case-insensitive contains).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "created_after",
+            "required": false,
+            "in": "query",
+            "description": "ISO 8601 datetime — datasets created after this time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "created_before",
+            "required": false,
+            "in": "query",
+            "description": "ISO 8601 datetime — datasets created before this time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Sort field: created_at | updated_at | name (default: created_at).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort_direction",
+            "required": false,
+            "in": "query",
+            "description": "Sort direction: asc | desc (default: desc).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "created_by_user_id",
+            "required": false,
+            "in": "query",
+            "description": "Filter datasets by creator. The user must belong to the same team as the caller.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List datasets",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/upload/complete": {
+      "post": {
+        "description": "File uploads only. Call after uploading bytes to the presigned URL from POST /datasets. Verifies the file exists in S3, then triggers the preprocessing pipeline.",
+        "operationId": "DatasetController_completeUploadById",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUploadByIdDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteUploadByIdResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Complete a file upload and trigger processing",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/status": {
+      "get": {
+        "operationId": "DatasetController_getDatasetStatus",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicDatasetStatusResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get the processing status of a dataset",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/evaluation": {
+      "get": {
+        "operationId": "DatasetController_getDatasetEvaluation",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetEvaluationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get evaluation results for a dataset",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}": {
+      "get": {
+        "operationId": "DatasetController_getDataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicDatasetDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a dataset by ID",
+        "tags": [
+          "Dataset"
+        ]
+      },
+      "delete": {
+        "description": "Soft-deletes a dataset and its associated resources. Cannot delete a dataset while the pipeline is running.",
+        "operationId": "DatasetController_deleteDataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found"
+          },
+          "409": {
+            "description": "Dataset is currently launching — wait until it finishes"
+          }
+        },
+        "summary": "Delete a dataset",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/finetune/best-launch-config": {
+      "get": {
+        "description": "Returns the persisted launch snapshot for the winning AutoScientist job (terminal experiment with `best_finetune_job_id`) or the newest succeeded most recent succeeded standalone job when no experiment exists. Matches the launch payload plus `original_model_name` and persisted `trained_model_name` (output label / suffix). Use it to prefill a re-launch instead of reading config from GET /datasets/{dataset_id} or the list.",
+        "operationId": "DatasetController_getDatasetBestFinetuneLaunchConfig",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BestFinetuneLaunchConfigResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Best fine-tune launch config for re-launch parity",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/export-links": {
+      "get": {
+        "operationId": "DatasetController_getDatasetExportLinks",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetExportLinksResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Poll saved URLs for successful dataset exports (Hugging Face, Kaggle, Google Sheets)",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/augment": {
+      "post": {
+        "description": "Retrieves additional rows matching this dataset and returns them as a new dataset, leaving this one unchanged. The new dataset carries this dataset’s rows alongside the retrieved ones, so it can be trained on or downloaded directly. Poll GET /datasets/{dataset_id}/status on the returned id until it reaches `succeeded`. Set estimate=true to price the request without starting a run.",
+        "operationId": "DatasetController_augmentDataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicAugmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAugmentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: no rows requested, the dataset contains images (the pool is text-only), or its topic mix cannot be determined."
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "409": {
+            "description": "Conflict — the dataset is not ready. Poll GET /datasets/{dataset_id}/status until it is."
+          }
+        },
+        "summary": "Add rows to a dataset from the curated pool",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/translate": {
+      "post": {
+        "description": "Translates a sample of this dataset’s rows into each target language and returns the result as a new dataset, leaving this one unchanged. The new dataset carries this dataset’s rows alongside the translated ones, so it can be trained on or downloaded directly. Poll GET /datasets/{dataset_id}/status on the returned id until it reaches `succeeded`. To adapt rows to a country as well as a language, use POST /datasets/{dataset_id}/localize. Set estimate=true to price the request without starting a run.",
+        "operationId": "DatasetController_translateDataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicTranslateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicExpandResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: an unsupported language, a dataset containing images, a dataset with no prompt or completion column, or a request that would add no rows."
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "409": {
+            "description": "Conflict — the dataset is not ready (poll GET /datasets/{dataset_id}/status until it is), or another request holds this idempotency_key and left no run behind, in which case retry with the same key."
+          }
+        },
+        "summary": "Add translated rows to a dataset",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/localize": {
+      "post": {
+        "description": "Adapts a sample of this dataset’s rows to each country/language pair — translating the text and matching that country’s conventions — and returns the result as a new dataset, leaving this one unchanged. The new dataset carries this dataset’s rows alongside the localized ones. Poll GET /datasets/{dataset_id}/status on the returned id until it reaches `succeeded`. To translate into a language without targeting a country, use POST /datasets/{dataset_id}/translate. Set estimate=true to price the request without starting a run.",
+        "operationId": "DatasetController_localizeDataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLocalizeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicExpandResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: an unsupported country/language pair, a dataset containing images, a dataset with no prompt or completion column, or a request that would add no rows."
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "409": {
+            "description": "Conflict — the dataset is not ready (poll GET /datasets/{dataset_id}/status until it is), or another request holds this idempotency_key and left no run behind, in which case retry with the same key."
+          }
+        },
+        "summary": "Add localized rows to a dataset",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/run": {
+      "post": {
+        "description": "Validates column mapping and recipe configuration, reserves credits, and starts the adaptation pipeline, which improves the rows already in the dataset without changing how many there are. To add rows instead, use POST /datasets/{dataset_id}/augment. Set estimate=true to validate and get a cost quote without starting a run. When the mapped image column is also in context_columns, output rows are billed at 10 credits per 100 rows (1–100 rows cost 10 credits; see multimodalPricingApplied and creditMultiplier on the response).",
+        "operationId": "DatasetController_runPipeline",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLaunchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLaunchResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: column_mapping shape error, or language_expansion validation failure (shape mismatch, unknown ISO 639-1 code, or unsupported country/language pair)."
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "409": {
+            "description": "Conflict — dataset is already launching, still importing, or row_count not yet available. Poll GET /datasets/{dataset_id}/status until row_count is populated."
+          }
+        },
+        "summary": "Start an adaptation run (or estimate cost)",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/download": {
+      "get": {
+        "description": "Streams the processed rows in the requested file format. Works on datasets with status `ready` (full output) and also on datasets with status `failed` — in the failed case the stream contains only the rows that were successfully processed before the run aborted, which is useful for recovering partial output from interrupted jobs. Returns 422 only when no run has ever started on this dataset.\n\n**Image columns (JSON / JSONL):** Rows may include `original_image` only when the mapped image column is also in `configured_column_mapping.context`. Read `image_column_formats` from `GET /datasets/{dataset_id}` and look up the active image column to determine encoding: `embedded_bytes` → `{ bytes, path: null }` with base64 bytes; `url` or `file_reference` → presigned HTTPS URL string. When images are not surfaced, `original_image` is omitted and internal `s3://` URIs are never returned. See schema `ProcessedDatasetExportOriginalImageFieldDto`. In CSV and Parquet, embedded bytes appear as a JSON string in the cell.\n\n**Response body:** binary in every format. `fileFormat=parquet` returns a gzipped tar archive of one or more Parquet shards (`.tar.gz`), not a single `.parquet` file — extract it before reading. CSV, JSON and JSONL bodies are UTF-8 text and can be decoded directly.",
+        "operationId": "DatasetController_export",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileFormat",
+            "required": false,
+            "in": "query",
+            "description": "Output file format. Defaults to `csv` if omitted.",
+            "schema": {
+              "enum": [
+                "csv",
+                "json",
+                "jsonl",
+                "parquet"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File download stream. For failed runs, contains partial results (rows processed before failure). For `fileFormat=json` or `jsonl`, each record may include `original_image` per `ProcessedDatasetExportOriginalImageFieldDto` when an image column is mapped and in context.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "examples": {
+                  "row_with_url_image": {
+                    "summary": "JSONL line (url / file_reference format)",
+                    "description": "Illustrative single line when the active image column format is `url` or `file_reference`.",
+                    "value": "{\"enhanced_prompt\":\"...\",\"original_image\":\"https://example-bucket.s3.amazonaws.com/image.jpg?X-Amz-Signature=...\"}\n"
+                  },
+                  "row_with_embedded_image": {
+                    "summary": "JSONL line (embedded_bytes format)",
+                    "description": "Illustrative single line when the active image column format is `embedded_bytes`.",
+                    "value": "{\"enhanced_prompt\":\"...\",\"original_image\":{\"bytes\":\"<base64>\",\"path\":null}}\n"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported `fileFormat`."
+          },
+          "422": {
+            "description": "No run has started on this dataset yet. Launch a run via POST /datasets/{dataset_id}/run first."
+          }
+        },
+        "summary": "Download the processed dataset",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/publish": {
+      "post": {
+        "description": "Publishes the processed dataset to Hugging Face or Kaggle. Currently returns 501 — not yet implemented.",
+        "operationId": "DatasetController_publishDataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishAcceptedResponseDto"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Publishing is not yet available"
+          }
+        },
+        "summary": "Publish a dataset to an external platform",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/combine/validate": {
+      "post": {
+        "description": "Synchronous compatibility check. Returns a single `issues` array containing both blockers (`level: \"error\"`) and reconcilable concerns (`level: \"warning\"`). `compatible: false` means at least one error-level issue is present (cardinality, ownership, status, run_id). Warning-level entries — column-type mismatches, DPO sources missing ranked generations — are non-blocking; the merge resolves them automatically (mixed types downgrade to instruction_dataset, type mismatches CAST to a common type, etc.). Nothing is written.",
+        "operationId": "DatasetController_validateCombine",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateCombineRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Either a `{compatible: true, training_type, total_estimated_rows, issues: [...]}` payload, or a `{compatible: false, issues: [...]}` envelope. Each entry in `issues` carries a `level` (`\"error\"` or `\"warning\"`), a stable `code`, a preformed user-facing `message`, and code-specific structured context. Error codes (block the merge): `too_few_sources`, `too_many_sources`, `duplicate_source_ids`, `dataset_not_found`, `wrong_organization`, `dataset_not_ready`, `missing_run_id`, `all_preference_sources_missing_dpo_columns` (homogeneous DPO only; no source has ranked generations or chosen/rejected pairs). Warning codes (merge proceeds with reconciliation): `incompatible_column_types` (merge will CAST), `preference_source_missing_ranked_generations` (homogeneous DPO only; rows from that source skip DPO training)."
+          },
+          "400": {
+            "description": "Request shape rejected by class-validator (e.g. non-UUID id, fewer than 2 ids, or array longer than the DTO cap)."
+          }
+        },
+        "summary": "Validate that a set of Datasets can be combined",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/combine/jobs/{combine_job_id}": {
+      "get": {
+        "description": "Returns the lifecycle state for an async combine request. This state is separate from Dataset.status; `dataset_id` is populated only after the output Dataset has been created.",
+        "operationId": "DatasetController_getCombineJob",
+        "parameters": [
+          {
+            "name": "combine_job_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombineJobResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Combine job not found for the caller organization."
+          }
+        },
+        "summary": "Get the status of a background dataset combine job",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/combine": {
+      "post": {
+        "description": "Requires an Idempotency-Key header to dedupe double-submits. Returns the merged Dataset synchronously by default. When async combine is enabled, clients may send `Prefer: respond-async` to receive a background job handle.",
+        "operationId": "DatasetController_combine",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CombineRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Merged Dataset result, or the existing terminal async job on idempotent replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/CombineResponseDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CombineJobResponseDto"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Background combine job accepted. The Location header identifies its polling resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombineJobResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "One of: (a) request shape rejected by class-validator (e.g. non-UUID id, fewer than 2 ids, name missing, or array longer than the DTO cap); (b) `Idempotency-Key` header missing; (c) caller has no team; (d) compatibility validation failed — the normalized public error has code `DATASET_COMBINE_VALIDATION_FAILED` and carries `{compatible: false, issues: [...]}` in `details`. See `/combine/validate` for the structural issue codes. Warning-level issues are non-blocking and do not fail this endpoint."
+          },
+          "401": {
+            "description": "Missing or invalid JWT (combine is JWT-only; no public-API surface)."
+          },
+          "500": {
+            "description": "Server-side failure during the synchronous merge or while durably creating the background combine request."
+          }
+        },
+        "summary": "Combine multiple Datasets into a single new merged Dataset",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/custom-evals": {
+      "post": {
+        "operationId": "CustomEvalController_create",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomEvalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomEvalResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The judge prompt failed rubric validation (`code: invalid_judge_prompt`), or the dataset is not ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidJudgePromptErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Start a custom-rubric evaluation for an adapted dataset",
+        "tags": [
+          "datasets"
+        ]
+      },
+      "get": {
+        "operationId": "CustomEvalController_list",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomEvalListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List custom-rubric evaluations for a dataset, newest first",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/custom-evals/prepare": {
+      "post": {
+        "description": "Takes no body: samples the dataset's own before/after pairs and rewrites the stock rubric around them, sizing the sample to what the dataset yields. Nothing is persisted and no judge tokens are spent — the returned `judge_prompt` is a suggestion to review and then POST to `/datasets/{dataset_id}/custom-evals`. Blocks for the full model round-trip; set a client timeout of several minutes.",
+        "operationId": "CustomEvalController_prepare",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedCustomEvalResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The dataset is not ready, has no generation run output, or holds too few rows with a usable prompt/completion pair to write a rubric from (the message carries the counts)."
+          },
+          "503": {
+            "description": "The adaptation service was unreachable or did not answer in time. Retryable; writing your own rubric is unaffected."
+          }
+        },
+        "summary": "Draft a judge rubric tailored to an adapted dataset",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/custom-evals/{custom_eval_id}": {
+      "get": {
+        "operationId": "CustomEvalController_get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "custom_eval_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomEvalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a single custom-rubric evaluation",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/autoscientist": {
+      "post": {
+        "description": "Starts an iterative AutoScientist loop on a dataset you own. The loop runs up to max_iterations training cycles, stopping early when target_win_rate is achieved. Omitted parameters are resolved to platform defaults for the selected model and returned in the response. Poll GET /autoscientist/{experiment_id} for status, then GET /autoscientist/{experiment_id}/download once it succeeds.",
+        "operationId": "AutoScientistPublicController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicCreateAutoScientistRunDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAutoScientistRunDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request — dataset has too few training rows, or an unsupported configuration was supplied."
+          },
+          "402": {
+            "description": "Insufficient credits to start this run."
+          },
+          "403": {
+            "description": "Fine-tuning is not available on your current plan. Upgrade to unlock this feature."
+          },
+          "404": {
+            "description": "Dataset not found or not owned by caller."
+          },
+          "422": {
+            "description": "The dataset is not ready for training yet — its preparation is still running, failed, or was never started."
+          },
+          "429": {
+            "description": "Too many training jobs in flight. Wait for an existing run to complete before starting another."
+          },
+          "503": {
+            "description": "AutoScientist is currently unavailable."
+          }
+        },
+        "summary": "Create an AutoScientist run",
+        "tags": [
+          "autoscientist"
+        ]
+      },
+      "get": {
+        "operationId": "AutoScientistPublicController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size (max 100, default 20).",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "next_cursor from a previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "required": false,
+            "in": "query",
+            "description": "Only runs for this dataset.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAutoScientistRunListDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List AutoScientist runs",
+        "tags": [
+          "autoscientist"
+        ]
+      }
+    },
+    "/api/v1/autoscientist/recommend-hyperparams": {
+      "post": {
+        "description": "Returns the hyperparameters AutoScientist derives for a model and the dataset's effective training size (rows plus planned augmentation). Nothing is launched. Omit `model` to size against the model POST /autoscientist would select for this dataset; the resolved id is returned with the values. POST /autoscientist applies the same values when `hyperparams` is omitted.",
+        "operationId": "AutoScientistPublicController_recommendHyperparams",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicRecommendHyperparamsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecommendHyperparamsResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found or not owned by caller."
+          },
+          "422": {
+            "description": "Dataset is not ready, or the model id is unsupported."
+          },
+          "503": {
+            "description": "AutoScientist is currently unavailable."
+          }
+        },
+        "summary": "Recommend hyperparameters",
+        "tags": [
+          "autoscientist"
+        ]
+      }
+    },
+    "/api/v1/autoscientist/models": {
+      "get": {
+        "description": "Returns the set of base models that can be used as the `model` field when creating an AutoScientist run.",
+        "operationId": "AutoScientistPublicController_listModels",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicTrainingModelListDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List available base models for training",
+        "tags": [
+          "autoscientist"
+        ]
+      }
+    },
+    "/api/v1/autoscientist/{experiment_id}": {
+      "get": {
+        "operationId": "AutoScientistPublicController_retrieve",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAutoScientistRunDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not owned by caller."
+          }
+        },
+        "summary": "Retrieve an AutoScientist run",
+        "tags": [
+          "autoscientist"
+        ]
+      }
+    },
+    "/api/v1/autoscientist/{experiment_id}/cancel": {
+      "post": {
+        "operationId": "AutoScientistPublicController_cancel",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAutoScientistRunDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not owned by caller."
+          },
+          "409": {
+            "description": "The run is starting its preference-training stage and cannot be cancelled yet. Retry once it reports an iteration in progress."
+          }
+        },
+        "summary": "Cancel an AutoScientist run",
+        "tags": [
+          "autoscientist"
+        ]
+      }
+    },
+    "/api/v1/autoscientist/{experiment_id}/download": {
+      "get": {
+        "operationId": "AutoScientistPublicController_download",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Streams the best iteration checkpoint as application/gzip.",
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not owned by caller."
+          },
+          "422": {
+            "description": "Run has not completed successfully or the best model is not ready for download."
+          }
+        },
+        "summary": "Download the best trained model artifact",
+        "tags": [
+          "autoscientist"
+        ]
+      }
+    },
+    "/api/v1/training-models": {
+      "get": {
+        "deprecated": true,
+        "description": "Deprecated alias of `GET /autoscientist/models`, kept for existing clients. Returns the set of base models that can be used as the `model` field when creating a training job. Use `GET /autoscientist/models` in new code.",
+        "operationId": "FinetuneModelsPublicController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicTrainingModelListDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List available base models for training (deprecated)",
+        "tags": [
+          "training-models"
+        ]
+      }
+    },
+    "/api/v1/datasets/invent/domains": {
+      "get": {
+        "description": "Returns every domain code accepted by `POST /datasets/invent`, each with its subdomain codes. Static — safe to cache.",
+        "operationId": "InventPublicController_domains",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicInventDomainsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the domains and subdomains available for generation",
+        "tags": [
+          "invent"
+        ]
+      }
+    },
+    "/api/v1/datasets/invent": {
+      "post": {
+        "description": "Creates a dataset and starts generating it from your domain selections. Returns immediately — poll `GET /datasets/{id}` for the status and `GET /datasets/{id}/download` once it reports `succeeded`. Set Set `estimate: true` to price a request without generating anything.",
+        "operationId": "InventEntryController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateInventedDatasetDto"
+                  }
+                ],
+                "anyOf": [
+                  {
+                    "required": [
+                      "domains"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "subdomains"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generation has started, or — with `estimate: true` — the price of running it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicInventedDatasetDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Generate a dataset from scratch",
+        "tags": [
+          "invent"
+        ]
+      }
+    },
+    "/api/v1/leaderboard/overview": {
+      "get": {
+        "description": "Public endpoint; no authentication required. Returns the hero counters and the full domain selector.",
+        "operationId": "LeaderboardController_getOverview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardOverviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Community leaderboard counters and selectable domains",
+        "tags": [
+          "leaderboard"
+        ]
+      }
+    },
+    "/api/v1/leaderboard": {
+      "get": {
+        "description": "Public endpoint; no authentication required. Returns one row per user — that user's best-scoring run in the domain — ordered by domain win rate descending, one page at a time. Page with `limit`/`offset`: a \"show more\" click is the same request with `offset` advanced by the rows already on screen, and `pagination.has_more` says whether to show the control at all. Ranks are absolute over the whole ranking, so page two starts at rank 11 and ranks 1–3 identify the top three without a separate response section. `pagination.total` is the eligible population, not the rows in this page.",
+        "operationId": "LeaderboardController_getLeaderboard",
+        "parameters": [
+          {
+            "name": "domain",
+            "required": false,
+            "in": "query",
+            "description": "Domain to rank. Accepts the classifier slug (`medical`) or the code form (`domain_medical`), plus `general` for runs scored against the general prompt set. Omit it and the domain with the most ranked entries is used, echoed back in the response. An unrecognised value is rejected with 400.",
+            "schema": {
+              "example": "medical",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Rows to return. Defaults to one \"show more\" click's worth; anything above 50 is rejected with 400.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Rows to skip. For \"show more\", pass the number of rows already on screen. Ranks are absolute, so the first row of a page carries rank `offset + 1` — a client can also read the ranks instead of tracking the offset itself.",
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Top users for one domain, by best AutoScientist run",
+        "tags": [
+          "leaderboard"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Adaption API",
+    "description": "Public API for the Adaption dataset augmentation platform",
+    "version": "0.4.44",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "Bearer",
+        "description": "API key or JWT — pass as: Bearer <token>",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "InitiateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the dataset",
+            "example": "my-training-data"
+          },
+          "file_format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "json",
+              "jsonl",
+              "parquet",
+              "pdf",
+              "docx",
+              "pptx",
+              "xlsx",
+              "html",
+              "zip",
+              "txt"
+            ],
+            "description": "Format of the file being uploaded",
+            "example": "csv"
+          }
+        },
+        "required": [
+          "name",
+          "file_format"
+        ]
+      },
+      "InitiateResponseDto": {
+        "type": "object",
+        "properties": {
+          "upload_url": {
+            "type": "string",
+            "description": "Pre-signed S3 URL — upload the file directly to this URL via HTTP PUT",
+            "example": "https://s3.amazonaws.com/bucket/key?X-Amz-Signature=..."
+          }
+        },
+        "required": [
+          "upload_url"
+        ]
+      },
+      "CompleteUploadDto": {
+        "type": "object",
+        "properties": {
+          "s3_key": {
+            "type": "string",
+            "description": "S3 object key returned in the pre-signed URL response from /upload/initiate",
+            "example": "uploads/550e8400-e29b-41d4-a716-446655440000/my-training-data.csv"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the dataset",
+            "example": "my-training-data"
+          },
+          "file_format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "json",
+              "jsonl",
+              "parquet",
+              "pdf",
+              "docx",
+              "pptx",
+              "xlsx",
+              "html",
+              "zip",
+              "txt"
+            ],
+            "description": "Format of the uploaded file",
+            "example": "csv"
+          },
+          "file_size_bytes": {
+            "type": "number",
+            "description": "Size of the uploaded file in bytes",
+            "example": 1048576,
+            "minimum": 0,
+            "maximum": 2147483648
+          },
+          "defer_adaption": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
+          }
+        },
+        "required": [
+          "s3_key",
+          "name",
+          "file_format",
+          "file_size_bytes"
+        ]
+      },
+      "CompleteUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "ID of the newly created dataset",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      },
+      "InitiateBatchFileDto": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string",
+            "description": "Original file name",
+            "example": "report.pdf"
+          },
+          "file_format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "json",
+              "jsonl",
+              "parquet",
+              "pdf",
+              "docx",
+              "pptx",
+              "xlsx",
+              "html",
+              "zip",
+              "txt"
+            ],
+            "description": "Format of the file",
+            "example": "pdf"
+          },
+          "file_size_bytes": {
+            "type": "number",
+            "description": "File size in bytes",
+            "example": 1048576
+          }
+        },
+        "required": [
+          "file_name",
+          "file_format",
+          "file_size_bytes"
+        ]
+      },
+      "InitiateBatchDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the dataset",
+            "example": "my-document-dataset"
+          },
+          "files": {
+            "description": "List of files to upload. A single batch must be homogeneous: either all document formats (pdf, docx, pptx, xlsx, html, zip) or all tabular formats (csv, json, jsonl, parquet). Mixing the two is rejected because the two pipelines use different credit models and preprocessing stages. TXT files are permissive: they may be included in either kind of batch (or alone, producing a tabular dataset). complete-batch converts TXT contents to csv/jsonl and merges them into the resulting dataset.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InitiateBatchFileDto"
+            }
+          },
+          "defer_adaption": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
+          }
+        },
+        "required": [
+          "name",
+          "files"
+        ]
+      },
+      "InitiateBatchUploadDto": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string",
+            "description": "Original file name"
+          },
+          "upload_url": {
+            "type": "string",
+            "description": "Presigned S3 upload URL"
+          },
+          "s3_key": {
+            "type": "string",
+            "description": "S3 key for the uploaded file"
+          }
+        },
+        "required": [
+          "file_name",
+          "upload_url",
+          "s3_key"
+        ]
+      },
+      "InitiateBatchResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Dataset ID"
+          },
+          "uploads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InitiateBatchUploadDto"
+            }
+          }
+        },
+        "required": [
+          "dataset_id",
+          "uploads"
+        ]
+      },
+      "CompleteBatchFileDto": {
+        "type": "object",
+        "properties": {
+          "s3_key": {
+            "type": "string",
+            "description": "S3 key returned from initiate-batch"
+          },
+          "file_name": {
+            "type": "string",
+            "description": "Original file name"
+          },
+          "file_format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "json",
+              "jsonl",
+              "parquet",
+              "pdf",
+              "docx",
+              "pptx",
+              "xlsx",
+              "html",
+              "zip",
+              "txt"
+            ],
+            "description": "File format"
+          },
+          "file_size_bytes": {
+            "type": "number",
+            "description": "File size in bytes"
+          }
+        },
+        "required": [
+          "s3_key",
+          "file_name",
+          "file_format",
+          "file_size_bytes"
+        ]
+      },
+      "CompleteBatchDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Dataset ID from initiate-batch"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompleteBatchFileDto"
+            }
+          },
+          "defer_adaption": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
+          }
+        },
+        "required": [
+          "dataset_id",
+          "files"
+        ]
+      },
+      "CompleteBatchResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Dataset ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Current dataset status"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status"
+        ]
+      },
+      "PassthroughColumnMappingDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Name of the raw column holding the prompt / input text",
+            "example": "question"
+          },
+          "completion": {
+            "type": "string",
+            "description": "Name of the raw column holding the completion / target text",
+            "example": "answer"
+          },
+          "context": {
+            "description": "Names of raw columns to fold in as context alongside the prompt. Each is validated against the uploaded file at ingestion; an unknown name fails the request listing the available columns. The columns themselves are kept in the dataset as well as folded.",
+            "example": [
+              "article_body"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "prompt",
+          "completion"
+        ]
+      },
+      "DatasetSourceDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "HuggingFace, Kaggle, or Google Sheets URL. Provide it to import from that provider; omit it to upload a local file instead.",
+            "example": "https://huggingface.co/datasets/owner/name"
+          },
+          "files": {
+            "description": "File paths to download from the source. Required with HuggingFace/Kaggle `url`. Not used for Google Sheets — use `sheet_names` (or `sheet_name`) instead.",
+            "example": [
+              "train.csv"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sheet_names": {
+            "description": "Google Sheets tab titles to import. Only for Google Sheets `url`. Omit or pass `[]` to import every tab; pass one or more titles to import only those tabs.",
+            "example": [
+              "Sheet1",
+              "Sales"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sheet_name": {
+            "type": "string",
+            "description": "Legacy single Google Sheets tab title. Ignored when `sheet_names` is present (including `[]`).",
+            "example": "Sheet1"
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "oauth",
+              "public"
+            ],
+            "description": "Google Sheets only. `public` imports a link-shared spreadsheet via GOOGLE_SHEETS_API_KEY (no user Google connect). `oauth` (default) uses the connected account.",
+            "default": "oauth"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name for the dataset. Required for file uploads, where it may double as a filename (\"sales-data.csv\") to supply the format; derived from the URL for provider imports.",
+            "example": "sales-data.csv"
+          },
+          "file_format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "json",
+              "jsonl",
+              "parquet",
+              "pdf",
+              "docx",
+              "pptx",
+              "xlsx",
+              "html",
+              "zip",
+              "txt"
+            ],
+            "description": "Format of the file being uploaded. Optional when `name` ends in a supported extension — it is inferred from there, and an explicit value overrides it.",
+            "example": "csv"
+          },
+          "processing_mode": {
+            "type": "string",
+            "enum": [
+              "adapt",
+              "raw"
+            ],
+            "description": "How the data is ingested, for both uploads and provider imports. `adapt` (default) runs it through the adaptation pipeline. `raw` materializes the data straight to a trainable dataset with no augmentation, and needs a column_mapping plus tabular input — `file_format` for an upload, or `files` for an import. Imported files are read as one dataset, so they must share a single format and schema. Either can then be fine-tuned or run through AutoScientist.",
+            "example": "raw"
+          },
+          "column_mapping": {
+            "description": "Required when processing_mode is `raw`: which columns to canonicalize as prompt and completion. Ignored when the dataset is adapted.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PassthroughColumnMappingDto"
+              }
+            ]
+          }
+        }
+      },
+      "CreateDatasetDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "description": "Dataset source. Pass `url` to import from HuggingFace, Kaggle, or Google Sheets, or `name` + `file_format` to upload a file. For Sheets, optional `sheet_names` selects tabs (omit or `[]` for all).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatasetSourceDto"
+              }
+            ]
+          },
+          "defer_adaption": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "UploadInstructionsDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Pre-signed URL for uploading the file",
+            "example": "https://s3.amazonaws.com/bucket/key?X-Amz-Signature=..."
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method to use",
+            "example": "PUT"
+          },
+          "s3_key": {
+            "type": "string",
+            "description": "S3 object key — pass this back in the complete request if needed for verification"
+          }
+        },
+        "required": [
+          "url",
+          "method",
+          "s3_key"
+        ]
+      },
+      "CreateDatasetResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "ID of the newly created dataset"
+          },
+          "status": {
+            "type": "string",
+            "description": "Current dataset status"
+          },
+          "upload_instructions": {
+            "description": "Upload instructions for file sources. PUT your file to the provided URL.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UploadInstructionsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status"
+        ]
+      },
+      "CompleteUploadByIdDto": {
+        "type": "object",
+        "properties": {
+          "file_size_bytes": {
+            "type": "number",
+            "description": "Size of the uploaded file in bytes (for verification)",
+            "example": 1048576,
+            "minimum": 0,
+            "maximum": 2147483648
+          },
+          "sha256": {
+            "type": "string",
+            "description": "SHA-256 hex digest of the uploaded file (for integrity verification)",
+            "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "required": [
+          "file_size_bytes"
+        ]
+      },
+      "CompleteUploadByIdResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "ID of the dataset",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "status": {
+            "type": "string",
+            "description": "Current status of the dataset after completing upload",
+            "example": "processing"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status"
+        ]
+      },
+      "PublicDatasetProgressDto": {
+        "type": "object",
+        "properties": {
+          "percent": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Progress percentage (0-100)"
+          },
+          "processed_rows": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Number of rows processed so far"
+          },
+          "total_rows": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Total rows to process (samples_to_process or row_count)"
+          }
+        },
+        "required": [
+          "percent",
+          "processed_rows",
+          "total_rows"
+        ]
+      },
+      "PublicDatasetErrorDataDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Stable error code when the failure was structured (e.g. E0100)"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "nullable": true,
+            "description": "Severity when known"
+          }
+        },
+        "required": [
+          "message",
+          "code",
+          "level"
+        ]
+      },
+      "PublicDatasetStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Dataset ID"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "awaiting_input",
+              "succeeded",
+              "failed"
+            ],
+            "description": "Current processing status. `awaiting_input` means the dataset is uploaded but waiting for you to start adaptation via datasets.run(column_mapping=...) — it will not progress on its own."
+          },
+          "row_count": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Number of rows in the dataset"
+          },
+          "progress": {
+            "nullable": true,
+            "description": "Processing progress. Null when no run is active.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicDatasetProgressDto"
+              }
+            ]
+          },
+          "error_data": {
+            "nullable": true,
+            "description": "Error details if the dataset failed. Null otherwise.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicDatasetErrorDataDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status",
+          "row_count",
+          "progress",
+          "error_data"
+        ]
+      },
+      "EvaluationQualityDto": {
+        "type": "object",
+        "properties": {
+          "grade_before": {
+            "type": "string",
+            "nullable": true,
+            "description": "Letter grade (A-E) before adaptation",
+            "example": "C"
+          },
+          "grade_after": {
+            "type": "string",
+            "nullable": true,
+            "description": "Letter grade (A-E) after adaptation",
+            "example": "A"
+          },
+          "score_before": {
+            "type": "number",
+            "nullable": true,
+            "description": "Quality score (0-10) before adaptation",
+            "example": 6.2
+          },
+          "score_after": {
+            "type": "number",
+            "nullable": true,
+            "description": "Quality score (0-10) after adaptation",
+            "example": 8.5
+          },
+          "percentile_after": {
+            "type": "number",
+            "nullable": true,
+            "description": "Percentile rank (0-100) after adaptation",
+            "example": 92.3
+          },
+          "improvement_percent": {
+            "type": "number",
+            "nullable": true,
+            "description": "Relative quality improvement as a percentage",
+            "example": 37.1
+          }
+        },
+        "required": [
+          "grade_before",
+          "grade_after",
+          "score_before",
+          "score_after",
+          "percentile_after",
+          "improvement_percent"
+        ]
+      },
+      "DatasetEvaluationResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Dataset ID"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "description": "Evaluation pipeline status: pending | running | succeeded | failed | skipped",
+            "example": "succeeded"
+          },
+          "quality": {
+            "nullable": true,
+            "description": "Structured quality metrics. Null until evaluation completes.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationQualityDto"
+              }
+            ]
+          },
+          "raw_results": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Raw evaluation results payload for advanced use. Null until evaluation completes."
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status",
+          "quality",
+          "raw_results"
+        ]
+      },
+      "PublicDatasetColumnMappingDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "nullable": true
+          },
+          "completion": {
+            "type": "string",
+            "nullable": true
+          },
+          "chat": {
+            "type": "string",
+            "nullable": true
+          },
+          "context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "prompt",
+          "completion",
+          "chat",
+          "context",
+          "image"
+        ]
+      },
+      "PublicDatasetEvaluationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "grade_before": {
+            "type": "string",
+            "nullable": true,
+            "description": "Letter grade (A-E) before adaptation"
+          },
+          "grade_after": {
+            "type": "string",
+            "nullable": true,
+            "description": "Letter grade (A-E) after adaptation"
+          },
+          "score_before": {
+            "type": "number",
+            "nullable": true,
+            "description": "Quality score before adaptation"
+          },
+          "score_after": {
+            "type": "number",
+            "nullable": true,
+            "description": "Quality score after adaptation"
+          },
+          "improvement_percent": {
+            "type": "number",
+            "nullable": true,
+            "description": "Relative improvement percentage"
+          }
+        },
+        "required": [
+          "grade_before",
+          "grade_after",
+          "score_before",
+          "score_after",
+          "improvement_percent"
+        ]
+      },
+      "PublicDatasetDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Unique dataset identifier"
+          },
+          "kind": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "uploaded",
+              "combined",
+              "invented",
+              "augmented",
+              "translated",
+              "localized"
+            ],
+            "description": "How this dataset came about. `uploaded` was supplied by you, `combined` merges several datasets, `invented` was generated from a prompt, `augmented` adds rows retrieved from the curated pool to another dataset, and `translated` / `localized` add translated copies of another dataset’s rows.",
+            "example": "augmented"
+          },
+          "source_dataset_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "The dataset this one was derived from. Set when `kind` is `augmented`, `translated` or `localized`. Null for `uploaded` and `invented`, and for `combined`, which has several sources rather than one.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Human-readable name for the dataset"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "description": "Lifecycle status: pending, running, succeeded, or failed"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the dataset was created"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "User who created the dataset"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the last update"
+          },
+          "row_count": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Total number of rows in the dataset"
+          },
+          "configured_column_mapping": {
+            "nullable": true,
+            "description": "User-configured column mapping. Null if not yet configured.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicDatasetColumnMappingDto"
+              }
+            ]
+          },
+          "evaluation_summary": {
+            "nullable": true,
+            "description": "Compact evaluation summary. Null if evaluation has not completed.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicDatasetEvaluationSummaryDto"
+              }
+            ]
+          },
+          "run_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "ID of the currently active run"
+          },
+          "progress": {
+            "nullable": true,
+            "description": "Processing progress. Null when no run is active.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicDatasetProgressDto"
+              }
+            ]
+          },
+          "error_data": {
+            "nullable": true,
+            "description": "Error details if the dataset failed. Null otherwise.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicDatasetErrorDataDto"
+              }
+            ]
+          },
+          "image_column_formats": {
+            "type": "object",
+            "additionalProperties": {
+              "enum": [
+                "embedded_bytes",
+                "url",
+                "file_reference"
+              ]
+            },
+            "nullable": true,
+            "description": "Per-column export encoding for detected image columns (column name → format). Use with `GET /datasets/{dataset_id}/download`: look up the active image column (mapped image column that is also in `configured_column_mapping.context`) to determine how each row's `original_image` is encoded. Null or empty when no image columns were detected."
+          }
+        },
+        "required": [
+          "dataset_id",
+          "kind",
+          "source_dataset_id",
+          "name",
+          "status",
+          "created_at",
+          "created_by_user_id",
+          "updated_at",
+          "row_count",
+          "configured_column_mapping",
+          "evaluation_summary",
+          "run_id",
+          "progress",
+          "error_data",
+          "image_column_formats"
+        ]
+      },
+      "DatasetBestJobConfigDto": {
+        "type": "object",
+        "properties": {
+          "finetune_job_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fine-tune job whose config is shown (experiment best or standalone)."
+          },
+          "training_experiment_id": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Training experiment when this snapshot is the AutoScientist best job; null for a standalone job."
+          },
+          "original_model_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Base model id the job was launched with."
+          },
+          "trained_model_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Output label / suffix for the trained model. Taken from the value recorded at launch when present; otherwise derived from the current dataset name, in which case it can differ from the label the job was submitted with if the dataset was renamed. Null only when no label was recorded and the dataset is unavailable."
+          },
+          "training_method": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "sft",
+              "dpo"
+            ]
+          },
+          "training_type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "lora",
+              "full"
+            ]
+          },
+          "data_format": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "chat",
+              "instruction",
+              "preference"
+            ]
+          },
+          "hyperparams": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "Hyperparameters the job was launched with."
+          }
+        },
+        "required": [
+          "finetune_job_id",
+          "training_experiment_id",
+          "original_model_name",
+          "trained_model_name",
+          "training_method",
+          "training_type",
+          "data_format",
+          "hyperparams"
+        ]
+      },
+      "BestFinetuneLaunchConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "best_job_config": {
+            "nullable": true,
+            "description": "Launch-parity snapshot for the experiment best job (terminal experiment with `best_finetune_job_id`) or, when no experiment exists, the newest succeeded standalone job (`training_experiment_id` null). Null while an experiment is non-terminal, when no best job was chosen yet, or when no qualifying job exists.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatasetBestJobConfigDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "best_job_config"
+        ]
+      },
+      "DatasetSummaryDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "Dataset ID",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Dataset name",
+            "example": "My training data"
+          },
+          "status": {
+            "type": "string",
+            "description": "Dataset status",
+            "enum": [
+              "pending",
+              "running",
+              "awaiting_input",
+              "succeeded",
+              "failed"
+            ],
+            "example": "pending"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last updated timestamp"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Timestamp when the dataset was created"
+          },
+          "row_count": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Total number of rows",
+            "example": 1000
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Auto-generated description of the dataset contents"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status",
+          "updated_at",
+          "created_at"
+        ]
+      },
+      "CursorListResponseDto": {
+        "type": "object",
+        "properties": {
+          "datasets": {
+            "description": "Page of datasets",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatasetSummaryDto"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor for the next page. Null when no more results.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        },
+        "required": [
+          "datasets"
+        ]
+      },
+      "DatasetExportLinksResponseDto": {
+        "type": "object",
+        "properties": {
+          "huggingface": {
+            "type": "object",
+            "nullable": true,
+            "description": "URL of the dataset on Hugging Face, if a successful export exists"
+          },
+          "kaggle": {
+            "type": "object",
+            "nullable": true,
+            "description": "URL of the dataset on Kaggle, if a successful export exists"
+          },
+          "google_sheets": {
+            "type": "object",
+            "nullable": true,
+            "description": "URL of the Google Spreadsheet, if a successful export exists"
+          }
+        }
+      },
+      "PublicAugmentDto": {
+        "type": "object",
+        "properties": {
+          "domain_rows": {
+            "type": "number",
+            "description": "How many additional rows to retrieve from topics matching this dataset. Defaults to 0.",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 3000
+          },
+          "general_rows": {
+            "type": "number",
+            "description": "How many additional rows to retrieve from other topics, to broaden the dataset. Defaults to 0.",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 1000
+          },
+          "training_type": {
+            "type": "string",
+            "description": "Shape of the rows to retrieve. `instruction_dataset` (default) retrieves prompt/completion pairs for SFT; `preference_pairs` retrieves chosen/rejected pairs for DPO.",
+            "enum": [
+              "instruction_dataset",
+              "preference_pairs"
+            ],
+            "example": "instruction_dataset"
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "When true, validates the request and returns the estimated credit cost without starting a run or creating a dataset.",
+            "default": false
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Opaque key that makes a retried request safe. A second request carrying the same key returns the dataset the first one created instead of starting and charging for a second run.",
+            "maxLength": 255
+          }
+        }
+      },
+      "PublicAugmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "The augmented dataset. It carries this dataset’s rows plus the retrieved ones, and is ready to download once its status reaches `succeeded`. Null for an estimate, which creates nothing.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "description": "Status of the augmented dataset at the moment this response was sent, in the same vocabulary GET /datasets/{dataset_id}/status reports. Poll that endpoint until it reaches `succeeded` or `failed`. An idempotent replay of a finished run returns its terminal status here.",
+            "enum": [
+              "pending",
+              "running",
+              "awaiting_input",
+              "succeeded",
+              "failed"
+            ],
+            "example": "running"
+          },
+          "estimated_credits_consumed": {
+            "type": "number",
+            "description": "Credits this run consumes, charged against the requested rows.",
+            "example": 40
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "Whether this was an estimate-only request (no run started)."
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status",
+          "estimated_credits_consumed",
+          "estimate"
+        ]
+      },
+      "PublicTranslateDto": {
+        "type": "object",
+        "properties": {
+          "sample_rate": {
+            "type": "number",
+            "description": "Fraction of this dataset’s rows to expand, per target. At 0.25 with two targets, a 1,000-row dataset gains 500 rows and the new dataset holds 1,500.",
+            "minimum": 0.01,
+            "maximum": 1,
+            "example": 0.25
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "When true, validates the request and returns the estimated credit cost without starting a run or creating a dataset.",
+            "default": false
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Opaque key that makes a retried request safe. A second request carrying the same key returns the dataset the first one created instead of starting and charging for a second run.",
+            "maxLength": 255
+          },
+          "languages": {
+            "description": "Target languages, as ISO 639-1 codes. Each sampled row gains one translated row per language. Unsupported codes are rejected with a sample of the supported ones.",
+            "example": [
+              "es",
+              "fr"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "sample_rate",
+          "languages"
+        ]
+      },
+      "PublicExpandResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "The expanded dataset. It carries this dataset’s rows plus the new ones, and is ready to download once its status reaches `succeeded`. Null for an estimate, which creates nothing.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "description": "Status of the expanded dataset at the moment this response was sent, in the same vocabulary GET /datasets/{dataset_id}/status reports. Poll that endpoint until it reaches `succeeded` or `failed`. An idempotent replay of a finished run returns its terminal status here.",
+            "enum": [
+              "pending",
+              "running",
+              "awaiting_input",
+              "succeeded",
+              "failed"
+            ],
+            "example": "running"
+          },
+          "estimated_credits_consumed": {
+            "type": "number",
+            "description": "Credits this run consumes, charged against the rows it adds. Zero on an idempotent replay: the earlier run reserved the credits, and this call charges nothing.",
+            "example": 5
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "Whether this was an estimate-only request (no run started)."
+          },
+          "estimated_new_rows": {
+            "type": "number",
+            "description": "Rows this run adds, which is what the credit cost is charged against. Zero on an idempotent replay, which adds none.",
+            "example": 500
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status",
+          "estimated_credits_consumed",
+          "estimate",
+          "estimated_new_rows"
+        ]
+      },
+      "PublicCountryLanguagePairDto": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code.",
+            "example": "ES"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language code, as ISO 639-1 — optionally with a script subtag. Supported pairs include codes that are not two letters (`zh-Hant` for Taiwan, `yue` for Hong Kong), so the length is not pinned at two here. Membership is decided against the supported-pair list, which names an unsupported entry in its own 400.",
+            "example": "ca"
+          }
+        },
+        "required": [
+          "country",
+          "language"
+        ]
+      },
+      "PublicLocalizeDto": {
+        "type": "object",
+        "properties": {
+          "sample_rate": {
+            "type": "number",
+            "description": "Fraction of this dataset’s rows to expand, per target. At 0.25 with two targets, a 1,000-row dataset gains 500 rows and the new dataset holds 1,500.",
+            "minimum": 0.01,
+            "maximum": 1,
+            "example": 0.25
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "When true, validates the request and returns the estimated credit cost without starting a run or creating a dataset.",
+            "default": false
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Opaque key that makes a retried request safe. A second request carrying the same key returns the dataset the first one created instead of starting and charging for a second run.",
+            "maxLength": 255
+          },
+          "pairs": {
+            "description": "Target country/language pairs. Each sampled row gains one row localized to each pair — translated into the language and adapted to that country’s conventions. Unsupported combinations are rejected.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicCountryLanguagePairDto"
+            }
+          }
+        },
+        "required": [
+          "sample_rate",
+          "pairs"
+        ]
+      },
+      "PublicColumnMappingDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Column to use as the prompt/instruction field. Trigger for prompt mode (with optional `completion` and `context`); cannot be combined with `chat` or `universal_prompt`.",
+            "example": "instruction"
+          },
+          "completion": {
+            "type": "string",
+            "description": "Column to use as the completion/response field. Optional in prompt mode and universal-prompt mode; not allowed in chat mode.",
+            "example": "response"
+          },
+          "chat": {
+            "type": "string",
+            "description": "Column containing chat/conversation data. Chat mode is exclusive — when `chat` is set, all other column-mapping fields must be omitted.",
+            "example": "messages"
+          },
+          "context": {
+            "description": "Columns to include as context. Optional in prompt mode; required (at least one entry) in universal-prompt mode; not allowed in chat mode.",
+            "example": [
+              "context"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "universal_prompt": {
+            "type": "string",
+            "description": "Dataset-wide instruction folded into every row alongside the context columns. Use when there is no per-row prompt column but rows share a common task framing. Requires at least one entry in `context`.",
+            "example": "Reframe the following passage as a clear, factual question."
+          },
+          "image": {
+            "type": "string",
+            "description": "Column containing per-row images (URLs, file paths, or encoded bytes) to fold into the adaptation as multimodal context. Allowed in any mode (prompt, universal-prompt, or chat) as long as text framing is also present — it cannot be the only mapping. The column is automatically added to `context` if omitted. Note: opting a dataset into multimodal context disqualifies it from finetuning.",
+            "example": "image_column"
+          }
+        }
+      },
+      "RecipeOptionsDto": {
+        "type": "object",
+        "properties": {
+          "prompt_rephrase": {
+            "type": "boolean",
+            "description": "Rephrase prompts for variety and clarity",
+            "example": true
+          },
+          "deduplication": {
+            "type": "boolean",
+            "description": "Remove near-duplicate rows",
+            "example": true
+          },
+          "reasoning_traces": {
+            "type": "boolean",
+            "description": "Add reasoning traces (chain-of-thought) to completions",
+            "example": false
+          }
+        }
+      },
+      "PublicRecipeSpecDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Recipe schema version. Allows recipe options to evolve across releases.",
+            "example": "2026-04",
+            "default": "2026-04"
+          },
+          "recipes": {
+            "description": "Adaptation recipe toggles. Omitted recipes use backend defaults.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecipeOptionsDto"
+              }
+            ]
+          }
+        }
+      },
+      "PublicJobSpecDto": {
+        "type": "object",
+        "properties": {
+          "max_rows": {
+            "type": "number",
+            "description": "Maximum number of rows to process in this run",
+            "minimum": 1
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Client-generated idempotency key for safe retries. If a launch with the same key already exists, the original response is returned."
+          }
+        }
+      },
+      "PublicBrandControlsDto": {
+        "type": "object",
+        "properties": {
+          "length": {
+            "type": "string",
+            "description": "Target response length. Controls verbosity of generated completions.",
+            "enum": [
+              "minimal",
+              "concise",
+              "detailed",
+              "extensive"
+            ],
+            "example": "concise"
+          },
+          "safety_categories": {
+            "description": "Content safety categories to enforce. Completions violating any listed category are filtered from the output.",
+            "example": [
+              "harassment",
+              "hate"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hallucination_mitigation": {
+            "type": "boolean",
+            "description": "Enable web-search grounding to reduce hallucinations in generated completions.",
+            "example": true
+          },
+          "blueprint": {
+            "type": "string",
+            "description": "Freeform brand/style instructions injected as a system prompt for every generated completion. Use this to enforce tone, language, persona, or any guideline that does not fit the structured length/safety/grounding controls.",
+            "example": "All generated text must be written exclusively in Brazilian Portuguese (pt-BR)."
+          }
+        }
+      },
+      "PublicLanguageExpansionSpecDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Expansion mode. `translate` produces one new row variant per target language; `localize` produces one new row variant per country/language pair.",
+            "enum": [
+              "translate",
+              "localize"
+            ],
+            "example": "translate"
+          },
+          "languages": {
+            "description": "Target ISO 639-1 language codes (required when type=translate, forbidden when type=localize). Validated against the supported language list at request time; unknown values return 400 with a sample of supported codes.",
+            "example": [
+              "es",
+              "fr"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pairs": {
+            "description": "Country/language pairs (required when type=localize, forbidden when type=translate). Each pair is validated against the supported country/language pair list at request time.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicCountryLanguagePairDto"
+            }
+          },
+          "sample_rate": {
+            "type": "number",
+            "description": "Fraction (0.01–1) of input rows that are expanded per target. Output rows ≈ input × (1 + sample_rate × target_count). Required. Credits are billed on the expanded output row count.",
+            "minimum": 0.01,
+            "maximum": 1,
+            "example": 0.25
+          }
+        },
+        "required": [
+          "type",
+          "sample_rate"
+        ]
+      },
+      "PublicLaunchDto": {
+        "type": "object",
+        "properties": {
+          "column_mapping": {
+            "description": "Column role assignments for adaptation. Required for real runs, optional for estimate-only requests.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicColumnMappingDto"
+              }
+            ]
+          },
+          "recipe_specification": {
+            "description": "Adaptation recipe configuration. Omitted recipes use backend defaults.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicRecipeSpecDto"
+              }
+            ]
+          },
+          "job_specification": {
+            "description": "Job execution parameters",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicJobSpecDto"
+              }
+            ]
+          },
+          "brand_controls": {
+            "description": "Brand and quality controls for generated completions. Covers response length, content safety categories, web-search grounding, and a freeform blueprint system prompt.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicBrandControlsDto"
+              }
+            ]
+          },
+          "training_type": {
+            "type": "string",
+            "description": "How to adapt the dataset. `instruction_dataset` (default) produces enhanced prompt/completion pairs for SFT; `preference_pairs` generates chosen/rejected pairs for DPO. Source columns are the same in both cases — `column_mapping.prompt` (and optionally `completion`) — the chosen/rejected fields are produced by the adaptation pipeline.",
+            "enum": [
+              "instruction_dataset",
+              "preference_pairs"
+            ],
+            "example": "instruction_dataset"
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "When true, validates the request and returns the estimated credit cost without starting a run.",
+            "default": false
+          },
+          "language_expansion": {
+            "description": "Translation/localization expansion. When set, the pipeline produces additional rows in the requested languages or country/language variants. Output row count ≈ input × (1 + sample_rate × target_count); credits are billed on output rows.\n\nThree-state field:\n- **omitted** — leaves any prior expansion config on the dataset unchanged (no-op). A wizard-saved expansion is preserved across SDK-driven /run calls that do not pass `language_expansion`.\n- **`language_expansion: null`** — explicitly clears any prior expansion config on this dataset (overrides wizard state).\n- **object** — overwrites the prior expansion config with the given spec.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicLanguageExpansionSpecDto"
+              }
+            ]
+          }
+        }
+      },
+      "PublicLaunchResponseDto": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "description": "Unique identifier for this pipeline run. Null for estimate-only requests.",
+            "example": "dataset-550e8400-e29b-41d4-a716-446655440000-1712234567890",
+            "nullable": true
+          },
+          "estimatedMinutes": {
+            "type": "number",
+            "description": "Estimated processing time in minutes"
+          },
+          "estimatedCreditsConsumed": {
+            "type": "number",
+            "description": "Estimated number of credits that will be consumed by this run"
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "Whether this was an estimate-only request (no run started)"
+          },
+          "multimodalPricingApplied": {
+            "type": "boolean",
+            "description": "True when an image column is mapped and also listed in context_columns; each output row is billed at a higher rate."
+          },
+          "creditMultiplier": {
+            "type": "number",
+            "description": "10 credits per 100 output rows when multimodalPricingApplied is true. Omitted for text-only pricing."
+          }
+        },
+        "required": [
+          "estimatedMinutes",
+          "estimatedCreditsConsumed",
+          "estimate",
+          "multimodalPricingApplied"
+        ]
+      },
+      "OriginalImageEmbeddedDto": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "string",
+            "description": "Base64-encoded image bytes (JPEG or PNG)."
+          },
+          "path": {
+            "type": "null",
+            "nullable": true,
+            "description": "Always null (Hugging Face `datasets` convention).",
+            "example": null
+          }
+        },
+        "required": [
+          "bytes",
+          "path"
+        ]
+      },
+      "ProcessedDatasetExportOriginalImageFieldDto": {
+        "type": "object",
+        "properties": {
+          "original_image": {
+            "description": "Mapped source image for this row. Encoding depends on the active image column entry in `image_column_formats` on the dataset: `embedded_bytes` uses the object shape; `url` and `file_reference` use a presigned HTTPS URL string. Null when the row has no image. Omitted when no image column is mapped or the image column is not included in `context`.",
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uri",
+                "description": "Presigned HTTPS URL (expires; typically one hour) when format is `url` or `file_reference`."
+              },
+              {
+                "$ref": "#/components/schemas/OriginalImageEmbeddedDto"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "PublishRequestDto": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "huggingface",
+              "kaggle"
+            ],
+            "description": "Destination platform for publishing the dataset",
+            "example": "huggingface"
+          },
+          "target_spec": {
+            "type": "object",
+            "description": "Target-specific configuration (e.g. repo name for HuggingFace, slug for Kaggle)",
+            "example": {
+              "repo_name": "my-augmented-dataset",
+              "private": true
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "target"
+        ]
+      },
+      "PublishAcceptedResponseDto": {
+        "type": "object",
+        "properties": {
+          "publish_id": {
+            "type": "string",
+            "description": "Unique identifier for the publish job",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of the publish job",
+            "example": "queued"
+          },
+          "message": {
+            "type": "string",
+            "description": "Additional information about the publish request"
+          }
+        },
+        "required": [
+          "publish_id",
+          "status"
+        ]
+      },
+      "ValidateCombineRequestDto": {
+        "type": "object",
+        "properties": {
+          "dataset_ids": {
+            "description": "Source Dataset IDs to combine. Must all belong to the caller’s org and be in a combinable state.",
+            "minItems": 2,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "dataset_ids"
+        ]
+      },
+      "CombineJobResponseDto": {
+        "type": "object",
+        "properties": {
+          "combine_job_id": {
+            "type": "string",
+            "description": "Background combine job ID. Poll the combine job status endpoint until it succeeds or fails."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "description": "Current background combine job status."
+          },
+          "dataset_id": {
+            "type": "object",
+            "description": "The merged Dataset ID. Null until the background combine succeeds.",
+            "nullable": true
+          },
+          "error_message": {
+            "type": "object",
+            "description": "Customer-safe failure message when the background combine fails.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "combine_job_id",
+          "status",
+          "dataset_id",
+          "error_message"
+        ]
+      },
+      "CombineResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "The newly created merged Dataset’s ID. Returns existing ID on idempotent replay."
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      },
+      "CombineRequestDto": {
+        "type": "object",
+        "properties": {
+          "dataset_ids": {
+            "description": "Source Dataset IDs to combine. Must all belong to the caller’s org and be in a combinable state.",
+            "minItems": 2,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string",
+            "description": "User-supplied name for the merged Dataset. Surfaced in the dataset list."
+          }
+        },
+        "required": [
+          "dataset_ids",
+          "name"
+        ]
+      },
+      "CreateCustomEvalDto": {
+        "type": "object",
+        "properties": {
+          "judge_prompt": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 20000,
+            "description": "The judge rubric. Scored per sample against the original and adapted pairs.",
+            "example": "Rate how factually accurate the response is, from 0 (fabricated) to 10 (fully supported)."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Optional label so a history of rubrics stays legible."
+          }
+        },
+        "required": [
+          "judge_prompt"
+        ]
+      },
+      "CustomEvalResponseDto": {
+        "type": "object",
+        "properties": {
+          "custom_eval_id": {
+            "type": "string"
+          },
+          "dataset_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "pending | running | succeeded | failed",
+            "example": "running"
+          },
+          "judge_prompt": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "score_before": {
+            "type": "number",
+            "nullable": true,
+            "description": "Mean rubric score on the original pairs. Null until the eval succeeds."
+          },
+          "score_after": {
+            "type": "number",
+            "nullable": true,
+            "description": "Mean rubric score on the adapted pairs. Null until the eval succeeds."
+          },
+          "improvement_percent": {
+            "type": "number",
+            "nullable": true,
+            "description": "Percentage change from score_before to score_after. Null until the eval succeeds."
+          },
+          "scored_rows": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Rows the judge scored. A rubric score is an average over this sample, not the whole dataset."
+          },
+          "error_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "custom_eval_id",
+          "dataset_id",
+          "status",
+          "judge_prompt",
+          "name",
+          "score_before",
+          "score_after",
+          "improvement_percent",
+          "scored_rows",
+          "error_message",
+          "created_at",
+          "completed_at"
+        ]
+      },
+      "InvalidJudgePromptIssueDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "not_a_judge_prompt",
+              "scale_not_zero_to_ten",
+              "scores_not_integer",
+              "missing_rubric"
+            ],
+            "description": "Which of the rubric rules the prompt broke."
+          },
+          "detail": {
+            "type": "string",
+            "description": "User-facing sentence describing the problem and the fix."
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ]
+      },
+      "InvalidJudgePromptErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string",
+            "description": "All issue details joined into one line."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_judge_prompt"
+            ],
+            "description": "Discriminates this from the other 400s on the route."
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvalidJudgePromptIssueDto"
+            }
+          },
+          "suggested_prompt": {
+            "type": "string",
+            "nullable": true,
+            "description": "A corrected rewrite the user can accept, or null when none could be produced."
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message",
+          "code",
+          "issues"
+        ]
+      },
+      "PreparedCustomEvalResponseDto": {
+        "type": "object",
+        "properties": {
+          "judge_prompt": {
+            "type": "string",
+            "description": "A ready-to-edit rubric, accepted as-is by `judge_prompt` on POST /datasets/{dataset_id}/custom-evals."
+          },
+          "adapted": {
+            "type": "boolean",
+            "description": "False when the stock rubric came back untouched — the sampled values did not fill both halves of the before/after contrast, or the adaptation model was unreachable. The prompt is still valid, just not tailored to this dataset."
+          },
+          "sampled_rows": {
+            "type": "integer",
+            "description": "How many of the dataset's own examples the rubric was written against — half original, half adapted. Lower than the usual target on a thin dataset; a dataset too thin to write from at all is rejected with a 400."
+          }
+        },
+        "required": [
+          "judge_prompt",
+          "adapted",
+          "sampled_rows"
+        ]
+      },
+      "CustomEvalListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomEvalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "PublicTrainingColumnMappingDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Source column holding the prompt/instruction text."
+          },
+          "completion": {
+            "type": "string",
+            "description": "Source column holding the target completion/response. Used for supervised (sft) training."
+          },
+          "reasoning_trace": {
+            "type": "string",
+            "description": "Optional source column holding a reasoning trace to train on."
+          },
+          "chosen": {
+            "type": "string",
+            "description": "Source column holding the preferred response. Used for preference (dpo) training, where a row carries two completions rather than one. Pair it with `rejected`."
+          },
+          "rejected": {
+            "type": "string",
+            "description": "Source column holding the rejected response. Pair it with `chosen`."
+          }
+        }
+      },
+      "PublicAutoScientistHyperparamsDto": {
+        "type": "object",
+        "properties": {
+          "n_epochs": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 20,
+            "example": 1
+          },
+          "batch_size": {
+            "description": "Either the literal 'max' or an integer of 1 or more. No fixed upper bound: the ceiling depends on the model and hardware, and a larger value is rejected at launch. Defaults to 'max'.",
+            "example": "max",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "max"
+                ]
+              },
+              {
+                "type": "integer",
+                "minimum": 1
+              }
+            ]
+          },
+          "learning_rate": {
+            "type": "number",
+            "minimum": 1e-8,
+            "maximum": 0.01,
+            "example": 0.00005
+          },
+          "lora_r": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 64,
+            "example": 8
+          },
+          "lora_alpha": {
+            "type": "number",
+            "description": "Must be 1× or 2× lora_r. Only checked when you supply lora_r in the same request; otherwise it is validated against the platform default."
+          },
+          "lora_dropout": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0
+          },
+          "lora_trainable_modules": {
+            "type": "string",
+            "description": "'all-linear' or comma-separated module list (e.g. 'q_proj,v_proj').",
+            "example": "q_proj,v_proj"
+          },
+          "lr_scheduler_type": {
+            "type": "string",
+            "enum": [
+              "linear",
+              "cosine",
+              "constant"
+            ]
+          },
+          "min_lr_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.1
+          },
+          "scheduler_num_cycles": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4,
+            "example": 0.5,
+            "description": "Number of cosine decay cycles across training. Defaults to 0.5, a single half-cycle decay from the peak learning rate down to the floor."
+          },
+          "warmup_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.03
+          },
+          "max_grad_norm": {
+            "type": "number",
+            "minimum": 0,
+            "example": 2
+          },
+          "weight_decay": {
+            "type": "number",
+            "minimum": 0,
+            "example": 0
+          },
+          "train_on_inputs": {
+            "type": "boolean",
+            "description": "Whether training loss is computed over the prompt tokens as well as the completion. `true` trains on the full sequence, `false` trains only on the completion. Omit to let the platform decide per example, which is the default.",
+            "example": false
+          },
+          "dpo_beta": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 0.9,
+            "example": 0.1,
+            "description": "Controls how much the model can deviate from the reference model. Lower = more aggressive updates toward preferred responses; higher = stays closer to reference behavior."
+          },
+          "dpo_normalize_logratios_by_length": {
+            "type": "boolean",
+            "description": "Normalizes log ratios by sample length during DPO loss calculation. Automatically set to true when simpo_gamma > 0."
+          },
+          "rpo_alpha": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "default": 0,
+            "example": 0,
+            "description": "RPO loss modifier: incorporates the NLL loss on selected samples with this weight. Defaults to 0.0 (standard DPO loss). Mutually exclusive with simpo_gamma — both above 0 is rejected."
+          },
+          "simpo_gamma": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "default": 0,
+            "example": 0,
+            "description": "SimPO loss modifier: adds a margin to the loss, force-enables length normalization, and excludes reference logits. Defaults to 0.0 (off). Raise dpo_beta alongside it. Mutually exclusive with rpo_alpha — both above 0 is rejected."
+          },
+          "training_type": {
+            "type": "string",
+            "enum": [
+              "lora",
+              "full"
+            ],
+            "description": "Training strategy override. AutoScientist optimizes this by default; set it only when strictly necessary."
+          }
+        }
+      },
+      "PublicCreateAutoScientistRunDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "The dataset to train on. Must be a dataset you own that has finished processing."
+          },
+          "model": {
+            "type": "string",
+            "description": "Base model id from GET /autoscientist/models. By default, AutoScientist selects a suitable model. The resolved model is returned in the response `model` field."
+          },
+          "training_method": {
+            "type": "string",
+            "enum": [
+              "instruction",
+              "alignment"
+            ],
+            "description": "Training objective. Pass `alignment` to train on preference pairs; the dataset must have been prepared with `training_type: preference_pairs`. An alignment run trains in two stages — supervised first, then preference — and this run reports the first until the second begins. Supplying `alignment` for any other dataset has no effect: there are no rejected responses to train against, so the run stays `instruction`. Omitted, it defaults to `instruction` unless an alignment run was already configured for this dataset in the dashboard."
+          },
+          "data_format": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "instruction"
+            ],
+            "default": "chat",
+            "description": "How training rows are interpreted. Defaults to `chat` when omitted."
+          },
+          "column_mapping": {
+            "description": "Which dataset columns feed training. When omitted, AutoScientist infers the mapping from the dataset. Required columns depend on the data format.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicTrainingColumnMappingDto"
+              }
+            ]
+          },
+          "hyperparams": {
+            "description": "Hyperparameter overrides. Not advised. AutoScientist derives these values from the resolved model and the effective dataset size; any field supplied here replaces the derived value for that field. Call POST /autoscientist/recommend-hyperparams to inspect the derived values without launching a run.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicAutoScientistHyperparamsDto"
+              }
+            ]
+          },
+          "augmentation_domain_rows": {
+            "type": "number",
+            "description": "Number of synthetic domain-targeted rows to generate and append to the dataset before training. These are additional to your own rows, not a resampling of them, and count toward the effective training size used to derive hyperparameters. Defaults to 0 (no augmentation).",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 40000
+          },
+          "augmentation_general_rows": {
+            "type": "number",
+            "description": "Number of synthetic general-diversity rows to generate and append to the dataset before training. These are additional to your own rows, not a resampling of them, and count toward the effective training size used to derive hyperparameters. Defaults to 0 (no augmentation).",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 50000
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Client-generated key for safe retries. Scoped to `dataset_id`: while a run started with this key is still in progress, repeating the request returns that run instead of starting a second one. Once the run reaches a terminal state (succeeded, failed or cancelled) the key no longer matches and the same request starts a new run."
+          },
+          "voucher": {
+            "type": "string",
+            "description": "Optional discount voucher code."
+          },
+          "max_iterations": {
+            "type": "number",
+            "description": "Maximum number of iterations to run. Defaults to the resolved model configuration (currently 3). The resolved value is returned in the response `max_iterations` field.",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "target_win_rate": {
+            "type": "number",
+            "description": "Target win rate for the AutoScientist loop (between 0 exclusive and 1 inclusive). Defaults to 0.7 for small models and 0.8 for larger models. The resolved value is returned in the response `target_win_rate` field.",
+            "minimum": 0,
+            "maximum": 1,
+            "exclusiveMinimum": true,
+            "exclusiveMaximum": false
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      },
+      "PublicAutoScientistRunDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "AutoScientist run id."
+          },
+          "dataset_id": {
+            "type": "object",
+            "nullable": true,
+            "description": "Public id of the dataset the run trained on."
+          },
+          "model": {
+            "type": "object",
+            "nullable": true,
+            "description": "Resolved base model id used, including an automatically selected model."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "completed_at": {
+            "type": "object",
+            "nullable": true
+          },
+          "iterations_completed": {
+            "type": "number",
+            "description": "Number of completed iterations."
+          },
+          "max_iterations": {
+            "type": "number",
+            "description": "Resolved maximum number of iterations, including the model-specific default."
+          },
+          "target_win_rate": {
+            "type": "number",
+            "description": "Resolved target win rate for the AutoScientist loop, including the model-specific default."
+          },
+          "best_win_rate": {
+            "type": "object",
+            "nullable": true,
+            "description": "Best win rate achieved so far."
+          },
+          "training_method": {
+            "type": "string",
+            "enum": [
+              "instruction",
+              "alignment"
+            ],
+            "description": "The objective this run is training. Resolved at creation — a requested `alignment` is downgraded to `instruction` when the dataset is not preference pairs, so read this back to confirm what actually runs."
+          },
+          "best_hyperparams": {
+            "nullable": true,
+            "description": "Hyperparameters that produced the best iteration so far, and the ones the downloadable artifact was trained with. Null until an iteration completes.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicAutoScientistHyperparamsDto"
+              }
+            ]
+          },
+          "column_mapping": {
+            "nullable": true,
+            "description": "Column mapping the run trained with, echoing what was sent on create. Null when the mapping was left to the platform to infer.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicTrainingColumnMappingDto"
+              }
+            ]
+          },
+          "download_available": {
+            "type": "boolean",
+            "description": "True when the best trained artifact can be downloaded."
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "description": "Why the run failed. Null unless `status` is `failed`."
+          }
+        },
+        "required": [
+          "id",
+          "dataset_id",
+          "model",
+          "status",
+          "created_at",
+          "completed_at",
+          "iterations_completed",
+          "max_iterations",
+          "target_win_rate",
+          "training_method",
+          "best_hyperparams",
+          "column_mapping",
+          "download_available"
+        ]
+      },
+      "PublicRecommendHyperparamsDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "The dataset the hyperparameters are sized for. Must be a dataset you own that has finished processing."
+          },
+          "model": {
+            "type": "string",
+            "description": "Base model id from GET /autoscientist/models to tune for. Omit to size the recommendation against the model POST /autoscientist selects for this dataset; the resolved id is returned in the response `model` field. That pick reads the columns already selected for the dataset, so a create request supplying `column_mapping.reasoning_trace` can resolve a different model. Pass the returned `model` back on create to pin it."
+          },
+          "augmentation_domain_rows": {
+            "type": "number",
+            "description": "Number of synthetic domain-targeted rows you plan to generate. These are additional to your own rows and count toward the effective training size, so the recommendation matches what you will launch. Defaults to 0 (no augmentation).",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 40000
+          },
+          "augmentation_general_rows": {
+            "type": "number",
+            "description": "Number of synthetic general-diversity rows you plan to generate. These are additional to your own rows and count toward the effective training size. Defaults to 0 (no augmentation).",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 50000
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      },
+      "PublicRecommendHyperparamsResponseDto": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Resolved base model id the recommendation is sized for: the value you sent, or the automatically selected model when `model` was omitted. Pass it back as `model` on POST /autoscientist to launch against the same model."
+          },
+          "hyperparams": {
+            "description": "Hyperparameters derived for the resolved model and effective dataset size. POST /autoscientist applies the same values when `hyperparams` is omitted. Overriding is not advised.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicAutoScientistHyperparamsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "model",
+          "hyperparams"
+        ]
+      },
+      "PublicTrainingModelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier to pass as `model` when creating a job."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Human-readable model name."
+          },
+          "model_size": {
+            "type": "object",
+            "description": "Parameter count label (e.g. \"8B\", \"70B\")."
+          },
+          "context_length": {
+            "type": "object",
+            "description": "Maximum context window in tokens."
+          },
+          "methods": {
+            "description": "Training methods supported (e.g. [\"sft\", \"dpo\"]).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "training_types": {
+            "description": "Training types supported (e.g. [\"lora\", \"full\"]).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "methods",
+          "training_types"
+        ]
+      },
+      "PublicTrainingModelListDto": {
+        "type": "object",
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicTrainingModelDto"
+            }
+          }
+        },
+        "required": [
+          "models"
+        ]
+      },
+      "PublicAutoScientistRunListDto": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicAutoScientistRunDto"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor for the next page; null when no more results."
+          }
+        },
+        "required": [
+          "runs"
+        ]
+      },
+      "PublicInventSubdomainDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Qualified code to send in `subdomains` — copy it as-is rather than assembling it.",
+            "example": "medical.symptoms_diagnosis"
+          },
+          "title": {
+            "type": "string",
+            "description": "Human-readable name.",
+            "example": "Symptoms diagnosis"
+          }
+        },
+        "required": [
+          "code",
+          "title"
+        ]
+      },
+      "PublicInventDomainDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code to send in `domains`.",
+            "example": "medical"
+          },
+          "title": {
+            "type": "string",
+            "description": "Human-readable name.",
+            "example": "Medical"
+          },
+          "subdomains": {
+            "description": "Subdomains available within this domain. Empty when the domain has no subdivision — send the domain code alone.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicInventSubdomainDto"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "title",
+          "subdomains"
+        ]
+      },
+      "PublicInventDomainsResponseDto": {
+        "type": "object",
+        "properties": {
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicInventDomainDto"
+            }
+          }
+        },
+        "required": [
+          "domains"
+        ]
+      },
+      "CreateInventedDatasetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for the invented dataset.",
+            "example": "Medical Q&A dataset"
+          },
+          "training_type": {
+            "type": "string",
+            "description": "Shape of the generated data — the same field and values as `datasets.run`. `instruction_dataset` produces prompt/completion rows; `preference_pairs` produces ranked completion pairs. Note this is the shape of the DATA, not the training method (elsewhere `training_type` means LoRA vs full fine-tuning). Defaults to `instruction_dataset`. The download carries the generated text in `enhanced_prompt` / `enhanced_completion`; `original_*` are null, since invented data has no source rows it was derived from.",
+            "enum": [
+              "instruction_dataset",
+              "preference_pairs"
+            ],
+            "default": "instruction_dataset"
+          },
+          "domains": {
+            "description": "Domain codes to generate from, e.g. `medical`. Supply at least one of `domains` or `subdomains` — omit this and the domains are inferred from the parents of your `subdomains`. When you do supply it, it is authoritative: a subdomain naming a domain that is not listed here is rejected rather than silently added. Retrieve the valid codes from `GET /datasets/invent/domains`.",
+            "example": [
+              "medical",
+              "personal_finance"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subdomains": {
+            "description": "Narrow generation to specific subdomains, as `domain.subdomain` codes e.g. `medical.symptoms_diagnosis`. Qualified by their domain because a bare code can belong to more than one (`wildlife` sits under both agriculture and animal nature). Requested domains with no subdomain listed here are generated across all of theirs. Supply at least one of `domains` or `subdomains`. Retrieve the valid codes from `GET /datasets/invent/domains`.",
+            "example": [
+              "medical.symptoms_diagnosis",
+              "medical.preventive_care"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "integer",
+            "description": "Number of rows to generate, subject to your plan’s per-launch row cap. Treat it as a target: the delivered count can land slightly either side of it, so read `row_count` on the finished dataset for what was actually produced.",
+            "minimum": 1,
+            "example": 1000
+          },
+          "language_expansion": {
+            "description": "Optionally translate or localize the generated rows into further languages. Credits are billed on the POST-expansion row count, so setting this quotes and charges above `rows`. `sample_rate` (0-1) is the share of rows expanded.",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicLanguageExpansionSpecDto"
+              }
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Free-text description of the data you want, in your own words — the wizard shows this as \"Dataset Details\". Drives the semantic search that selects rows, so a specific prompt yields more relevant data, and it is woven into the generation instructions. Written for you from your domain selections when omitted.",
+            "maxLength": 10000,
+            "example": "Patient-facing answers to cardiology questions, plain language, no jargon"
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "Price the request without creating or charging anything. Mirrors `datasets.run` — the response carries the same fields either way, with the dataset fields null when this is set.",
+            "default": false
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Client-supplied key making retries safe. Repeating a request with the same key returns the original dataset instead of generating again.",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "rows"
+        ]
+      },
+      "PublicInventedDatasetDto": {
+        "type": "object",
+        "properties": {
+          "estimate": {
+            "type": "boolean",
+            "description": "True when this response priced the request without running it.",
+            "example": false
+          },
+          "id": {
+            "type": "string",
+            "description": "Dataset id, or null on an estimate. Pass it straight to `finetune_jobs.create` or `autoscientist.create` once the status is `succeeded`.",
+            "nullable": true,
+            "example": "3f1b9c62-6f3e-4a1e-9a5c-0b7d2f8e4a10"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name, echoed from the request or the default applied for you.",
+            "example": "Clinical Q&A"
+          },
+          "training_type": {
+            "type": "string",
+            "description": "Shape of the generated data, echoed from the request.",
+            "enum": [
+              "instruction_dataset",
+              "preference_pairs"
+            ],
+            "example": "instruction_dataset"
+          },
+          "domains": {
+            "description": "Domain codes the generation covers, echoed from the request — including any inferred from `subdomains`.",
+            "example": [
+              "medical"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subdomains": {
+            "description": "Subdomain codes the generation is narrowed to, if any.",
+            "example": [
+              "medical.symptoms_diagnosis"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "integer",
+            "description": "Number of rows requested.",
+            "nullable": true,
+            "example": 1000
+          },
+          "status": {
+            "type": "string",
+            "description": "Lifecycle status, or null on an estimate. A fresh generation is always `running`; poll `GET /datasets/{dataset_id}` until it reports `succeeded` or `failed`.",
+            "enum": [
+              "pending",
+              "running",
+              "awaiting_input",
+              "succeeded",
+              "failed"
+            ],
+            "nullable": true,
+            "example": "running"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When the dataset was created, or null on an estimate.",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-08-03T16:12:04.000Z"
+          },
+          "estimated_credits": {
+            "type": "number",
+            "description": "Credits this generation consumes. Billed on the post-expansion row count, so a translated request quotes above its `rows`. Invent pricing is still provisional, so treat the figure as indicative.",
+            "example": 800
+          },
+          "available_credits": {
+            "type": "number",
+            "description": "Credits currently available to your team.",
+            "example": 5000
+          }
+        },
+        "required": [
+          "estimate",
+          "id",
+          "name",
+          "training_type",
+          "domains",
+          "subdomains",
+          "rows",
+          "status",
+          "created_at",
+          "estimated_credits",
+          "available_credits"
+        ]
+      },
+      "LeaderboardStatsDto": {
+        "type": "object",
+        "properties": {
+          "submitted_runs": {
+            "type": "integer",
+            "description": "AutoScientist runs submitted, all-time. A PLATFORM total: it counts every experiment on every account, including the ones the ranking leaves out, so it is larger than `contributors` implies.\n\nReported as a fixed multiple of the number of submitted experiments — one submitted experiment is more than one run — so this figure will not match a count of experiments taken any other way. The multiple is the same for every caller and applies to this counter alone."
+          },
+          "domains_covered": {
+            "type": "integer",
+            "description": "Domains holding at least one ranked entry. A RANKED-population figure: a domain whose only entries belong to unlisted members reports as uncovered. NOT the length of `domains`, which lists the whole catalogue whether populated or not."
+          },
+          "contributors": {
+            "type": "integer",
+            "description": "Distinct listed users holding at least one ranked entry — the RANKED population only. Always less than or equal to `autoscientist_users`, and usually far smaller: ranking requires a completed domain evaluation, which is available on paid plans only, and counts only members who are listed. Use `autoscientist_users`, not this, to answer \"how many people use AutoScientist\"."
+          },
+          "autoscientist_users": {
+            "type": "integer",
+            "description": "Distinct users who have run AutoScientist at all: everyone holding at least one experiment, whether or not any of it is eligible for ranking, and whether or not they are listed on the leaderboard. A PLATFORM total, so always greater than or equal to `contributors`, which is the ranked subset of it."
+          },
+          "data_artifacts_processed": {
+            "type": "string",
+            "description": "Rows processed by the platform, from the maintained `processed_rows_total` counter — a PLATFORM total across every account. A string because the underlying value is a BigInt.",
+            "example": "1284930215"
+          }
+        },
+        "required": [
+          "submitted_runs",
+          "domains_covered",
+          "contributors",
+          "autoscientist_users",
+          "data_artifacts_processed"
+        ]
+      },
+      "LeaderboardDomainOptionDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "description": "`Domains.code`. Null for the synthetic `general` bucket.",
+            "example": "domain_medical"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Classifier slug.",
+            "example": "medical"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name.",
+            "example": "Medical"
+          },
+          "entry_count": {
+            "type": "integer",
+            "description": "Ranked users in this domain — the same figure the ranking reports as `pagination.total`, so the selector and the table can never disagree. Follows the ranked population, so entries belonging to unlisted members are not counted. Zero for a domain nobody has ranked in yet, which is most of them."
+          }
+        },
+        "required": [
+          "code",
+          "slug",
+          "name",
+          "entry_count"
+        ]
+      },
+      "LeaderboardOverviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "stats": {
+            "$ref": "#/components/schemas/LeaderboardStatsDto"
+          },
+          "domains": {
+            "description": "Every selectable domain — the whole catalogue plus the synthetic `general` bucket — whether or not it currently has ranked entries. The catch-all `Other` domain is never included and is rejected as a `domain` query value.\n\nOrdered populated-first: domains holding entries lead, most populated first, then every empty domain alphabetically by name. Read `entry_count` to decide emphasis — most domains report 0, and a selector that treats every entry as worth featuring will feature 40-odd empty tables.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardDomainOptionDto"
+            }
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When this data was computed. The leaderboard is refreshed once a day, so two reads between refreshes return the same counters and the same timestamp — an unchanged page is not a stale one. A domain appearing in the ranking for the first time also triggers a refresh, so the selector gains it within minutes.\n\nNull means the response was computed for this request rather than served from a refresh (no snapshot published yet). It is never the current time, so \"computed live\" stays distinguishable from \"refreshed just now\"."
+          }
+        },
+        "required": [
+          "stats",
+          "domains",
+          "generated_at"
+        ]
+      },
+      "LeaderboardDomainDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "description": "`Domains.code`. Null for the synthetic `general` bucket."
+          },
+          "slug": {
+            "type": "string",
+            "example": "medical"
+          },
+          "name": {
+            "type": "string",
+            "example": "Medical"
+          }
+        },
+        "required": [
+          "code",
+          "slug",
+          "name"
+        ]
+      },
+      "LeaderboardPaginationDto": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Rows asked for — the page size actually applied."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Rows skipped."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Ranked users in this domain, all of them — not the rows in this page. Drives \"showing 10 of 137\"."
+          },
+          "has_more": {
+            "type": "boolean",
+            "description": "Whether another page exists. Show the \"show more\" control on true, and call again with `offset + limit`."
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "total",
+          "has_more"
+        ]
+      },
+      "LeaderboardCountryDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "ISO country code, as stored.",
+            "example": "GB"
+          },
+          "name": {
+            "type": "string",
+            "example": "United Kingdom"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      },
+      "LeaderboardUserLinksDto": {
+        "type": "object",
+        "properties": {
+          "homepage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile homepage. Only http(s) links are served — a stored value with any other scheme reads as null, so this is safe to use as an href."
+          },
+          "github": {
+            "type": "string",
+            "nullable": true
+          },
+          "x": {
+            "type": "string",
+            "nullable": true
+          },
+          "linkedin": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "homepage",
+          "github",
+          "x",
+          "linkedin"
+        ]
+      },
+      "LeaderboardUserStatsDto": {
+        "type": "object",
+        "properties": {
+          "submissions": {
+            "type": "integer",
+            "description": "AutoScientist experiments this user has submitted, all-time and across every domain — not only the ranked ones, so it is at least 1 for anyone on the table, and 0 only when the totals read failed."
+          },
+          "best_win_rate_pct": {
+            "type": "number",
+            "nullable": true,
+            "description": "The user's best domain win rate across every domain, as a percentage with one decimal. Usually higher than this row's `score` when the user ranks better in another domain. Null when they have no completed domain evaluation of their own, and when the totals read failed.",
+            "example": 74.2
+          },
+          "data_points": {
+            "type": "integer",
+            "description": "Training rows across every distinct dataset the user has run an experiment on, post-augmentation where augmentation ran. A raw count — the popup's \"K\" is formatting.",
+            "example": 128400
+          }
+        },
+        "required": [
+          "submissions",
+          "best_win_rate_pct",
+          "data_points"
+        ]
+      },
+      "LeaderboardUserDto": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "Stable public identifier."
+          },
+          "display_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile name. Null when the profile has none; no contact detail is substituted."
+          },
+          "avatar_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar image reference. Null when the profile has none."
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile biography, verbatim. Null — never an empty string — when the profile has none."
+          },
+          "country": {
+            "nullable": true,
+            "description": "Profile country. A profile can hold several; the one first alphabetically is served, the same one on every request. Null when the profile names none.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardCountryDto"
+              }
+            ]
+          },
+          "links": {
+            "$ref": "#/components/schemas/LeaderboardUserLinksDto"
+          },
+          "stats": {
+            "description": "Whole-account totals for the profile popup. Deliberately not scoped to the domain being ranked — they describe the member, not this row.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardUserStatsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "avatar_url",
+          "bio",
+          "country",
+          "links",
+          "stats"
+        ]
+      },
+      "LeaderboardBaseModelDto": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "example": "Llama 3.3 70B Instruct"
+          },
+          "family": {
+            "type": "string",
+            "nullable": true,
+            "description": "Model family — the signal for which base-model logo to show.",
+            "example": "llama"
+          },
+          "size": {
+            "type": "string",
+            "nullable": true,
+            "example": "70B"
+          }
+        },
+        "required": [
+          "display_name",
+          "family",
+          "size"
+        ]
+      },
+      "LeaderboardModelDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "This run's own model name — the same label the product shows for it in the dataset page's trained-model selection, so a member recognises their own row. Composed as `adaption_<base model>_<dataset>_<run id>`; the trailing run id is what distinguishes two runs on the same dataset. Always present: a component that cannot be resolved contributes a placeholder rather than making the whole name absent.\n\nThis was previously the constant \"AutoScientist\" for every row. That branding is the page's, not the API's — render it alongside this name rather than expecting it here.",
+            "example": "adaption_llama_3_3_70b_instruct_reference_clinical_qa_a4f81c2e"
+          },
+          "base_model": {
+            "nullable": true,
+            "description": "The base model the run fine-tuned, from the canonical model registry. Null when the registry row is unavailable; individual attributes are nullable in their own right.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardBaseModelDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "base_model"
+        ]
+      },
+      "LeaderboardScoreDto": {
+        "type": "object",
+        "properties": {
+          "domain_win_rate_pct": {
+            "type": "number",
+            "description": "Win rate from the run's domain evaluation against the fixed per-domain prompt set, as a percentage with one decimal. This is the ranking metric, and the only score comparable between two rows.",
+            "example": 68.4
+          },
+          "task_win_rate_pct": {
+            "type": "number",
+            "nullable": true,
+            "description": "Win rate from the experiment's own evaluation against the user's data — how well the model does at the task it was trained for. Each run is scored on a different held-out set, so this is NOT comparable between rows and nothing is ordered by it. Null for a run whose iteration evals never produced a score.\n\nFor a run with `alignment: true` this is the best DPO (preference) stage's score, never the SFT stage's — so every row reports the task score of the last training stage its run completed. An alignment run whose DPO stage produced no score reads null rather than falling back to its SFT score, which would be a number measured on the wrong stage.",
+            "example": 81
+          }
+        },
+        "required": [
+          "domain_win_rate_pct",
+          "task_win_rate_pct"
+        ]
+      },
+      "LeaderboardDatasetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "rows_before": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Rows in the source dataset, before augmentation. Null when the source dataset is gone or was never row-counted.",
+            "example": 12000
+          },
+          "rows_after": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Rows actually trained on: source plus whatever augmentation minted. Equal to `rows_before` when no augmentation ran, so a UI can show \"12k → 44k\" or a single figure by comparing the two.",
+            "example": 44000
+          },
+          "huggingface_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Published dataset location on Hugging Face, when one exists."
+          },
+          "kaggle_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Published dataset location on Kaggle, when one exists."
+          }
+        },
+        "required": [
+          "name",
+          "rows_before",
+          "rows_after",
+          "huggingface_url",
+          "kaggle_url"
+        ]
+      },
+      "LeaderboardRowDto": {
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "description": "Absolute position in the ranking, from 1 — not the index within the page. Contiguous with no gaps, so ranks 1–3 identify the top three without a separate response section."
+          },
+          "user": {
+            "$ref": "#/components/schemas/LeaderboardUserDto"
+          },
+          "model": {
+            "$ref": "#/components/schemas/LeaderboardModelDto"
+          },
+          "alignment": {
+            "type": "boolean",
+            "description": "Whether this run went through alignment training — an SFT stage followed by a DPO (preference) stage. True when the ranked run is the DPO stage of such a pipeline, or the SFT stage with a DPO stage linked to it. False for a standalone SFT run and for a one-shot DPO run with no SFT stage. Never null: a row is either aligned or it is not.\n\nDescriptive only — it does not affect eligibility, rank, or `domain_win_rate_pct`. It does determine which stage `task_win_rate_pct` comes from.",
+            "example": true
+          },
+          "score": {
+            "$ref": "#/components/schemas/LeaderboardScoreDto"
+          },
+          "dataset": {
+            "$ref": "#/components/schemas/LeaderboardDatasetDto"
+          },
+          "model_huggingface_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Published model location on Hugging Face. Null unless an export completed successfully — a pending or failed export reads as null."
+          },
+          "completed_at": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "rank",
+          "user",
+          "model",
+          "alignment",
+          "score",
+          "dataset",
+          "model_huggingface_url",
+          "completed_at"
+        ]
+      },
+      "LeaderboardResponseDto": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "nullable": true,
+            "description": "The domain actually ranked — echoed so a caller that omitted `domain` knows which one was chosen. Null only when nothing anywhere is ranked.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardDomainDto"
+              }
+            ]
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/LeaderboardPaginationDto"
+          },
+          "data": {
+            "description": "One page of the ranking, in rank order. Empty past the end of the ranking and for a recognised domain with no ranked entries.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRowDto"
+            }
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When this ranking was computed. Matches the value the overview reports within one generation, so the selector and the table always describe the same data. The leaderboard is refreshed once a day: a run that becomes eligible after a refresh appears at the next one. The exception is a run that gives its domain its first ranked entry — a new domain is picked up within minutes rather than waiting for the next day.\n\nNull means the response was computed for this request rather than served from a refresh. Member identity — name, avatar, biography, links, country — is always current regardless of this timestamp."
+          }
+        },
+        "required": [
+          "domain",
+          "pagination",
+          "data",
+          "generated_at"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+---
+title: Create a dataset
+description: Upload a local file or import a dataset from Hugging Face or Kaggle with the Python SDK.
+---
+
+import { Accordion, Callout } from "@stainless-api/docs/components";
+
+Import data from a local file, Hugging Face, or Kaggle without writing a conversion script. Each method returns a `dataset_id` that you pass to [`datasets.run`](/api/python/resources/datasets/methods/run).
+
+The examples assume you have [installed the Python SDK and set `ADAPTION_API_KEY`](/introduction/getting-started):
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>1. Upload a local file</Accordion.Summary>
+
+    Create the dataset, PUT the file bytes to the returned presigned URL, then confirm the upload.
+
+    Supported extensions: **`.csv`**, **`.json`**, **`.jsonl`**, **`.parquet`**, **`.pdf`**, **`.docx`**, **`.pptx`**, **`.xlsx`**, **`.html`**, **`.zip`**, and **`.txt`**.
+
+    ```python
+    import hashlib
+    from pathlib import Path
+
+    import httpx
+
+    path = Path("training_data.csv")
+    data = path.read_bytes()
+
+    dataset = client.datasets.create(
+        source={
+            "name": path.name,
+            "file_format": "csv",
+        },
+    )
+    response = httpx.put(dataset.upload_instructions.url, content=data)
+    response.raise_for_status()
+
+    client.datasets.upload.complete_by_id(
+        dataset.dataset_id,
+        file_size_bytes=len(data),
+        sha256=hashlib.sha256(data).hexdigest(),
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>2. Import from Hugging Face</Accordion.Summary>
+
+    Point at a Hugging Face dataset URL and the file(s) to import.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+            "files": [
+                "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+            ],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>3. Import from Kaggle</Accordion.Summary>
+
+    Use the Kaggle dataset page URL and the files to pull.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    **Kaggle credentials** must be registered in Adaption: open **[API keys settings](https://adaptionlabs.ai/app/settings?tab=api_keys)** (sign in if prompted) and add your Kaggle API credentials there before importing.
+
+  </Accordion>
+</Accordion.Group>
+
+<Callout variant="note">
+  Raw (passthrough) processing is currently supported only for local file
+  uploads. Do not combine `processing_mode="raw"` with a Hugging Face or Kaggle
+  URL. See [Run on non-adapted data](/autoscientist/run-on-non-adapted-data) for
+  a local-file example.
+</Callout>
+
+## Wait for the import
+
+Imports run asynchronously. Poll the [dataset status](/api/python/resources/datasets/methods/get_status) until ingestion has populated the dataset before starting an adaptation run:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        error = status.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset import failed: {message}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+Next, [map the imported columns](/adaptive-data/select-columns), then [configure the adaptation run](/adaptive-data/configure-adaptive-data). For endpoint details, see the [`create`](/api/python/resources/datasets/methods/create) and [`get_status`](/api/python/resources/datasets/methods/get_status) references. Local files must also be finalized with `datasets.upload.complete_by_id` after the presigned PUT.

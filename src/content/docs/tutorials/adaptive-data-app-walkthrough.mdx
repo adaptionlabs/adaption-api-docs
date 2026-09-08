@@ -1,0 +1,142 @@
+---
+title: Adaptive Data App Walkthrough
+description: Import a dataset, map its columns, configure adaptation, launch a run, and review the results in the Adaption app.
+---
+
+## Before you start
+
+Sign in at [adaptionlabs.ai/app](https://adaptionlabs.ai/app). You do not need an API key for this app walkthrough.
+
+Adaptive Data can build:
+
+- **Instruction datasets**, which pair prompts with expected completions for supervised fine-tuning.
+- **Preference pairs**, which compare two completions and identify the preferred one.
+
+## Step 1 | Bring in your data
+
+[Create a dataset](/adaptive-data/create-a-dataset) in the app from one of these sources:
+
+- **Local file:** CSV, JSON, JSONL, Parquet, PDF, DOCX, PPTX, XLSX, HTML, ZIP, or TXT.
+- **Hugging Face:** enter a dataset URL and select the files to import. If the dataset is gated, request access on Hugging Face before importing it.
+- **Kaggle:** enter the dataset page URL.
+
+Document-style sources such as PDFs, scans, slide decks, and email threads trigger an additional extraction and splitting flow. See [Processing unstructured documents](/tutorials/processing-unstructured-documents).
+
+Adaptive Data does not currently support non-text tabular data such as financial time series.
+
+## Step 2 | Expand the dataset
+
+In the [**Expansion** step](/adaptive-data/configure-adaptive-data#expand-across-languages-and-locales), optionally increase the size of the dataset:
+
+- **Translate** creates translated versions of existing rows. The app supports up to 242 languages; see the [supported language list](https://docs.google.com/spreadsheets/d/17NTJw8MF04B_zpNLT72V1bXbQk-VJOxuYOah1w7YboY/edit?usp=sharing).
+- **Localize** adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone.
+
+Skip expansion when you need to preserve the current dataset size.
+
+## Step 3 | Map your columns
+
+[Assign each source column a role](/adaptive-data/select-columns):
+
+- **Prompt:** the question, instruction, or task in each row.
+- **Context:** background material needed to answer the prompt. You can select multiple context columns, including images.
+- **Completion:** the expected response.
+- **Chat:** a multi-turn conversation or dialogue history.
+
+Every run needs at least a prompt or a completion. Adaptive Data can generate the missing role.
+
+- No prompt column: select **I don't have prompt**, then either let Adaption create one per row or select **Write universal prompt**.
+- No completion column: select **I don't have a completion column** to generate one.
+
+For example, a document-extraction dataset could use `document_body` as context and this universal prompt:
+
+> Extract the customer name, contract start date, renewal date, and total contract value. Return valid JSON with the keys `customer_name`, `start_date`, `renewal_date`, and `contract_value`.
+
+Make sure every column needed to answer the prompt is mapped as context. The column-selection guide includes detailed mapping patterns for [image columns](/adaptive-data/select-columns#map-an-image-column).
+
+## Step 4 | Evaluate data quality
+
+The [**Data Evaluation** step](/adaptive-data/evaluate-dataset-quality) reports:
+
+- A letter grade and quality score from 0 to 10.
+- A percentile relative to other datasets in the detected domain.
+- Detected domain, language, and tone.
+
+Use this baseline to compare the source dataset with the adapted result after the run.
+
+## Step 5 | Choose recipes
+
+[Select only the recipes](/adaptive-data/configure-adaptive-data#apply-recipes) that fit your goal:
+
+- **Prompt Deduplication** removes duplicate prompts so repeated examples do not dominate the dataset.
+- **Prompt Rephrasing** rewrites prompts for clarity and alignment with the task.
+- **Reasoning Traces** adds step-by-step reasoning alongside final outputs for supported workflows.
+- **Hallucination Mitigation** applies grounding and verification to reduce unsupported completions.
+- **Freeform Brand Voice** steers generated data toward a particular personality, tone, and style.
+
+If prompts must remain byte-for-byte unchanged, disable **Prompt Rephrasing** and **Metadata Injection**.
+
+## Step 6 | Configure Blueprint
+
+If you answer **Yes** to **Do you want to add brand guidelines or global constraints?**, the app opens [Blueprint and its brand controls](/adaptive-data/configure-adaptive-data#configure-brand-controls).
+
+Enter a system-level instruction directly, or upload brand guidelines, a system prompt, or policies for safety, tone, and length. For example:
+
+> Write concise customer-support answers in British English. Use a warm, direct tone. Never recommend third-party products, and do not make claims that are not supported by the supplied context.
+
+Blueprint also provides structured controls:
+
+- **Length:** Detailed, Extensive, Minimal, or Concise.
+- **Safety Classification:** Sexual, Self-harm, Hate, Harassment, and Violence.
+- **Hallucination mitigation:** reduces unsupported content in generated completions.
+
+These controls apply to every adapted row, so use them for true global requirements rather than row-specific guidance.
+
+## Step 7 | Review and launch
+
+The **Summary** screen shows:
+
+- A [**Reduce Rows** slider](/adaptive-data/configure-adaptive-data#limit-rows-and-estimate-a-run) for processing fewer rows.
+- Your available credits.
+- The exact credit cost of the configured job.
+
+Review the estimate, then launch the run. The dashboard can show these states:
+
+- **Job launched:** submitted or queued.
+- **Running:** actively processing.
+- **Job completed:** results and a quality score are available.
+- **Job failed:** processing stopped before completion.
+
+Large imports can spend several hours in the queue. If a job appears stuck:
+
+1. Compare the elapsed time with the displayed estimate and allow for queue time.
+2. Confirm the dataset uses supported prompt/completion columns or OpenAI-style chat data.
+3. Retry a failed job once, especially if it reached 100% before failing.
+4. If it remains stuck or fails again, [contact support](/resources/support) and include the dataset ID.
+
+## Step 8 | Review results
+
+When processing finishes, open the dataset and select the **View** tab. Each row shows source and adapted data side by side, including original and enhanced prompts, original and enhanced completions, and inline context.
+
+Compare the before-and-after:
+
+- Quality score, from 0 to 10.
+- Letter grade.
+- Domain percentile, from 0 to 100.
+- Individual source and adapted rows.
+
+Row count can decrease because prompt deduplication removes duplicate examples.
+
+## Common issues
+
+- **Job launched for hours:** queue time may not be included in the estimate. Wait beyond the displayed estimate before escalating.
+- **Pending Hugging Face or Kaggle image import:** if a multimodal import does not progress, [contact support](/resources/support) with the dataset ID.
+- **Processing failed for a large JSONL file:** retry once; if it fails again, contact support with the dataset ID.
+- **Dataset rejected for format:** reshape it into prompt/completion columns or an OpenAI-style chat column, then repeat [column mapping](#step-3--map-your-columns).
+- **Prompts changed unexpectedly:** disable **Prompt Rephrasing** and **Metadata Injection** for strict prompt fidelity.
+
+## Next steps
+
+- [Work with image columns](/adaptive-data/select-columns#map-an-image-column)
+- [Configure Adaptive Data in detail](/adaptive-data/configure-adaptive-data)
+- [Process unstructured documents](/tutorials/processing-unstructured-documents)
+- Use the [API reference](/api/python) when you are ready to automate the same workflow.

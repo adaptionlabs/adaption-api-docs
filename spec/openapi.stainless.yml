@@ -1,0 +1,175 @@
+# yaml-language-server: $schema=https://app.stainless.com/config.schema.json
+
+edition: 2026-02-23
+organization:
+  name: adaption
+  docs: ""
+  contact: ""
+targets:
+  python:
+    edition: python.2025-11-20
+    project_name: adaption
+    package_name: adaption
+    production_repo: adaptionlabs/adaption-python
+    publish:
+      pypi:
+        auth_method: oidc
+      # Declares the release pipeline (release-please + publish-pypi).
+      # `prerelease` stays false: with a 0.x version, true marks every GitHub
+      # Release as a pre-release and breaks `releases/latest`.
+      release:
+        branch: main
+        prerelease: false
+# One scheme per list, because Stainless allows exactly one `items` field per
+# pagination scheme. Both share the same cursor request + next_cursor field and
+# differ only in the items-array name (datasets / runs). Each list method
+# references its matching scheme via `paginated:`.
+pagination:
+  - name: cursor
+    type: cursor
+    request:
+      cursor:
+        type: string
+        x-stainless-pagination-property:
+          purpose: next_cursor_param
+    response:
+      next_cursor:
+        type: string
+        nullable: true
+        x-stainless-pagination-property:
+          purpose: next_cursor_field
+      datasets:
+        type: array
+        x-stainless-pagination-property:
+          purpose: items
+  - name: cursor_runs
+    type: cursor
+    request:
+      cursor:
+        type: string
+        x-stainless-pagination-property:
+          purpose: next_cursor_param
+    response:
+      next_cursor:
+        type: string
+        nullable: true
+        x-stainless-pagination-property:
+          purpose: next_cursor_field
+      runs:
+        type: array
+        x-stainless-pagination-property:
+          purpose: items
+environments:
+  production: https://api.prod.adaptionlabs.ai
+resources:
+  datasets:
+    models:
+      dataset: "#/components/schemas/PublicDatasetDto"
+    methods:
+      create: post /api/v1/datasets
+      get: get /api/v1/datasets/{dataset_id}
+      list:
+        endpoint: get /api/v1/datasets
+        paginated: cursor
+      get_status: get /api/v1/datasets/{dataset_id}/status
+      # JSON/JSONL rows may include `original_image`; see OpenAPI
+      # ProcessedDatasetExportOriginalImageFieldDto and dataset.image_column_formats.
+      download: get /api/v1/datasets/{dataset_id}/download
+      publish: post /api/v1/datasets/{dataset_id}/publish
+      run: post /api/v1/datasets/{dataset_id}/run
+      # Adds rows retrieved from the curated pool and returns them as a new
+      # dataset. `run` improves the rows already there; this one adds more.
+      augment: post /api/v1/datasets/{dataset_id}/augment
+      # Add translated copies of a dataset's rows, as a new dataset. Two methods
+      # rather than one `expand` with a mode: the inputs genuinely differ —
+      # language codes versus country/language pairs — so a single signature
+      # would make each call carry a field the other rejects.
+      translate: post /api/v1/datasets/{dataset_id}/translate
+      localize: post /api/v1/datasets/{dataset_id}/localize
+      get_evaluation: get /api/v1/datasets/{dataset_id}/evaluation
+      # Generate a dataset from scratch. A method rather than an `invent`
+      # subresource on purpose: a subresource would be needed to hang
+      # `domains` off it, and a name cannot be both. `invent_domains` keeps
+      # the call `client.datasets.invent(...)`.
+      invent: post /api/v1/datasets/invent
+      invent_domains: get /api/v1/datasets/invent/domains
+      delete: delete /api/v1/datasets/{dataset_id}
+      # Reads back the URLs `publish` produces. A method rather than a
+      # `finetune` subresource for best_launch_config below: both are
+      # dataset-scoped reads, and a subresource holding one method is
+      # structure without a second occupant.
+      get_export_links: get /api/v1/datasets/{dataset_id}/export-links
+      get_best_launch_config: get /api/v1/datasets/{dataset_id}/finetune/best-launch-config
+    subresources:
+      upload:
+        methods:
+          initiate: post /api/v1/datasets/upload/initiate
+          complete: post /api/v1/datasets/upload/complete
+          complete_by_id: post /api/v1/datasets/{dataset_id}/upload/complete
+          initiate_batch: post /api/v1/datasets/upload/initiate-batch
+          complete_batch: post /api/v1/datasets/upload/complete-batch
+      combine:
+        methods:
+          create: post /api/v1/datasets/combine
+          validate: post /api/v1/datasets/combine/validate
+        subresources:
+          jobs:
+            methods:
+              get: get /api/v1/datasets/combine/jobs/{combine_job_id}
+      custom_evals:
+        models:
+          custom_eval: "#/components/schemas/CustomEvalResponseDto"
+        methods:
+          create: post /api/v1/datasets/{dataset_id}/custom-evals
+          list: get /api/v1/datasets/{dataset_id}/custom-evals
+          get: get /api/v1/datasets/{dataset_id}/custom-evals/{custom_eval_id}
+          prepare: post /api/v1/datasets/{dataset_id}/custom-evals/prepare
+  autoscientist:
+    models:
+      autoscientist_run: "#/components/schemas/PublicAutoScientistRunDto"
+    methods:
+      create: post /api/v1/autoscientist
+      recommend_hyperparams: post /api/v1/autoscientist/recommend-hyperparams
+      get: get /api/v1/autoscientist/{experiment_id}
+      list:
+        endpoint: get /api/v1/autoscientist
+        paginated: cursor_runs
+      cancel: post /api/v1/autoscientist/{experiment_id}/cancel
+      # Streams the best iteration's model artifact (application/gzip).
+      download: get /api/v1/autoscientist/{experiment_id}/download
+      # Non-paginated: returns the full list of trainable base models.
+      list_models: get /api/v1/autoscientist/models
+  # Superseded by autoscientist.list_models. Retained because released SDK
+  # versions expose this resource; removing it breaks installed clients.
+  training_models:
+    methods:
+      list: get /api/v1/training-models
+settings:
+  disable_mock_tests: true
+  license: Apache-2.0
+  # Defaults to true, which orders every schema's properties required-first, then
+  # `id`, then alphabetically — so `completion` precedes `prompt` in column_mapping
+  # and the hyperparams block reads in dictionary order. False keeps the order the
+  # OpenAPI spec declares, which is the order the DTOs are written in.
+  sort_schema_properties: false
+client_settings:
+  opts:
+    api_key:
+      type: string
+      nullable: false
+      auth:
+        security_scheme: bearer
+      description: "API key for authentication"
+      read_env: ADAPTION_API_KEY
+readme:
+  example_requests:
+    default:
+      type: request
+      endpoint: get /api/v1/datasets/{dataset_id}
+      params:
+        dataset_id: REPLACE_ME
+    headline:
+      type: request
+      endpoint: get /api/v1/datasets/{dataset_id}
+      params:
+        dataset_id: REPLACE_ME

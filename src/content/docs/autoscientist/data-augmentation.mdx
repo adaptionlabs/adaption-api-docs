@@ -1,0 +1,43 @@
+---
+title: Data augmentation
+description: Add domain-specific and general-purpose rows before AutoScientist training begins.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+[Augmentation](/api/python/resources/autoscientist/methods/create) is optional, but recommended when a dataset is small or lacks diversity. AutoScientist can add two independent types of rows before its training iterations begin:
+
+- **Domain rows** add examples specific to the dataset's domain. Existing rows count toward the recommended 20,000-domain-row target.
+- **General rows** add diverse examples that help the model retain broader capabilities.
+
+<Callout variant="note">
+  Augmentation here is part of the AutoScientist request. To improve and
+  restructure the source dataset first, use [Adaptive
+  Data](/adaptive-data/overview).
+</Callout>
+
+## Calculate the additions
+
+The following request targets at least 20,000 domain rows and adds 8,000 general rows:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+print(run.id, run.status)
+```
+
+This produces up to 28,000 training rows: the existing dataset plus enough domain rows to reach 20,000, followed by 8,000 general rows. If the dataset already contains at least 20,000 rows, `domain_rows_to_add` is zero.
+
+Omit either augmentation parameter to skip that type of addition. AutoScientist prices and sizes each requested expansion before training. See the [`create` API reference](/api/python/resources/autoscientist/methods/create) for current limits and request fields.

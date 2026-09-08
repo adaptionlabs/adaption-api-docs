@@ -1,0 +1,46 @@
+/* Adaption documentation color palette. */
+
+:root {
+  /* Gray */
+  --docs-gray-0: #ffffff;
+  --docs-gray-1: #fafafa;
+  --docs-gray-2: #c4c4c4;
+  --docs-gray-3: #7a7a7a;
+  --docs-gray-4: #373737;
+  --docs-gray-5: #1a1718;
+  --docs-gray-6: #f3f2f3;
+
+  /* Blue */
+  --docs-blue-1: #e7f7ff;
+  --docs-blue-2: #c8e9fa;
+  --docs-blue-3: #85c9ee;
+  --docs-blue-4: #46a5d8;
+  --docs-blue-5: #1a84ae;
+  --docs-blue-6: #054761;
+
+  /* Red */
+  --docs-red-1: #ffebe4;
+  --docs-red-5: #f76666;
+
+  /* Green */
+  --docs-green-1: #e9ffeb;
+  --docs-green-5: #64b48f;
+
+  /* Orange */
+  --docs-orange-1: #fff0d5;
+  --docs-orange-5: #fcb723;
+
+  /* Yellow */
+  --docs-yellow-1: #ffffbe;
+  --docs-yellow-5: #ffdb11;
+
+  /* Mint */
+  --docs-mint-1: #b6e8e2;
+  --docs-mint-2: #7fb5b3;
+  --docs-mint-3: #004652;
+
+  /* Rose */
+  --docs-rose-1: #ffe5fa;
+  --docs-rose-2: #df91c6;
+  --docs-rose-3: #631d4d;
+}

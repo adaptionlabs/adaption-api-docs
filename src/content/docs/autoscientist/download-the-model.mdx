@@ -1,0 +1,54 @@
+---
+title: Download the model
+description: Stream the best AutoScientist checkpoint to a local archive.
+---
+
+AutoScientist [downloads the checkpoint](/api/python/resources/autoscientist/methods/download) from the best iteration, which is not necessarily the final iteration. The endpoint streams a compressed tar archive rather than returning a presigned URL.
+
+## Stream the checkpoint
+
+[Retrieve the run](/api/python/resources/autoscientist/methods/get) first and verify that it completed and produced a downloadable checkpoint:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+run_id = "autoscientist_run_abc123"
+run = client.autoscientist.get(run_id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run is not complete: {run.status}")
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+Using the streaming response avoids loading a large model archive into memory.
+
+## Inspect the archive
+
+`tar` detects the archive's compression:
+
+```shell
+mkdir -p best-checkpoint
+tar xf best-checkpoint.tgz -C best-checkpoint
+```
+
+A LoRA checkpoint typically contains:
+
+```text
+adapter_config.json
+adapter_model.safetensors
+tokenizer.json
+trainer_state.json
+...
+```
+
+To publish manually to Hugging Face, create an empty model repository and upload the extracted files through its web interface or tooling. Keep the archive private if the weights or tokenizer contain proprietary information.
+
+See the [`download` API reference](/api/python/resources/autoscientist/methods/download) for the current response.

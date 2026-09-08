@@ -1,0 +1,66 @@
+---
+/**
+ * Stainless pagination UI, with two tweaks:
+ * - external sidebar links stay in the left nav, but are skipped for prev/next
+ * - on home, render only Next (no Home / Previous)
+ */
+import HomeLink from "../../../node_modules/@stainless-api/docs/stl-docs/components/pagination/HomeLink.astro";
+import PaginationLinkEmphasized from "../../../node_modules/@stainless-api/docs/stl-docs/components/pagination/PaginationLinkEmphasized.astro";
+import { getPrevNextPage } from "../../../node_modules/@stainless-api/docs/stl-docs/components/pagination/util";
+import config from "virtual:starlight/user-config";
+import "./Pagination.css";
+
+type SidebarEntry = (typeof Astro.locals.starlightRoute.sidebar)[number];
+
+const withoutExternalLinks = (sidebar: SidebarEntry[]): SidebarEntry[] =>
+  sidebar.flatMap((entry) => {
+    if (entry.type === "link") {
+      return /^https?:\/\//i.test(entry.href ?? "") ? [] : [entry];
+    }
+    return [{ ...entry, entries: withoutExternalLinks(entry.entries) }];
+  });
+
+const entryId = Astro.locals.starlightRoute.entry.id;
+const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
+const isHome = entryId === "index" || entryId === "" || pathname === "/";
+
+const { prev, next } =
+  (await getPrevNextPage(
+    {
+      ...Astro.locals.starlightRoute,
+      sidebar: withoutExternalLinks(Astro.locals.starlightRoute.sidebar),
+    },
+    config.pagination,
+  )) ?? {};
+
+const showPrev = Boolean(prev) && !isHome;
+const showHomePrev = !prev && !isHome;
+const showNext = Boolean(next);
+const showHomeNext = !next && !isHome;
+---
+
+{
+  showPrev || showHomePrev || showNext || showHomeNext ? (
+    <div class="pagination-links print:hidden stl-ui-not-prose">
+      {showHomePrev && <HomeLink />}
+      {showPrev && prev && (
+        <PaginationLinkEmphasized href={prev.href} direction="prev">
+          <h2 slot="page-title">{prev.label}</h2>
+          {prev.description && (
+            <p slot="page-description">{prev.description}</p>
+          )}
+        </PaginationLinkEmphasized>
+      )}
+
+      {showHomeNext && <HomeLink />}
+      {showNext && next && (
+        <PaginationLinkEmphasized href={next.href} direction="next">
+          <h2 slot="page-title">{next.label}</h2>
+          {next.description && (
+            <p slot="page-description">{next.description}</p>
+          )}
+        </PaginationLinkEmphasized>
+      )}
+    </div>
+  ) : null
+}

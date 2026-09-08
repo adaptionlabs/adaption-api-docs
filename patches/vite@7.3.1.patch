@@ -1,0 +1,11 @@
+diff --git a/dist/node/chunks/config.js b/dist/node/chunks/config.js
+--- a/dist/node/chunks/config.js
++++ b/dist/node/chunks/config.js
+@@ -28793,6 +28793,7 @@
+ 			const start = debugPluginTransform ? performance$1.now() : 0;
+ 			let result;
+ 			const handler = getHookHandler(plugin.transform);
++			if (!handler) continue;
+ 			try {
+ 				result = await this.handleHookPromise(handler.call(ctx, code, id, optionsWithSSR));
+ 			} catch (e$1) {

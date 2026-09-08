@@ -1,0 +1,97 @@
+---
+title: Supported models
+description: Base models available to AutoScientist and the per-model limits for context length, batch size, and LoRA rank.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Every model below can be passed as the `model` field when [creating an AutoScientist run](/autoscientist/running-autoscientist). The runtime model list is authoritative; use this page as a planning reference.
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id, model.api_model_size, model.methods, model.training_types)
+```
+
+See the [`autoscientist.list_models` API reference](/api/python/resources/autoscientist/methods/list_models) for the current response schema.
+
+<Callout variant="note">
+  You do not need to select a model. Omit `model` and AutoScientist selects one
+  for the dataset. The resolved model ID is returned on the run.
+</Callout>
+
+## Available models
+
+| Model                            | `model` ID                                    | Size  | Methods  | Training types |
+| -------------------------------- | --------------------------------------------- | ----- | -------- | -------------- |
+| Qwen 3.5 (0.8B)                  | `Qwen/Qwen3.5-0.8B`                           | 0.8B  | SFT, DPO | LoRA           |
+| Meta Llama 3.2 (3B Instruct)     | `meta-llama/Llama-3.2-3B-Instruct`            | 3B    | SFT, DPO | LoRA, full     |
+| Gemma 3 (4B Instruct)            | `google/gemma-3-4b-it`                        | 4B    | SFT, DPO | LoRA, full     |
+| Gemma 3 (4B) VLM                 | `google/gemma-3-4b-it-VLM`                    | 4B    | SFT, DPO | LoRA           |
+| Mistral (7B) Instruct v0.2       | `mistralai/Mistral-7B-Instruct-v0.2`          | 7B    | SFT, DPO | LoRA           |
+| Qwen 3.5 (9B) †                  | `Qwen/Qwen3.5-9B`                             | 9B    | SFT, DPO | LoRA           |
+| gpt-oss (20B)                    | `openai/gpt-oss-20b`                          | 20B   | SFT, DPO | LoRA           |
+| Gemma 3 (27B) VLM                | `google/gemma-3-27b-it-VLM`                   | 27B   | SFT, DPO | LoRA           |
+| Gemma 4 (31B Instruct)           | `google/gemma-4-31B-it`                       | 31B   | SFT, DPO | LoRA, full     |
+| Gemma 4 (31B) VLM                | `google/gemma-4-31B-it-VLM`                   | 31B   | SFT, DPO | LoRA           |
+| Mixtral 8x7B Instruct (v0.1)     | `mistralai/Mixtral-8x7B-Instruct-v0.1`        | 46.7B | SFT, DPO | LoRA, full     |
+| Llama 3.3 (70B Instruct)         | `meta-llama/Llama-3.3-70B-Instruct-Reference` | 70B   | SFT, DPO | LoRA, full     |
+| Llama 4 Scout (17B-16E Instruct) | `meta-llama/Llama-4-Scout-17B-16E-Instruct`   | 109B  | SFT, DPO | LoRA           |
+| gpt-oss (120B)                   | `openai/gpt-oss-120b`                         | 120B  | SFT, DPO | LoRA           |
+
+`VLM` variants accept image columns as multimodal context. `Qwen/Qwen3.5-9B` (†) is also multimodal despite not carrying the suffix. A `full` training type means full fine-tuning is available in addition to LoRA.
+
+## Per-model training limits
+
+These limits are properties of the model and training hardware. AutoScientist accounts for them automatically; they matter primarily when you [override its recommended hyperparameters](/autoscientist/recommended-hyperparameters).
+
+| `model` ID                                    | Context (SFT) | Context (DPO) | Batch size | Gradient accumulation | Maximum `lora_r` |
+| --------------------------------------------- | ------------- | ------------- | ---------- | --------------------- | ---------------- |
+| `Qwen/Qwen3.5-0.8B`                           | 131072        | 131072        | 8          | 1                     | 64               |
+| `Qwen/Qwen3.5-9B`                             | 65536         | 49152         | 8          | 1                     | 64               |
+| `openai/gpt-oss-20b`                          | 131072        | 65536         | 1          | 8                     | 64               |
+| `google/gemma-4-31B-it`                       | 49152         | 24576         | 4          | 2                     | 64               |
+| `mistralai/Mixtral-8x7B-Instruct-v0.1`        | 32768         | 16384         | 8          | 1                     | 64               |
+| `meta-llama/Llama-3.3-70B-Instruct-Reference` | 24576         | 12288         | 8          | 1                     | 64               |
+| `meta-llama/Llama-4-Scout-17B-16E-Instruct`   | 65536         | 12288         | 8          | 1                     | 64               |
+| `openai/gpt-oss-120b`                         | 65536         | 32768         | 2          | 8                     | 64               |
+
+Limits for `google/gemma-3-4b-it`, `google/gemma-3-4b-it-VLM`, `google/gemma-3-27b-it-VLM`, and `meta-llama/Llama-3.2-3B-Instruct` are not published. Leave `batch_size` unset so AutoScientist resolves the correct value.
+
+### Batch size
+
+Each model has one valid batch size. `batch_size` defaults to `"max"`, which resolves to that model-specific value. **Leaving it unchanged is the right choice for almost every run.** Supplying another integer causes the launch to fail after the job is accepted.
+
+Models use gradient accumulation when a larger effective batch is useful. This is why `gpt-oss` trains with a physical batch size of 1–2 and gradient accumulation of 8.
+
+```python
+# Recommended: let AutoScientist resolve the model and batch size.
+run = client.autoscientist.create(dataset_id=dataset_id)
+
+# Advanced: pin a model and its required batch size.
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model="openai/gpt-oss-20b",
+    hyperparams={"batch_size": 1},
+)
+```
+
+### LoRA rank
+
+`lora_r` accepts values from 1 through 64 for every model on this page. `lora_alpha` must be exactly one or two times `lora_r`; the API cross-checks the values when both are supplied in the same request.
+
+## Row count
+
+AutoScientist requires at least **1,000 rows** for every supported model. A smaller model does not lower this platform-wide minimum.
+
+## Context length and your data
+
+Training context is the maximum sequence length used during fine-tuning. It is shorter than the serving context and shorter for preference training than supervised fine-tuning.
+
+Rows longer than the training limit are truncated rather than rejected. For datasets containing long documents, choose a model with a larger SFT or DPO context limit.
+
+<Callout variant="note">
+  `autoscientist.list_models()` reports `context_length` for some models and
+  `null` for others. Where present, that field is the serving context—not the
+  training context shown in this page's table.
+</Callout>

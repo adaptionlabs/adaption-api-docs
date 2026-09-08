@@ -1,0 +1,37 @@
+---
+title: Overview
+description: Understand what AutoScientist builds and how its iterative training loop works.
+---
+
+AutoScientist automates the research loop behind model training and alignment. You choose the outcome; AutoScientist optimizes the data and [training recipe](/autoscientist/recommended-hyperparameters), trains a model, evaluates it, and repeats until the run reaches its goal or exhausts its iterations.
+
+Start with a dataset that has completed an [Adaptive Data](/adaptive-data/overview) run. If your source is already a training-ready prompt/completion dataset, you can instead [run on non-adapted data](/autoscientist/run-on-non-adapted-data).
+
+![Select a dataset for AutoScientist](/auto-scientist/ASEX1.png)
+
+## What you can build
+
+- **Instruction datasets** pair prompts with expected completions for supervised fine-tuning.
+- **Preference pairs** compare two completions to indicate which is better for preference-based training.
+
+AutoScientist API training is supervised fine-tuning (`sft`). There is no `method` parameter on `client.autoscientist.create`.
+
+## How the loop works
+
+Each run cycles through four stages:
+
+1. **[Data optimization](/autoscientist/data-augmentation)** adds optional domain-targeted and general-purpose rows to improve diversity and reduce overfitting.
+2. **[Training](/autoscientist/running-autoscientist)** runs with the selected model, LoRA or full fine-tuning, and the current hyperparameter recipe.
+3. **[Evaluation](/autoscientist/interpreting-results)** measures the iteration against `target_win_rate` and captures training diagnostics such as loss, learning rate, and gradient norm.
+4. **Hyperparameter adjustment** analyzes the evaluation and revises the recipe for the next iteration.
+
+The loop stops when it reaches `target_win_rate` or completes `max_iterations`. A `succeeded` status can mean either condition, so inspect `best_win_rate` after completion.
+
+## Next steps
+
+- [Configure data augmentation](/autoscientist/data-augmentation)
+- [Create and monitor a run](/autoscientist/running-autoscientist)
+- [Interpret the results](/autoscientist/interpreting-results)
+- [Download the best checkpoint](/autoscientist/download-the-model)
+- [Review supported models and training limits](/autoscientist/supported-models)
+- Browse every request and response field in the [`create` API reference](/api/python/resources/autoscientist/methods/create)

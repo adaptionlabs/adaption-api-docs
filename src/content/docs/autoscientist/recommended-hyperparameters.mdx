@@ -1,0 +1,73 @@
+---
+title: Hyperparameters
+description: Understand the training recipe AutoScientist selects and iterates on automatically.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+AutoScientist [proposes a complete training recipe](/api/python/resources/autoscientist/methods/recommend_hyperparams) before training, then evaluates and adjusts the recipe across iterations. **For most runs, keep the recommended values unchanged.** AutoScientist is optimized to select these values together and improve them based on measured results.
+
+<Callout variant="warning">
+  Changing individual hyperparameters is not recommended. An override can
+  prevent AutoScientist from exploring the configuration it would otherwise
+  select and can reduce training quality. Override a value only when you have a
+  specific experimental or infrastructure constraint.
+</Callout>
+
+## Recipe fields
+
+- **Algorithm** selects LoRA or full fine-tuning. Full fine-tuning is available only for supported models.
+- **Epochs** controls how many passes training makes over the dataset.
+- **LoRA rank (`r`)** controls the capacity of the low-rank matrices. Higher ranks can represent more complex changes but require more memory and compute.
+- **Alpha** scales the LoRA adapter's contribution to the base model.
+- **Model name** selects the base model used for training.
+- **Target layers** identifies modules such as `q_proj`, `v_proj`, or all linear layers where LoRA adapters are inserted.
+- **Optimizer and schedule settings** control parameter updates and how the learning rate changes. For example, a linear schedule decays steadily, while a cosine schedule slows its decay near the end.
+- **Warmup ratio** is the fraction of training steps used to increase the learning rate gradually from zero.
+- **Gradient clipping** caps the gradient norm to reduce exploding gradients and unstable updates.
+
+These are conceptual names from the app. The accepted API keys and value types are model-dependent; use the [`recommend_hyperparams` reference](/api/python/resources/autoscientist/methods/recommend_hyperparams) rather than translating labels into guessed field names.
+
+## Review in the app
+
+The proposed fields are editable, but the default workflow is to review and accept them:
+
+1. Review the model, algorithm, and generated recipe.
+2. Keep the recommended values unless a known constraint requires an override.
+3. Inspect the final **AutoScientist Config** JSON before confirming.
+4. Let AutoScientist evaluate and refine the recipe across iterations.
+5. After training, compare win rate and diagnostics as described in [Interpreting results](/autoscientist/interpreting-results).
+
+## Advanced: Apply API overrides
+
+API overrides are an advanced escape hatch for controlled experiments or hard requirements such as a fixed base model or training method. The SDK accepts `model` and a `hyperparams` mapping, but does not expose a separate method for editing a recommendation. `training_type` is a field inside `hyperparams`, not a top-level argument.
+
+If an override is necessary, avoid unsupported key names: copy a valid `hyperparams` object from the current app configuration or construct it from the current [`create` API schema](/api/python/resources/autoscientist/methods/create), save it as `hyperparams.json`, and pass it unchanged:
+
+```python
+import json
+from pathlib import Path
+
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+hyperparams = json.loads(Path("hyperparams.json").read_text())
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    hyperparams={**hyperparams, "training_type": "lora"},
+)
+print(run.id, run.status)
+```
+
+Unset hyperparameter keys remain under platform control. To enforce a specific model, review the [supported models](/autoscientist/supported-models), list the currently available IDs, and pass one through `model`:
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+```
+
+Prefer leaving `model` and `hyperparams` unset so AutoScientist can choose and iterate on them automatically. See [Running AutoScientist](/autoscientist/running-autoscientist) for the complete request and status workflow.

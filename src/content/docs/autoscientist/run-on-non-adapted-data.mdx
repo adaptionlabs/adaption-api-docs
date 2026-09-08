@@ -1,0 +1,68 @@
+---
+title: Run on non-adapted data
+description: Upload a training-ready prompt/completion file and send it directly to AutoScientist.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Use [raw dataset processing](/api/python/resources/datasets/methods/create) when a tabular file already contains training-ready prompt and completion columns and you want AutoScientist to train on those rows as-is. This skips Adaptive Data's adaptation pipeline.
+
+<Callout variant="warning">
+  For best results, [adapt your data first](/adaptive-data/overview). Use raw
+  processing only when training on the original rows is intentional.
+</Callout>
+
+Raw processing supports CSV, JSON, JSONL, and Parquet files. Set `processing_mode` to `raw` and [map both required source columns](/adaptive-data/select-columns) when creating the dataset.
+
+## Upload and train
+
+This example uploads a CSV whose `instruction` and `response` columns contain the training pairs:
+
+```python
+import hashlib
+from pathlib import Path
+
+import httpx
+from adaption import Adaption
+
+client = Adaption()
+
+path = Path("training_data.csv")
+data = path.read_bytes()
+
+dataset = client.datasets.create(
+    source={
+        "name": path.stem,
+        "file_format": "csv",
+        "processing_mode": "raw",
+        "column_mapping": {
+            "prompt": "instruction",
+            "completion": "response",
+        },
+    },
+)
+
+response = httpx.put(dataset.upload_instructions.url, content=data)
+response.raise_for_status()
+
+client.datasets.upload.complete_by_id(
+    dataset.dataset_id,
+    file_size_bytes=len(data),
+    sha256=hashlib.sha256(data).hexdigest(),
+)
+client.datasets.wait_for_completion(dataset.dataset_id)
+
+run = client.autoscientist.create(dataset_id=dataset.dataset_id)
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.id, run.best_win_rate)
+```
+
+Do not call `client.datasets.run` for this workflow: raw processing makes the uploaded dataset ready for AutoScientist directly. The `column_mapping` above refers to the original file headers; an AutoScientist `column_mapping`, if supplied later, refers to the processed dataset schema.
+
+See [Running AutoScientist](/autoscientist/running-autoscientist) for polling, cancellation, and status details. For endpoint details, see the [`datasets.create`](/api/python/resources/datasets/methods/create) and [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) references.

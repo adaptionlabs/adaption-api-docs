@@ -1,0 +1,180 @@
+---
+title: AutoScientist quickstart
+description: Create a training-ready dataset, run AutoScientist, and download the best model checkpoint.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **Try it in Google Colab**
+
+Follow the [AutoScientist API Colab notebook](https://colab.research.google.com/drive/16Zly8_sDqQSP86MvdgTJ1I1T6Vjq6bkJ?usp=sharing) for an interactive walkthrough.
+
+</Callout>
+
+This guide requires `adaption >= 0.7.0`. It uses [raw processing](/autoscientist/run-on-non-adapted-data) for a short, standalone example. For best results, first improve your dataset with [Adaptive Data](/adaptive-data-quickstart), then pass that adapted dataset's ID to AutoScientist. See the [AutoScientist overview](/autoscientist/overview) for how the research loop works and how to interpret its results.
+
+## Install the SDK
+
+```shell
+pip install "adaption>=0.7.0"
+```
+
+## Create an API key
+
+<Steps>
+  <Step>[Sign in](https://adaptionlabs.ai/app/auth) to Adaption.</Step>
+  <Step>
+    Open [**Settings**](https://adaptionlabs.ai/app/settings), then open [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    Create a key and copy it. You will not be able to view the key again.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  Store API keys in environment variables or a secret manager. Do not commit
+  them to source control.
+</Callout>
+
+## Use the key in Python
+
+For local testing, you can pass the key directly:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+For applications and CI, set `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+The SDK reads the environment variable automatically:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## Create a training-ready dataset
+
+[Raw dataset creation](/autoscientist/run-on-non-adapted-data) is appropriate only when a local file already contains prompt and completion columns. This example uses `training_data.csv` with `instruction` and `response` columns:
+
+```python
+import hashlib
+from pathlib import Path
+
+import httpx
+
+path = Path("training_data.csv")
+data = path.read_bytes()
+
+dataset = client.datasets.create(
+    source={
+        "name": path.name,
+        "file_format": "csv",
+        "processing_mode": "raw",
+        "column_mapping": {
+            "prompt": "instruction",
+            "completion": "response",
+        },
+    },
+)
+
+response = httpx.put(dataset.upload_instructions.url, content=data)
+response.raise_for_status()
+
+client.datasets.upload.complete_by_id(
+    dataset.dataset_id,
+    file_size_bytes=len(data),
+    sha256=hashlib.sha256(data).hexdigest(),
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+The upload is processed asynchronously after it is completed. Poll the [dataset status](/api/python/resources/datasets/methods/get_status) until the row count is available before using the dataset:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## Augment the dataset with additional rows
+
+[Augmentation](/autoscientist/data-augmentation) is optional. This example targets at least 20,000 domain rows, then adds enough general-purpose rows for them to make up 40% of the augmented dataset.
+
+```python
+import math
+
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+total_domain_rows = (dataset.row_count or 0) + domain_rows_to_add
+
+target_general_ratio = 0.4
+general_rows_to_add = math.ceil(
+    target_general_ratio
+    * total_domain_rows
+    / (1 - target_general_ratio)
+)
+
+print(f"Domain rows to add: {domain_rows_to_add}")
+print(f"General rows to add: {general_rows_to_add}")
+```
+
+## Run AutoScientist
+
+Create an [AutoScientist run](/api/python/resources/autoscientist/methods/create) from the prepared dataset:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=general_rows_to_add,
+)
+print(run.id, run.status)  # "pending"
+```
+
+## Wait for the run to complete
+
+Wait for the run, then inspect its [status and results](/api/python/resources/autoscientist/methods/get):
+
+```python
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status != "succeeded":
+    raise RuntimeError(f"{run.status}: {run.error}")
+
+print(f"Best win rate: {run.best_win_rate}")
+```
+
+## Download the model
+
+`download_available` confirms that AutoScientist produced a checkpoint. The [download endpoint](/api/python/resources/autoscientist/methods/download) streams the archive without loading it into memory:
+
+```python
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+The archive contains the checkpoint from the best iteration, not necessarily the last iteration. See the [`create` reference](/api/python/resources/autoscientist/methods/create) for all run parameters and the [`get` reference](/api/python/resources/autoscientist/methods/get) for response fields.

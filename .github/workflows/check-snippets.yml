@@ -1,0 +1,26 @@
+name: Check docs snippets
+
+# Every Python snippet in the guide is type-checked against the SDK a reader
+# installs today, so an example cannot drift into a call the SDK does not have.
+on:
+  pull_request:
+    paths:
+      - "src/content/docs/**"
+      - "scripts/check_snippets.py"
+      - ".github/workflows/check-snippets.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/content/docs/**"
+      - "scripts/check_snippets.py"
+      - ".github/workflows/check-snippets.yml"
+
+jobs:
+  snippets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # The published SDK, not a pin: the docs must agree with what a reader
+      # gets from `pip install adaption` on the day they read the page.
+      - run: uv run --no-project --with adaption --with mypy python3 scripts/check_snippets.py

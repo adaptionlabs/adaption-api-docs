@@ -1,0 +1,54 @@
+---
+title: Interpreting results
+description: Retrieve an AutoScientist run and understand its win rate and training diagnostics.
+---
+
+## Retrieve a completed run
+
+Use the run ID returned when you [create the run](/api/python/resources/autoscientist/methods/create), then [retrieve its current results](/api/python/resources/autoscientist/methods/get):
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+run_id = "autoscientist_run_abc123"
+run = client.autoscientist.get(run_id)
+
+if run.status in {"pending", "running"}:
+    run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(f"Iterations: {run.iterations_completed}/{run.max_iterations}")
+print(f"Best win rate: {run.best_win_rate}")
+print(f"Checkpoint available: {run.download_available}")
+```
+
+The app's results page also shows the trained model ID, **Weights export**, and **AutoScientist Config**. Response fields can evolve; use the [`get` API reference](/api/python/resources/autoscientist/methods/get) for the exact SDK field that corresponds to an app value.
+
+## Training win rate
+
+The **Training Winrates** chart compares the base model with the adapted model on evaluations derived from your dataset. A 70% adapted-model win rate means the adapted model won roughly 70% of the head-to-head comparisons.
+
+`best_win_rate` is the best result across all iterations. A `succeeded` run may have reached `target_win_rate` early or simply completed `max_iterations`, so compare those values rather than treating success as proof that the target was reached.
+
+## Train and evaluation metrics
+
+The charts plot standard diagnostics over training steps:
+
+- **Loss** measures prediction error. Falling training and evaluation loss generally indicates learning; falling training loss paired with worsening evaluation loss can indicate overfitting.
+- **Learning rate** shows the optimizer's step size over time and reflects the configured warmup and schedule.
+- **Gradient norm** measures the overall gradient magnitude. Sudden spikes can indicate unstable updates, while a stable curve suggests optimization has settled.
+
+Read these curves together. A smooth loss curve is not enough if win rate is flat, and a strong win rate can still accompany unstable training diagnostics that deserve investigation.
+
+## Common issues
+
+- **Flat or negative win rate:** use a model with enough capacity, consider more epochs, and evaluate whether [augmentation](/autoscientist/data-augmentation) should bring the domain dataset toward 20,000 rows.
+- **No downloadable checkpoint:** confirm the run succeeded and `download_available` is true before following [Download the model](/autoscientist/download-the-model) or calling the [`download` method](/api/python/resources/autoscientist/methods/download).
+- **Unclear run state:** retrieve the run and inspect `status`; `pending` is queued, `running` is active, and `failed` includes the reason in `error`.
+- **Need original rather than adapted rows:** create a [raw dataset](/autoscientist/run-on-non-adapted-data) or select original columns when configuring the run.

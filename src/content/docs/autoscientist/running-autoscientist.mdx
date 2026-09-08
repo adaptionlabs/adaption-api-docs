@@ -1,0 +1,97 @@
+---
+title: Running AutoScientist
+description: Create, monitor, and handle an AutoScientist training run with the Python SDK.
+---
+
+## Create a run
+
+The SDK reads `ADAPTION_API_KEY` from the environment. Call [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) with the prepared dataset:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)  # pending
+```
+
+| Parameter                   | Required | Notes                                                                                                                                                                         |
+| --------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_id`                | Yes      | An adapted dataset ID, or a [raw dataset](/autoscientist/run-on-non-adapted-data).                                                                                            |
+| `max_iterations`            | No       | From 1 through 10.                                                                                                                                                            |
+| `target_win_rate`           | No       | Greater than 0 and at most 1. Stops the loop early once reached.                                                                                                              |
+| `model`                     | No       | An ID returned by [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models). If omitted, AutoScientist selects a model for the dataset. |
+| `training_type`             | No       | `lora` by default, or `full` when supported by the model.                                                                                                                     |
+| `hyperparams`               | No       | Overrides to the [platform recipe](/autoscientist/recommended-hyperparameters); unset keys retain platform defaults.                                                          |
+| `augmentation_domain_rows`  | No       | [Domain-targeted rows](/autoscientist/data-augmentation) added before training.                                                                                               |
+| `augmentation_general_rows` | No       | General-purpose rows added before training.                                                                                                                                   |
+| `idempotency_key`           | No       | Repeated requests with the same key return the existing run.                                                                                                                  |
+| `column_mapping`            | No       | Maps columns in the adapted dataset schema. Omit it to let the platform infer the mapping.                                                                                    |
+
+Training is supervised (`sft`); `create` has no `method` parameter.
+
+`column_mapping` is validated against the **adapted dataset's schema**, not the uploaded file's original headers. Adaptation can add columns such as `enhanced_prompt`. A mapping to a missing column fails with `Selected column '...' for prompt is not in this dataset`.
+
+## Wait for completion
+
+[Run status](/api/python/resources/autoscientist/methods/get) is `pending`, `running`, `succeeded`, `failed`, or `cancelled`.
+
+```python
+from adaption import TrainingTimeout
+
+try:
+    run = client.autoscientist.wait_for_completion(run.id)
+except TrainingTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.iterations_completed, run.max_iterations, run.best_win_rate)
+```
+
+`wait_for_completion` backs off from 10 to 60 seconds and has a four-hour default timeout. A timeout stops waiting, not training. Call it again with the same run ID to resume tracking.
+
+To control the polling schedule yourself:
+
+```python
+import time
+
+while True:
+    run = client.autoscientist.get(run.id)
+    print(run.status, run.iterations_completed, run.best_win_rate)
+
+    if run.status == "succeeded":
+        break
+    if run.status == "failed":
+        raise RuntimeError(f"failed: {run.error}")
+    if run.status == "cancelled":
+        raise RuntimeError("Run was cancelled")
+
+    time.sleep(30)
+```
+
+A successful run either reached `target_win_rate` or used its final iteration. [Compare `best_win_rate` with the target](/autoscientist/interpreting-results) to determine which occurred. Use [`client.autoscientist.cancel(run.id)`](/api/python/resources/autoscientist/methods/cancel) to stop a run in flight.
+
+## Constrain model size
+
+In the app, **Tiny AutoScientist** limits selection to models under 10B parameters. With the SDK, review the [supported models](/autoscientist/supported-models), list the currently available models, and pass an eligible ID explicitly:
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+
+model_id = input("Eligible model ID: ").strip()
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model=model_id,
+)
+```
+
+Model availability and metadata can change. Confirm the current values with [`autoscientist.list_models`](/api/python/resources/autoscientist/methods/list_models) rather than inferring model size from its ID.
