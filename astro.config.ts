@@ -70,6 +70,9 @@ export default defineConfig({
       },
       title: "Adaption",
       customCss: ["./theme.css"],
+      editLink: {
+        baseUrl: "https://github.com/adaptionlabs/adaption-api-docs/edit/main/",
+      },
       // NOTE: @stainless-api/docs accepts `defaultLanguage` but never applies it —
       // its applyLanguageToLinks() helper is exported and never called, so every
       // link into /api lands on the HTTP variant. Do what that helper would do.
@@ -209,6 +212,7 @@ export default defineConfig({
       experimental: {
         starlightCompat: {
           components: {
+            PageTitle: "./src/components/PageTitle/PageTitle.astro",
             Pagination: "./src/components/Pagination/Pagination.astro",
           },
         },
