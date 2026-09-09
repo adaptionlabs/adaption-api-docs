@@ -1,13 +1,13 @@
 ---
 title: Expand your data
-description: Translate or localize rows to increase dataset size before adaptation.
+description: Augment, translate, or localize rows to increase dataset size after import or adaptation.
 ---
 
 import { Callout } from "@stainless-api/docs/components";
 
-After you [map your columns](/adaptive-data/select-columns), you can expand the dataset across languages and locales before running the rest of the Adaptive Data configuration.
+After you [import a dataset](/adaptive-data/create-a-dataset) and optionally [run Adaptive Data](/api/python/resources/datasets/methods/run), you can increase row count without re-running the full adaptation pipeline. Each method below returns a **new dataset** that includes your source rows plus the added ones.
 
-The SDK examples below assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to an [imported dataset](/adaptive-data/create-a-dataset):
+The SDK examples assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to a dataset that is ready to expand:
 
 ```python
 import os
@@ -16,116 +16,90 @@ from adaption import Adaption
 
 client = Adaption()
 dataset_id = os.environ["ADAPTION_DATASET_ID"]
-column_mapping = {
-    "prompt": "instruction",
-    "completion": "response",
-}
 ```
 
-## Expand across languages and locales
+Poll [`GET /datasets/{dataset_id}`](/api/python/resources/datasets/methods/retrieve) on the returned `dataset_id` until status reaches `succeeded` before downloading or training on the expanded dataset.
 
-Language expansion can increase the size of a dataset in two ways:
+## Data augmentation
 
-- **Translate** converts existing rows into other languages. Adaptive Data supports up to 242 languages.
-- **Localize** adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone.
+[`datasets.augment`](/api/python/resources/datasets/methods/augment) retrieves additional rows from the curated pool and returns them as a new dataset. Use it when you want more examples in the same topic mix or broader coverage across topics:
 
-### Translate rows
-
-Set `language_expansion.type` to `translate`, then provide [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` is the fraction of source rows expanded for each target language:
+- **Domain rows** match topics in your dataset.
+- **General rows** come from other topics to broaden diversity.
 
 ```python
-translation = {
-    "type": "translate",
-    "sample_rate": 0.25,
-    "languages": ["es", "fr"],
-}
-
-estimate = client.datasets.run(
+estimate = client.datasets.augment(
     dataset_id,
-    column_mapping=column_mapping,
-    language_expansion=translation,
+    domain_rows=3_000,
+    general_rows=1_000,
     estimate=True,
 )
 print(f"Estimated credits: {estimate.estimated_credits_consumed}")
 
-run = client.datasets.run(
+response = client.datasets.augment(
     dataset_id,
-    column_mapping=column_mapping,
-    language_expansion=translation,
+    domain_rows=3_000,
+    general_rows=1_000,
 )
-print(f"Run started: {run.run_id}")
+print(response.dataset_id, response.status)
+```
+
+Omit either row parameter to skip that type of addition. Augmentation is billed on the rows retrieved. See the [`augment` reference](/api/python/resources/datasets/methods/augment) for current limits and request fields.
+
+<Callout variant="note">
+  `datasets.augment` works on text datasets whose topic mix can be determined.
+  It does not support image datasets. To generate synthetic rows as part of
+  model training, see [AutoScientist data
+  augmentation](/autoscientist/data-augmentation).
+</Callout>
+
+## Translate rows
+
+[`datasets.translate`](/api/python/resources/datasets/methods/translate) converts a sample of existing rows into other languages. Adaptive Data supports up to 242 languages. Provide [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` is the fraction of source rows expanded for each target language:
+
+```python
+estimate = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+)
+print(response.dataset_id, response.status)
 ```
 
 With two target languages and a `0.25` sample rate, the output contains approximately `1 + (0.25 × 2) = 1.5` times as many rows as the input.
 
-### Localize rows
+## Localize rows
 
-Set `type` to `localize` and provide country/language pairs using [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) and [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+[`datasets.localize`](/api/python/resources/datasets/methods/localize) adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone. Provide country/language pairs using [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) and [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
 
 ```python
-run = client.datasets.run(
+response = client.datasets.localize(
     dataset_id,
-    column_mapping=column_mapping,
-    language_expansion={
-        "type": "localize",
-        "sample_rate": 0.25,
-        "pairs": [
-            {"country": "CA", "language": "fr"},
-            {"country": "MX", "language": "es"},
-        ],
-    },
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
 )
-print(f"Run started: {run.run_id}")
+print(response.dataset_id, response.status)
 ```
 
 Each pair creates a country- and language-specific variant rather than only translating the text.
 
 <Callout variant="note">
-  Expansion is billed on output rows. Omitting `language_expansion` preserves
-  expansion previously saved in the app; passing `language_expansion=None`
-  explicitly clears it. See the [`datasets.run`
-  reference](/api/python/resources/datasets/methods/run) for the current schema
-  and supported values.
+  Translate and localize are billed on output rows. Set `estimate=True` on any
+  of these methods to price a request before it runs. See the
+  [`translate`](/api/python/resources/datasets/methods/translate) and
+  [`localize`](/api/python/resources/datasets/methods/localize) references for
+  the current schema and supported values.
 </Callout>
 
-For recipes, preference pairs, row limits, and brand controls, see [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
-
-## Data augmentation
-
-Add domain-specific and general-purpose rows before AutoScientist training begins.
-
-[Augmentation](/api/python/resources/autoscientist/methods/create) is optional, but recommended when a dataset is small or lacks diversity. AutoScientist can add two independent types of rows before its training iterations begin:
-
-- **Domain rows** add examples specific to the dataset's domain. Existing rows count toward the recommended 20,000-domain-row target.
-- **General rows** add diverse examples that help the model retain broader capabilities.
-
-<Callout variant="note">
-  Augmentation here is part of the AutoScientist request. To improve and
-  restructure the source dataset first, use [Adaptive Data](/adaptive-data/overview).
-</Callout>
-
-### Calculate the additions
-
-The following request targets at least 20,000 domain rows and adds 8,000 general rows:
-
-```python
-from adaption import Adaption
-
-client = Adaption()
-
-dataset_id = "dataset_abc123"
-dataset = client.datasets.get(dataset_id=dataset_id)
-
-domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
-
-run = client.autoscientist.create(
-    dataset_id=dataset_id,
-    augmentation_domain_rows=domain_rows_to_add,
-    augmentation_general_rows=8_000,
-)
-print(run.id, run.status)
-```
-
-This produces up to 28,000 training rows: the existing dataset plus enough domain rows to reach 20,000, followed by 8,000 general rows. If the dataset already contains at least 20,000 rows, `domain_rows_to_add` is zero.
-
-Omit either augmentation parameter to skip that type of addition. AutoScientist prices and sizes each requested expansion before training. See the [`create` API reference](/api/python/resources/autoscientist/methods/create) for current limits and request fields.
+For recipes, preference pairs, row limits, and brand controls on an adaptation run, see [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
