@@ -17,7 +17,8 @@ See the [`autoscientist.list_models` API reference](/api/python/resources/autosc
 
 <Callout variant="note">
   You do not need to select a model. Omit `model` and AutoScientist selects one
-  for the dataset. The resolved model ID is returned on the run.
+  that supports the requested `training_method`. The resolved model ID is
+  returned on the run.
 </Callout>
 
 ## Available models
@@ -82,11 +83,11 @@ run = client.autoscientist.create(
 
 ## Row count
 
-AutoScientist requires at least **1,000 rows** for every supported model. A smaller model does not lower this platform-wide minimum.
+AutoScientist requires at least **1,000 effective rows for SFT** and **12,000 effective preference pairs for DPO**. Requested augmentation counts toward the effective size. A smaller model does not lower either platform-wide minimum.
 
 ## Context length and your data
 
-Training context is the maximum sequence length used during fine-tuning. It is shorter than the serving context and shorter for preference training than supervised fine-tuning.
+Training context is the maximum sequence length used during fine-tuning. It is shorter than the serving context and can be shorter for DPO than SFT. Before pinning a model for DPO, confirm that `DPO` appears in its runtime `methods` list and use the DPO context column above.
 
 Rows longer than the training limit are truncated rather than rejected. For datasets containing long documents, choose a model with a larger SFT or DPO context limit.
 

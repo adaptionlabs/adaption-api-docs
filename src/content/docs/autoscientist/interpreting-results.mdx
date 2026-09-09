@@ -24,11 +24,16 @@ if run.status != "succeeded":
     raise RuntimeError(f"Run ended with status: {run.status}")
 
 print(f"Iterations: {run.iterations_completed}/{run.max_iterations}")
+print(f"Training method: {run.training_method}")
 print(f"Best win rate: {run.best_win_rate}")
 print(f"Checkpoint available: {run.download_available}")
 ```
 
 The app's results page also shows the trained model ID, **Weights export**, and **AutoScientist Config**. Response fields can evolve; use the [`get` API reference](/api/python/resources/autoscientist/methods/get) for the exact SDK field that corresponds to an app value.
+
+### DPO stage transitions
+
+A run returned with `training_method="dpo"` includes an SFT stage followed by DPO under the same public ID. During the handoff between stages, `status` remains `running`, `best_win_rate` and other best-result fields can be null, and `download_available` is false. Continue polling; once DPO starts, the public status, iterations, metrics, and artifact availability describe that stage.
 
 ## Training win rate
 
@@ -40,7 +45,7 @@ The **Training Winrates** chart compares the base model with the adapted model o
 
 The charts plot standard diagnostics over training steps:
 
-- **Loss** measures prediction error. Falling training and evaluation loss generally indicates learning; falling training loss paired with worsening evaluation loss can indicate overfitting.
+- **Loss** measures the optimized training objective. For SFT, it reflects next-token prediction error. For DPO, it reflects how strongly the model separates chosen responses from rejected responses relative to the reference policy. Compare either loss with evaluation win rate rather than interpreting it alone.
 - **Learning rate** shows the optimizer's step size over time and reflects the configured warmup and schedule.
 - **Gradient norm** measures the overall gradient magnitude. Sudden spikes can indicate unstable updates, while a stable curve suggests optimization has settled.
 
@@ -50,5 +55,6 @@ Read these curves together. A smooth loss curve is not enough if win rate is fla
 
 - **Flat or negative win rate:** use a model with enough capacity, consider more epochs, and evaluate whether [augmentation](/autoscientist/data-augmentation) should bring the domain dataset toward 20,000 rows.
 - **No downloadable checkpoint:** confirm the run succeeded and `download_available` is true before following [Download the model](/autoscientist/download-the-model) or calling the [`download` method](/api/python/resources/autoscientist/methods/download).
+- **DPO metrics temporarily missing:** if the run is still `running`, it can be moving from SFT to DPO. Continue polling the same run ID.
 - **Unclear run state:** retrieve the run and inspect `status`; `pending` is queued, `running` is active, and `failed` includes the reason in `error`.
 - **Need original rather than adapted rows:** create a [raw dataset](/autoscientist/run-on-non-adapted-data) or select original columns when configuring the run.

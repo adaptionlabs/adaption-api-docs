@@ -41,3 +41,16 @@ print(run.id, run.status)
 This produces up to 28,000 training rows: the existing dataset plus enough domain rows to reach 20,000, followed by 8,000 general rows. If the dataset already contains at least 20,000 rows, `domain_rows_to_add` is zero.
 
 Omit either augmentation parameter to skip that type of addition. AutoScientist prices and sizes each requested expansion before training. See the [`create` API reference](/api/python/resources/autoscientist/methods/create) for current limits and request fields.
+
+## Augment preference data
+
+For a text DPO run, set `training_method="dpo"` on the same request. AutoScientist produces preference-shaped additions, and those additions count toward the minimum of 12,000 effective preference pairs:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="dpo",
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+```
