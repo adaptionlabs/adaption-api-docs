@@ -80,6 +80,8 @@ if expanded_id is None:
     raise RuntimeError("Estimate-only request created no dataset")
 
 status = client.datasets.wait_for_completion(expanded_id, timeout=3600)
+if status.status == "failed":
+    raise RuntimeError("Expansion failed")
 print(f"Status: {status.status}")
 ```
 
@@ -108,7 +110,7 @@ run = client.datasets.run(
 print(f"Run started: {run.run_id}")
 ```
 
-The `localize` form takes `"type": "localize"` and `pairs` instead of `languages`. Unlike `translate` and `localize`, this path expands rows inside the adaptation run of the same dataset and does not create a new one. See the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for the current schema and supported values.
+Unlike `translate` and `localize`, this path expands rows inside the adaptation run of the same dataset and does not create a new one. See the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for the current schema and supported values.
 
 ## Apply recipes
 
