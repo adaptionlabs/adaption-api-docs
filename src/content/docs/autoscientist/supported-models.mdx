@@ -44,7 +44,7 @@ See the [`autoscientist.list_models` API reference](/api/python/resources/autosc
 
 **Min. Rows** is the minimum effective dataset size (base rows + augmentation) required to select that model. DPO training requires at least **12,000 rows** regardless of model, see [Row count](#row-count) for more details.
 
-`VLM` variants accept image columns as multimodal context. `Qwen/Qwen3.5-9B` (†) is multimodal despite not carrying a `VLM` suffix. A `Full` training type means full fine-tuning is available in addition to LoRA.
+`VLM` variants accept image columns as multimodal context. `Qwen/Qwen3.5-9B` (†) is multimodal despite not carrying a `VLM` suffix. A `full` value for `training_type` means full fine-tuning is available in addition to `lora`.
 
 ## Per-model training limits
 
