@@ -22,27 +22,27 @@ See the [`autoscientist.list_models` API reference](/api/python/resources/autosc
 
 ## Available models
 
-| Model                                 | `model` ID                                           | Size  | Methods  | Training Types | Min. Rows |
-| ------------------------------------- | ---------------------------------------------------- | ----- | -------- | -------------- | --------- |
-| Gemma 3 (4B Instruct)                 | `google/gemma-3-4b-it`                               | 4B    | SFT, DPO | LoRA, Full     | 1,000     |
-| Gemma 3 (27B Instruct)                | `google/gemma-3-27b-it`                              | 27B   | SFT, DPO | LoRA, Full     | 10,000    |
-| Gemma 4 (26B A4B IT)                  | `google/gemma-4-26B-A4B-it`                          | 26B   | SFT, DPO | LoRA           | 10,000    |
-| Gemma 4 (31B Instruct)                | `google/gemma-4-31B-it`                              | 31B   | SFT, DPO | LoRA, Full     | 10,000    |
-| GPT-OSS (20B)                         | `openai/gpt-oss-20b`                                 | 20B   | SFT, DPO | LoRA           | 1,000     |
-| GPT-OSS (120B)                        | `openai/gpt-oss-120b`                                | 120B  | SFT, DPO | LoRA           | 1,000     |
-| Llama 3.3 (70B Instruct)              | `meta-llama/Llama-3.3-70B-Instruct-Reference`        | 70B   | SFT, DPO | LoRA, Full     | 1,000     |
-| Llama 4 Scout (17B-16E Instruct)      | `meta-llama/Llama-4-Scout-17B-16E-Instruct`          | 109B  | SFT, DPO | LoRA           | 1,000     |
-| Meta Llama 3.2 (3B Instruct)          | `meta-llama/Llama-3.2-3B-Instruct`                   | 3B    | SFT, DPO | LoRA, Full     | 1,000     |
-| Mistral 7B Instruct (v0.2)            | `mistralai/Mistral-7B-Instruct-v0.2`                 | 7B    | SFT, DPO | LoRA           | 1,000     |
-| Mixtral 8x7B Instruct (v0.1)          | `mistralai/Mixtral-8x7B-Instruct-v0.1`               | 46.7B | SFT, DPO | LoRA, Full     | 1,000     |
-| NVIDIA Nemotron 3 Nano Omni (30B A3B) | `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16` | 30B   | SFT, DPO | LoRA           | 10,000    |
-| NVIDIA Nemotron 3 Super (120B A12B)   | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`      | 120B  | SFT, DPO | LoRA           | 10,000    |
-| Qwen 3.5 (0.8B)                       | `Qwen/Qwen3.5-0.8B`                                  | 0.8B  | SFT, DPO | LoRA           | 1,000     |
-| Qwen 3.5 (9B)†                        | `Qwen/Qwen3.5-9B`                                    | 9B    | SFT, DPO | LoRA           | 1,000     |
-| Qwen 3.5 (122B A10B)                  | `Qwen/Qwen3.5-122B-A10B`                             | 122B  | SFT, DPO | LoRA           | 10,000    |
-| Qwen 3.6 (35B A3B)                    | `Qwen/Qwen3.6-35B-A3B`                               | 35B   | SFT, DPO | LoRA           | 10,000    |
+| Model                                 | `model` ID                                           | Size  | Methods  | Supported `training_type` | Min. Rows |
+| ------------------------------------- | ---------------------------------------------------- | ----- | -------- | ---------------------------- | --------- |
+| Gemma 3 (4B Instruct)                 | `google/gemma-3-4b-it`                               | 4B    | SFT, DPO | lora, full     | 1,000     |
+| Gemma 3 (27B Instruct)                | `google/gemma-3-27b-it`                              | 27B   | SFT, DPO | lora, full     | 10,000    |
+| Gemma 4 (26B A4B IT)                  | `google/gemma-4-26B-A4B-it`                          | 26B   | SFT, DPO | lora           | 10,000    |
+| Gemma 4 (31B Instruct)                | `google/gemma-4-31B-it`                              | 31B   | SFT, DPO | lora, full     | 10,000    |
+| GPT-OSS (20B)                         | `openai/gpt-oss-20b`                                 | 20B   | SFT, DPO | lora           | 1,000     |
+| GPT-OSS (120B)                        | `openai/gpt-oss-120b`                                | 120B  | SFT, DPO | lora           | 1,000     |
+| Llama 3.3 (70B Instruct)              | `meta-llama/Llama-3.3-70B-Instruct-Reference`        | 70B   | SFT, DPO | lora, full     | 1,000     |
+| Llama 4 Scout (17B-16E Instruct)      | `meta-llama/Llama-4-Scout-17B-16E-Instruct`          | 109B  | SFT, DPO | lora           | 1,000     |
+| Meta Llama 3.2 (3B Instruct)          | `meta-llama/Llama-3.2-3B-Instruct`                   | 3B    | SFT, DPO | lora, full     | 1,000     |
+| Mistral 7B Instruct (v0.2)            | `mistralai/Mistral-7B-Instruct-v0.2`                 | 7B    | SFT, DPO | lora           | 1,000     |
+| Mixtral 8x7B Instruct (v0.1)          | `mistralai/Mixtral-8x7B-Instruct-v0.1`               | 46.7B | SFT, DPO | lora, full     | 1,000     |
+| NVIDIA Nemotron 3 Nano Omni (30B A3B) | `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16` | 30B   | SFT, DPO | lora           | 10,000    |
+| NVIDIA Nemotron 3 Super (120B A12B)   | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`      | 120B  | SFT, DPO | lora           | 10,000    |
+| Qwen 3.5 (0.8B)                       | `Qwen/Qwen3.5-0.8B`                                  | 0.8B  | SFT, DPO | lora           | 1,000     |
+| Qwen 3.5 (9B)†                        | `Qwen/Qwen3.5-9B`                                    | 9B    | SFT, DPO | lora           | 1,000     |
+| Qwen 3.5 (122B A10B)                  | `Qwen/Qwen3.5-122B-A10B`                             | 122B  | SFT, DPO | lora           | 10,000    |
+| Qwen 3.6 (35B A3B)                    | `Qwen/Qwen3.6-35B-A3B`                               | 35B   | SFT, DPO | lora           | 10,000    |
 
-**Min. Rows** is the minimum effective dataset size (base rows + augmentation) required to select that model. DPO training requires at least **12,000 rows** regardless of model, see [Row count](#row-count) for more details.
+**Min. Rows** is the minimum effective dataset size (base rows + [augmentation](/autoscientist/data-augmentation)) required to select that model. DPO training requires at least **12,000 rows** regardless of model, see [Row count](#row-count) for more details.
 
 `VLM` variants accept image columns as multimodal context. `Qwen/Qwen3.5-9B` (†) is multimodal despite not carrying a `VLM` suffix. A `full` value for `training_type` means full fine-tuning is available in addition to `lora`.
 

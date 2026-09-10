@@ -44,13 +44,13 @@ These hyperparameters configure Low-Rank Adaptation and are only applicable when
 | `lora_dropout`           | Dropout probability applied to LoRA layers during training. Adds regularization to reduce overfitting.                                                                    | Float, `0.0`–`1.0` (typically `0.0`–`0.1`)                                |
 | `lora_trainable_modules` | Which model layers receive LoRA adapters. `"all-linear"` targets every linear layer; alternatively, specify a comma-separated list of module names.                       | `"all-linear"` or comma-separated list (e.g. `"q_proj,v_proj,o_proj"`)    |
 
-### SFT-specific
+### SFT specific
 
 | Hyperparameter   | Definition                                                                                                                                                                    | Valid Values       |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
 | `train_on_inputs` | Whether training loss is computed over prompt tokens in addition to completion tokens. Setting to `false` masks the prompt so the model only learns to generate completions.  | `true` \| `false`  |
 
-### DPO-specific
+### Alignment specific
 
 These hyperparameters apply only to preference-based (DPO) training. They are inert for SFT runs.
 
