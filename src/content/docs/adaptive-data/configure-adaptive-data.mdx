@@ -24,69 +24,91 @@ column_mapping = {
 
 ## Expand across languages and locales
 
-Language expansion can increase the size of a dataset in two ways:
+Language expansion adds rows in other languages or locales. Two methods run a one-off expansion on an existing dataset. Each one writes a **new** dataset that holds the source rows plus the added rows, and leaves the source dataset unchanged:
 
-- **Translate** converts existing rows into other languages. Adaptive Data supports up to 242 languages.
-- **Localize** adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone.
+- **[`datasets.translate`](/api/python/resources/datasets/methods/translate)** converts a sample of rows into other languages. Adaptive Data supports up to 242 languages.
+- **[`datasets.localize`](/api/python/resources/datasets/methods/localize)** adapts a sample of rows for a country and language pair, including locale-specific wording rather than direct translation alone.
+
+Both methods take `sample_rate`, the fraction of source rows expanded for each target. With two targets and a `0.25` sample rate, the new dataset holds approximately `1 + (0.25 × 2) = 1.5` times as many rows as the source. Expansion is billed on the rows it adds. Pass `estimate=True` to receive a credit quote without starting a run or creating a dataset.
 
 ### Translate rows
 
-Set `language_expansion.type` to `translate`, then provide [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` is the fraction of source rows expanded for each target language:
+Provide [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes) in `languages`:
 
 ```python
-translation = {
-    "type": "translate",
-    "sample_rate": 0.25,
-    "languages": ["es", "fr"],
-}
-
-estimate = client.datasets.run(
+estimate = client.datasets.translate(
     dataset_id,
-    column_mapping=column_mapping,
-    language_expansion=translation,
+    sample_rate=0.25,
+    languages=["es", "fr"],
     estimate=True,
 )
 print(f"Estimated credits: {estimate.estimated_credits_consumed}")
 
-run = client.datasets.run(
+translation = client.datasets.translate(
     dataset_id,
-    column_mapping=column_mapping,
-    language_expansion=translation,
+    sample_rate=0.25,
+    languages=["es", "fr"],
 )
-print(f"Run started: {run.run_id}")
+print(f"New dataset: {translation.dataset_id}")
 ```
-
-With two target languages and a `0.25` sample rate, the output contains approximately `1 + (0.25 × 2) = 1.5` times as many rows as the input.
 
 ### Localize rows
 
-Set `type` to `localize` and provide country/language pairs using [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) and [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+Provide country/language pairs in `pairs`, using [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) and [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+
+```python
+localization = client.datasets.localize(
+    dataset_id,
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
+)
+print(f"New dataset: {localization.dataset_id}")
+```
+
+Each pair creates a country- and language-specific variant rather than only translating the text. Unsupported language codes or pairs return a `400` response with a sample of the supported values.
+
+### Wait for the new dataset
+
+Both responses carry the `dataset_id` of the new dataset and its `status` at the time of the call. Both fields are `None` for an estimate, which creates nothing. Poll [`datasets.get_status`](/api/python/resources/datasets/methods/get_status) on the new ID until it reaches `succeeded`, or let `wait_for_completion` poll for you:
+
+```python
+expanded_id = translation.dataset_id
+if expanded_id is None:
+    raise RuntimeError("Estimate-only request created no dataset")
+
+status = client.datasets.wait_for_completion(expanded_id, timeout=3600)
+print(f"Status: {status.status}")
+```
+
+`wait_for_completion` returns when the status is `succeeded` or `failed` and raises `adaption.DatasetTimeout` after `timeout` seconds. The expansion keeps running on the server after a timeout, so call it again with the same ID to resume waiting. Once the status is `succeeded`, [download the new dataset](/api/python/resources/datasets/methods/download) or use it in a fine-tuning run.
+
+<Callout variant="note">
+  Pass `idempotency_key` when your application might retry the request. A
+  second call with the same key returns the dataset the first call created
+  instead of starting and charging for a second run.
+</Callout>
+
+### Expansion saved on the dataset
+
+Expansion can also be a setting stored on the dataset. It is the same setting the app wizard shows for that dataset. Calling `datasets.run` with `language_expansion` updates the stored setting and launches an adaptation run with it. Omitting `language_expansion` launches with the stored setting unchanged, and passing `language_expansion=None` turns the setting off before the run:
 
 ```python
 run = client.datasets.run(
     dataset_id,
     column_mapping=column_mapping,
     language_expansion={
-        "type": "localize",
+        "type": "translate",
         "sample_rate": 0.25,
-        "pairs": [
-            {"country": "CA", "language": "fr"},
-            {"country": "MX", "language": "es"},
-        ],
+        "languages": ["es", "fr"],
     },
 )
 print(f"Run started: {run.run_id}")
 ```
 
-Each pair creates a country- and language-specific variant rather than only translating the text.
-
-<Callout variant="note">
-  Expansion is billed on output rows. Omitting `language_expansion` preserves
-  expansion previously saved in the app; passing `language_expansion=None`
-  explicitly clears it. See the [`datasets.run`
-  reference](/api/python/resources/datasets/methods/run) for the current schema
-  and supported values.
-</Callout>
+The `localize` form takes `"type": "localize"` and `pairs` instead of `languages`. Unlike `translate` and `localize`, this path expands rows inside the adaptation run of the same dataset and does not create a new one. See the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for the current schema and supported values.
 
 ## Apply recipes
 
