@@ -124,9 +124,10 @@ This example targets at least 20,000 domain rows, then adds enough general-purpo
 
 <Callout variant="note">
   **Why add general-purpose rows?** Fine-tuning on domain-specific data alone
-  can cause **catastrophic forgetting**; the model loses general capabilities
-  it learned during pre-training. Mixing in general-purpose data preserves these existing
-  strengths while the model learns your domain, leading to a more robust and well-rounded fine-tune.
+  can cause **catastrophic forgetting**; the model loses general capabilities it
+  learned during pre-training. Mixing in general-purpose data preserves these
+  existing strengths while the model learns your domain, leading to a more
+  robust and well-rounded fine-tune.
 </Callout>
 
 ```python
@@ -160,6 +161,7 @@ run = client.autoscientist.create(
 )
 print(run.id, run.status)  # "pending"
 ```
+
 To specify a model for your run, pass the `model` parameter to `client.autoscientist.create()`. If omitted, AutoScientist automatically selects the best model for your dataset. For comprehensive details on context limits, training types (LoRA vs. Full), and multimodal capabilities, see the [Supported models](/autoscientist/supported-models) documentation.
 
 ## Wait for the run to complete
