@@ -28,15 +28,10 @@ When evaluation succeeds, `quality` can include before-and-after scores on a 0â€
 
 ## Wait until evaluation finishes
 
-`wait_for_evaluation` polls `get_evaluation` with exponential backoff and returns the same object once the status is `succeeded`, `failed`, or `skipped`. Set `timeout` so a notebook or CI job cannot wait forever:
+`wait_for_evaluation` polls `get_evaluation` with exponential backoff and returns the same object once the status is `succeeded`, `failed`, or `skipped`. Set `timeout` so a notebook or CI job cannot wait forever; the helper raises `adaption.DatasetTimeout` when it passes:
 
 ```python
-from adaption import DatasetTimeout
-
-try:
-    evaluation = client.datasets.wait_for_evaluation(dataset_id, timeout=600)
-except DatasetTimeout:
-    raise TimeoutError("Evaluation did not finish within 10 minutes")
+evaluation = client.datasets.wait_for_evaluation(dataset_id, timeout=600)
 
 if evaluation.status == "failed":
     raise RuntimeError("Dataset evaluation failed")
