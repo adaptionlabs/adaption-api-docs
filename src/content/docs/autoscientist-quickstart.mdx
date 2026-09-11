@@ -67,33 +67,13 @@ client = Adaption()
 [Raw dataset creation](/autoscientist/run-on-non-adapted-data) is appropriate only when a local file already contains prompt and completion columns. This example uses `training_data.csv` with `instruction` and `response` columns:
 
 ```python
-import hashlib
-from pathlib import Path
-
-import httpx
-
-path = Path("training_data.csv")
-data = path.read_bytes()
-
-dataset = client.datasets.create(
-    source={
-        "name": path.name,
-        "file_format": "csv",
-        "processing_mode": "raw",
-        "column_mapping": {
-            "prompt": "instruction",
-            "completion": "response",
-        },
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
     },
-)
-
-response = httpx.put(dataset.upload_instructions.url, content=data)
-response.raise_for_status()
-
-client.datasets.upload.complete_by_id(
-    dataset.dataset_id,
-    file_size_bytes=len(data),
-    sha256=hashlib.sha256(data).hexdigest(),
 )
 dataset_id = dataset.dataset_id
 print(dataset_id)
@@ -118,7 +98,7 @@ while True:
 
 ## Augment the dataset with additional rows
 
-[Augmentation](/autoscientist/data-augmentation) is optional but strongly recommended. Many of our models require a minimum dataset size to guarantee reasonable performance. See [supported models](/autoscientist/supported-models) for specific requirements. 
+[Augmentation](/autoscientist/data-augmentation) is optional but strongly recommended. Many of our models require a minimum dataset size to guarantee reasonable performance. See [supported models](/autoscientist/supported-models) for specific requirements.
 
 This example targets at least 20,000 domain rows, then adds enough general-purpose rows for them to make up 40% of the augmented dataset.
 
