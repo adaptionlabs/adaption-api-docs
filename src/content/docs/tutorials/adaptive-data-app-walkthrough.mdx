@@ -24,16 +24,7 @@ Document-style sources such as PDFs, scans, slide decks, and email threads trigg
 
 Adaptive Data does not currently support non-text tabular data such as financial time series.
 
-## Step 2 | Expand the dataset
-
-In the [**Expansion** step](/adaptive-data/configure-adaptive-data#expand-across-languages-and-locales), optionally increase the size of the dataset:
-
-- **Translate** creates translated versions of existing rows. The app supports up to 242 languages; see the [supported language list](https://docs.google.com/spreadsheets/d/17NTJw8MF04B_zpNLT72V1bXbQk-VJOxuYOah1w7YboY/edit?usp=sharing).
-- **Localize** adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone.
-
-Skip expansion when you need to preserve the current dataset size.
-
-## Step 3 | Map your columns
+## Step 2 | Map your columns
 
 [Assign each source column a role](/adaptive-data/select-columns):
 
@@ -53,7 +44,7 @@ For example, a document-extraction dataset could use `document_body` as context 
 
 Make sure every column needed to answer the prompt is mapped as context. The column-selection guide includes detailed mapping patterns for [image columns](/adaptive-data/select-columns#map-an-image-column).
 
-## Step 4 | Evaluate data quality
+## Step 3 | Evaluate data quality
 
 The [**Data Evaluation** step](/adaptive-data/evaluate-dataset-quality) reports:
 
@@ -63,7 +54,7 @@ The [**Data Evaluation** step](/adaptive-data/evaluate-dataset-quality) reports:
 
 Use this baseline to compare the source dataset with the adapted result after the run.
 
-## Step 5 | Choose recipes
+## Step 4 | Choose recipes
 
 [Select only the recipes](/adaptive-data/configure-adaptive-data#apply-recipes) that fit your goal:
 
@@ -75,7 +66,7 @@ Use this baseline to compare the source dataset with the adapted result after th
 
 If prompts must remain byte-for-byte unchanged, disable **Prompt Rephrasing** and **Metadata Injection**.
 
-## Step 6 | Configure Blueprint
+## Step 5 | Configure Blueprint
 
 If you answer **Yes** to **Do you want to add brand guidelines or global constraints?**, the app opens [Blueprint and its brand controls](/adaptive-data/configure-adaptive-data#configure-brand-controls).
 
@@ -91,7 +82,7 @@ Blueprint also provides structured controls:
 
 These controls apply to every adapted row, so use them for true global requirements rather than row-specific guidance.
 
-## Step 7 | Review and launch
+## Step 6 | Review and launch
 
 The **Summary** screen shows:
 
@@ -113,7 +104,7 @@ Large imports can spend several hours in the queue. If a job appears stuck:
 3. Retry a failed job once, especially if it reached 100% before failing.
 4. If it remains stuck or fails again, [contact support](/resources/support) and include the dataset ID.
 
-## Step 8 | Review results
+## Step 7 | Review results
 
 When processing finishes, open the dataset and select the **View** tab. Each row shows source and adapted data side by side, including original and enhanced prompts, original and enhanced completions, and inline context.
 
@@ -126,12 +117,22 @@ Compare the before-and-after:
 
 Row count can decrease because prompt deduplication removes duplicate examples.
 
+## Step 8 | Expand the dataset
+
+After the Adaptive Data run completes, optionally [expand the dataset](/adaptive-data/expand-data) into a new version with more rows:
+
+- **Augment** retrieves additional domain-matched or general-purpose rows from the curated pool.
+- **Translate** creates translated versions of existing rows. The app supports up to 242 languages; see the [supported language list](https://docs.google.com/spreadsheets/d/17NTJw8MF04B_zpNLT72V1bXbQk-VJOxuYOah1w7YboY/edit?usp=sharing).
+- **Localize** adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone.
+
+Skip expansion when the adapted dataset already has the size and coverage you need.
+
 ## Common issues
 
 - **Job launched for hours:** queue time may not be included in the estimate. Wait beyond the displayed estimate before escalating.
 - **Pending Hugging Face or Kaggle image import:** if a multimodal import does not progress, [contact support](/resources/support) with the dataset ID.
 - **Processing failed for a large JSONL file:** retry once; if it fails again, contact support with the dataset ID.
-- **Dataset rejected for format:** reshape it into prompt/completion columns or an OpenAI-style chat column, then repeat [column mapping](#step-3--map-your-columns).
+- **Dataset rejected for format:** reshape it into prompt/completion columns or an OpenAI-style chat column, then repeat [column mapping](#step-2--map-your-columns).
 - **Prompts changed unexpectedly:** disable **Prompt Rephrasing** and **Metadata Injection** for strict prompt fidelity.
 
 ## Next steps
