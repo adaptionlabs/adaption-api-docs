@@ -16,6 +16,8 @@ AutoScientist [proposes a complete training recipe](/api/python/resources/autosc
 
 ## Hyperparameter reference
 
+`training_method` is a top-level `create` argument (`sft` or `dpo`). The remaining fields below are keys inside `hyperparams`.
+
 ### General training
 
 These hyperparameters apply to both SFT and DPO runs.
@@ -61,6 +63,8 @@ These hyperparameters apply only to preference-based (DPO) training. They are in
 | `rpo_alpha`                           | Weight of an auxiliary negative log-likelihood (NLL) loss on preferred responses, added on top of the standard DPO loss (Regularized Preference Optimization). Counteracts likelihood displacement — the failure mode where chosen-response probability drifts downward even as the reward margin grows. Set to `0.0` to disable. **Cannot be combined with `simpo_gamma`.** | Float ≥ `0.0` (typical `0.1`–`1.0`)                |
 | `simpo_gamma`                         | Target reward margin from Simple Preference Optimization. Above `0.0`, the objective becomes reference-free and length-normalized: the chosen response must beat the rejected response by at least this margin. Raise `dpo_beta` alongside it since SimPO typically calls for a substantially larger beta. Set to `0.0` to disable. **Cannot be combined with `rpo_alpha`.**         | Float ≥ `0.0` (typical `0.3`–`1.6`)                |
 
+The recommendation endpoint does not currently generate these DPO-specific values, but `autoscientist.create` accepts them as overrides.
+
 ## Review in the app
 
 The proposed fields are editable, but the default workflow is to review and accept them:
@@ -73,7 +77,7 @@ The proposed fields are editable, but the default workflow is to review and acce
 
 ## Advanced: Apply API overrides
 
-API overrides are an advanced escape hatch for controlled experiments or hard requirements such as a fixed base model or training method. The SDK accepts `model` and a `hyperparams` mapping, but does not expose a separate method for editing a recommendation. `training_type` is a field inside `hyperparams`, not a top-level argument.
+API overrides are an advanced escape hatch for controlled experiments or hard requirements. The SDK accepts the training objective through top-level `training_method`, the base model through top-level `model`, and recipe overrides through `hyperparams`. `training_type` is a field inside `hyperparams`, not a top-level argument.
 
 If an override is necessary, avoid unsupported key names: copy a valid `hyperparams` object from the current app configuration or construct it from the current [`create` API schema](/api/python/resources/autoscientist/methods/create), save it as `hyperparams.json`, and pass it unchanged:
 
@@ -90,7 +94,12 @@ hyperparams = json.loads(Path("hyperparams.json").read_text())
 
 run = client.autoscientist.create(
     dataset_id=dataset_id,
-    hyperparams={**hyperparams, "training_type": "lora"},
+    training_method="dpo",
+    hyperparams={
+        **hyperparams,
+        "training_type": "lora",
+        "dpo_beta": 0.1,
+    },
 )
 print(run.id, run.status)
 ```

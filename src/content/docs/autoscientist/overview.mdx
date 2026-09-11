@@ -12,16 +12,16 @@ Start with a dataset that has completed an [Adaptive Data](/adaptive-data/overvi
 ## What you can build
 
 - **Instruction datasets** pair prompts with expected completions for supervised fine-tuning.
-- **Preference pairs** compare two completions to indicate which is better for preference-based training.
+- **Preference-pair datasets** compare chosen and rejected completions for Direct Preference Optimization (DPO).
 
-AutoScientist API training is supervised fine-tuning (`sft`). There is no `method` parameter on `client.autoscientist.create`.
+Set `training_method="sft"` for supervised fine-tuning or `training_method="dpo"` for preference training when you [create a run](/autoscientist/running-autoscientist). DPO requires a dataset prepared as `preference_pairs`; pass the method explicitly rather than relying on saved app settings.
 
 ## How the loop works
 
 Each run cycles through four stages:
 
 1. **[Data optimization](/autoscientist/data-augmentation)** adds optional domain-targeted and general-purpose rows to improve diversity and reduce overfitting.
-2. **[Training](/autoscientist/running-autoscientist)** runs with the selected model, LoRA or full fine-tuning, and the current hyperparameter recipe.
+2. **[Training](/autoscientist/running-autoscientist)** runs SFT or DPO with the selected model, LoRA or full fine-tuning, and the current hyperparameter recipe.
 3. **[Evaluation](/autoscientist/interpreting-results)** measures the iteration against `target_win_rate` and captures training diagnostics such as loss, learning rate, and gradient norm.
 4. **Hyperparameter adjustment** analyzes the evaluation and revises the recipe for the next iteration.
 

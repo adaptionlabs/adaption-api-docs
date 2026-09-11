@@ -17,22 +17,50 @@ run = client.autoscientist.create(dataset_id=dataset_id)
 print(run.id, run.status)  # pending
 ```
 
-| Parameter                   | Required | Notes                                                                                                                                                                         |
-| --------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dataset_id`                | Yes      | An adapted dataset ID, or a [raw dataset](/autoscientist/run-on-non-adapted-data).                                                                                            |
-| `max_iterations`            | No       | From 1 through 10.                                                                                                                                                            |
-| `target_win_rate`           | No       | Greater than 0 and at most 1. Stops the loop early once reached.                                                                                                              |
-| `model`                     | No       | An ID returned by [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models). If omitted, AutoScientist selects a model for the dataset. |
-| `training_type`             | No       | `lora` by default, or `full` when supported by the model.                                                                                                                     |
-| `hyperparams`               | No       | Overrides to the [platform recipe](/autoscientist/recommended-hyperparameters); unset keys retain platform defaults.                                                          |
-| `augmentation_domain_rows`  | No       | [Domain-targeted rows](/autoscientist/data-augmentation) added before training.                                                                                               |
-| `augmentation_general_rows` | No       | General-purpose rows added before training.                                                                                                                                   |
-| `idempotency_key`           | No       | Repeated requests with the same key return the existing run.                                                                                                                  |
-| `column_mapping`            | No       | Maps columns in the adapted dataset schema. Omit it to let the platform infer the mapping.                                                                                    |
-
-Training is supervised (`sft`); `create` has no `method` parameter.
+| Parameter                   | Required | Notes                                                                                                                                                                              |
+| --------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_id`                | Yes      | An adapted dataset ID, or a [raw dataset](/autoscientist/run-on-non-adapted-data).                                                                                                 |
+| `max_iterations`            | No       | From 1 through 10.                                                                                                                                                                 |
+| `target_win_rate`           | No       | From 0.5 through 1. Stops the loop early once reached.                                                                                                                             |
+| `model`                     | No       | An ID returned by [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models). If omitted, AutoScientist selects a model for the dataset.      |
+| `training_method`           | No       | `sft` for supervised fine-tuning or `dpo` for preference training. Pass `dpo` explicitly for a preference-pair dataset.                                                            |
+| `hyperparams`               | No       | Overrides to the [platform recipe](/autoscientist/recommended-hyperparameters); `training_type` inside this mapping selects `lora` or `full`. Unset keys retain platform defaults. |
+| `augmentation_domain_rows`  | No       | [Domain-targeted rows](/autoscientist/data-augmentation) added before training.                                                                                                    |
+| `augmentation_general_rows` | No       | General-purpose rows added before training.                                                                                                                                        |
+| `idempotency_key`           | No       | Repeated requests with the same key return the existing run.                                                                                                                       |
+| `column_mapping`            | No       | Maps `prompt` and `completion` for SFT, or `prompt`, `chosen`, and `rejected` for DPO. Omit it to let the platform infer the mapping.                                              |
 
 `column_mapping` is validated against the **adapted dataset's schema**, not the uploaded file's original headers. Adaptation can add columns such as `enhanced_prompt`. A mapping to a missing column fails with `Selected column '...' for prompt is not in this dataset`.
+
+### Train on preference pairs
+
+First, complete an [Adaptive Data preference-pair run](/adaptive-data/configure-adaptive-data#generate-preference-pairs). A preference-pair dataset does not by itself select DPO, so set `training_method` explicitly:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="dpo",
+)
+print(run.id, run.training_method)  # dpo
+```
+
+Standard Adaptive Data output can be inferred without `column_mapping`. If the adapted schema instead exposes separate custom columns, map all three roles:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="dpo",
+    column_mapping={
+        "prompt": "question",
+        "chosen": "preferred_answer",
+        "rejected": "other_answer",
+    },
+)
+```
+
+DPO requires at least **12,000 effective preference pairs**, including requested augmentation. SFT requires at least 1,000 effective rows. Selecting `dpo` does not convert another dataset type: the API falls back to SFT unless the dataset was prepared as `preference_pairs`.
+
+AutoScientist presents DPO as one run, but trains an SFT adapter before the DPO stage. The public run ID and `training_method="dpo"` remain stable across both stages. During the handoff, the run stays `running`, metrics can be temporarily unavailable, and `download_available` is false. A cancellation request during this brief handoff can return `409`; retry after an iteration becomes active.
 
 ## Wait for completion
 

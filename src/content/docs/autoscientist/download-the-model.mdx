@@ -5,6 +5,8 @@ description: Stream the best AutoScientist checkpoint to a local archive.
 
 AutoScientist [downloads the checkpoint](/api/python/resources/autoscientist/methods/download) from the best iteration, which is not necessarily the final iteration. The endpoint streams a compressed tar archive rather than returning a presigned URL.
 
+For `training_method="dpo"`, the download belongs to the DPO stage.
+
 ## Stream the checkpoint
 
 [Retrieve the run](/api/python/resources/autoscientist/methods/get) first and verify that it completed and produced a downloadable checkpoint:
