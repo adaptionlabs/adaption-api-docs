@@ -112,18 +112,6 @@ resources:
         methods:
           create: post /api/v1/datasets/combine
           validate: post /api/v1/datasets/combine/validate
-        subresources:
-          jobs:
-            methods:
-              get: get /api/v1/datasets/combine/jobs/{combine_job_id}
-      custom_evals:
-        models:
-          custom_eval: "#/components/schemas/CustomEvalResponseDto"
-        methods:
-          create: post /api/v1/datasets/{dataset_id}/custom-evals
-          list: get /api/v1/datasets/{dataset_id}/custom-evals
-          get: get /api/v1/datasets/{dataset_id}/custom-evals/{custom_eval_id}
-          prepare: post /api/v1/datasets/{dataset_id}/custom-evals/prepare
   autoscientist:
     models:
       autoscientist_run: "#/components/schemas/PublicAutoScientistRunDto"
