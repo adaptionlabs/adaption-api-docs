@@ -49,7 +49,7 @@ print(dataset_id, dataset.status)  # running
 | `subdomains`         | Conditional | Qualified subdomain codes that narrow generation. Provide at least one domain or subdomain.                                                                              |
 | `name`               | No          | Display name for the invented dataset.                                                                                                                                   |
 | `training_type`      | No          | `instruction_dataset` (default) or `preference_pairs`. See [Choose the training format](#choose-the-training-format).                                                    |
-| `prompt`             | No          | Description of the data to generate. Used to select source material and steer generation. Generated from your domain selections when omitted. Maximum 10,000 characters. |
+| `dataset_prompt`             | No          | Description of the data to generate. Used to select source material and steer generation. Generated from your domain selections when omitted. Maximum 10,000 characters. |
 | `language_expansion` | No          | Translates or localizes a sample of the generated rows. See [Expand across languages and locales](#expand-across-languages-and-locales).                                 |
 | `estimate`           | No          | Returns a credit estimate without creating or launching a dataset. Defaults to `False`.                                                                                  |
 | `idempotency_key`    | No          | Makes retries safe. Repeating a request with the same key returns the original dataset instead of starting generation again. Maximum 255 characters.                     |
@@ -135,13 +135,13 @@ Use `instruction_dataset` for standard supervised fine-tuning. Use `preference_p
 
 ### Steer generation with a prompt
 
-Use `prompt` to describe the specific data you need in plain language:
+Use `dataset_prompt` to describe the specific data you need in plain language:
 
 ```python
 dataset = client.datasets.invent(
     domains=["medical"],
     rows=1000,
-    prompt="Patient-facing answers in plain language.",
+    dataset_prompt="Patient-facing answers in plain language.",
 )
 ```
 
@@ -216,7 +216,7 @@ dataset = client.datasets.invent(
     subdomains=subdomains,
     rows=1000,
     training_type="instruction_dataset",
-    prompt="Patient-facing answers in plain language.",
+    dataset_prompt="Patient-facing answers in plain language.",
     idempotency_key="clinical-qa-2026-09-02",
 )
 dataset_id = dataset.id
@@ -284,7 +284,7 @@ dataset = client.datasets.invent(
     subdomains=subdomains,
     rows=1000,
     training_type="instruction_dataset",
-    prompt="Patient-facing answers in plain language.",
+    dataset_prompt="Patient-facing answers in plain language.",
     idempotency_key="clinical-qa-2026-09-02",
 )
 dataset_id = dataset.id
