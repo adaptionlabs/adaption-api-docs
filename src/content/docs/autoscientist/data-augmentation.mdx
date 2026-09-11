@@ -11,9 +11,11 @@ import { Callout } from "@stainless-api/docs/components";
 - **General rows** add diverse examples that help the model retain broader capabilities.
 
 <Callout variant="note">
-  Augmentation here is part of the AutoScientist request. To improve and
-  restructure the source dataset first, use [Adaptive
-  Data](/adaptive-data/overview).
+  This is the same curated-pool operation as
+  [`datasets.augment`](/adaptive-data/expand-data). Use that helper when you
+  want a new dataset before training. Use `augmentation_domain_rows` and
+  `augmentation_general_rows` on `create` when you want the rows applied as
+  part of the training run.
 </Callout>
 
 ## Calculate the additions
