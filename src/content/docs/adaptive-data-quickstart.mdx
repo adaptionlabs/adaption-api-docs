@@ -81,33 +81,12 @@ You can upload a local file or import from Kaggle instead. Each source uses the 
   <Accordion>
     <Accordion.Summary>Upload a local file</Accordion.Summary>
 
-    Create the dataset, PUT its bytes to the returned presigned URL, then confirm the upload.
+    The SDK helper creates the dataset, uploads the file, and confirms the upload.
 
-    Supported extensions: **`.csv`**, **`.json`**, **`.jsonl`**, **`.parquet`**, **`.pdf`**, **`.docx`**, **`.pptx`**, **`.xlsx`**, **`.html`**, **`.zip`**, and **`.txt`**.
+    Supported extensions: **`.csv`**, **`.json`**, **`.jsonl`**, and **`.parquet`**.
 
     ```python
-    import hashlib
-    from pathlib import Path
-
-    import httpx
-
-    path = Path("training_data.csv")
-    data = path.read_bytes()
-
-    dataset = client.datasets.create(
-        source={
-            "name": path.name,
-            "file_format": "csv",
-        },
-    )
-    response = httpx.put(dataset.upload_instructions.url, content=data)
-    response.raise_for_status()
-
-    client.datasets.upload.complete_by_id(
-        dataset.dataset_id,
-        file_size_bytes=len(data),
-        sha256=hashlib.sha256(data).hexdigest(),
-    )
+    dataset = client.datasets.upload_file("training_data.csv")
     dataset_id = dataset.dataset_id
     print(dataset_id)
     ```

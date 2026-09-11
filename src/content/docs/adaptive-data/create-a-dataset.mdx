@@ -19,33 +19,12 @@ client = Adaption()
   <Accordion>
     <Accordion.Summary>1. Upload a local file</Accordion.Summary>
 
-    Create the dataset, PUT the file bytes to the returned presigned URL, then confirm the upload.
+    The SDK helper creates the dataset, uploads the file, and confirms the upload.
 
-    Supported extensions: **`.csv`**, **`.json`**, **`.jsonl`**, **`.parquet`**, **`.pdf`**, **`.docx`**, **`.pptx`**, **`.xlsx`**, **`.html`**, **`.zip`**, and **`.txt`**.
+    Supported extensions: **`.csv`**, **`.json`**, **`.jsonl`**, and **`.parquet`**.
 
     ```python
-    import hashlib
-    from pathlib import Path
-
-    import httpx
-
-    path = Path("training_data.csv")
-    data = path.read_bytes()
-
-    dataset = client.datasets.create(
-        source={
-            "name": path.name,
-            "file_format": "csv",
-        },
-    )
-    response = httpx.put(dataset.upload_instructions.url, content=data)
-    response.raise_for_status()
-
-    client.datasets.upload.complete_by_id(
-        dataset.dataset_id,
-        file_size_bytes=len(data),
-        sha256=hashlib.sha256(data).hexdigest(),
-    )
+    dataset = client.datasets.upload_file("training_data.csv")
     dataset_id = dataset.dataset_id
     print(dataset_id)
     ```
@@ -117,4 +96,4 @@ while True:
     time.sleep(5)
 ```
 
-Next, [map the imported columns](/adaptive-data/select-columns), then [configure the adaptation run](/adaptive-data/configure-adaptive-data). For endpoint details, see the [`create`](/api/python/resources/datasets/methods/create) and [`get_status`](/api/python/resources/datasets/methods/get_status) references. Local files must also be finalized with `datasets.upload.complete_by_id` after the presigned PUT.
+Next, [map the imported columns](/adaptive-data/select-columns), then [configure the adaptation run](/adaptive-data/configure-adaptive-data). For endpoint details, see the [`create`](/api/python/resources/datasets/methods/create) and [`get_status`](/api/python/resources/datasets/methods/get_status) references. The `datasets.upload_file` helper handles the create, upload, and completion steps for local files.
