@@ -129,6 +129,7 @@ export default defineConfig({
             "adaptive-data/select-columns",
             "adaptive-data/configure-adaptive-data",
             "adaptive-data/evaluate-dataset-quality",
+            "adaptive-data/combine-datasets",
           ],
         },
         {

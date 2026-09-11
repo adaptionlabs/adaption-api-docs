@@ -1,0 +1,73 @@
+---
+title: Combine datasets
+description: Validate and merge multiple Adaptive Data datasets into one new dataset with the Python SDK.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Combine datasets when related training examples are spread across multiple Adaptive Data results. Combining creates a new dataset and leaves every source dataset unchanged.
+
+Each source must belong to your organization and have completed an Adaptive Data run. The examples assume you have [configured the Python SDK](/introduction/getting-started).
+
+## Validate the source datasets
+
+Validate the datasets before combining them. Validation checks compatibility without writing data:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_ids = [
+    "dataset_abc123",
+    "dataset_def456",
+]
+
+validation = client.datasets.combine.validate(dataset_ids=dataset_ids)
+
+for issue in validation.issues:
+    print(issue.level, issue.code, issue.message)
+
+if not validation.compatible:
+    raise ValueError("The datasets cannot be combined")
+
+print(validation.training_type, validation.total_estimated_rows)
+```
+
+Each validation issue has a `level`, stable `code`, and user-facing `message`:
+
+- **Errors** block the combine. For example, a source might not be ready, might belong to another organization, or might mix text and multimodal data.
+- **Warnings** describe changes the combine operation can make automatically. It can cast mismatched column types to a common type or resolve mixed training types to an instruction dataset.
+
+See the [`combine.validate` reference](/api/python/resources/datasets/subresources/combine/methods/validate) for all validation fields and issue codes.
+
+## Combine the datasets
+
+Pass the same source IDs to `combine.create` and give the output dataset a name:
+
+```python
+from uuid import uuid4
+
+idempotency_key = str(uuid4())
+
+combined = client.datasets.combine.create(
+    dataset_ids=dataset_ids,
+    name="Combined support data",
+    idempotency_key=idempotency_key,
+)
+
+print(combined.dataset_id)
+```
+
+The request runs synchronously and returns the new `dataset_id` after the merge finishes. There is no public combine-job polling flow.
+
+<Callout variant="note">
+  Keep the same `idempotency_key` if you retry the request. A retry with that
+  key returns the dataset created by the first request instead of starting
+  another merge. The key is optional, but supplying one is useful if a
+  long-running request loses its connection.
+</Callout>
+
+Datasets with the same training type preserve that type. Combining instruction and preference datasets produces an instruction dataset. Other warning-level reconciliation is reported by validation before you start the merge.
+
+See the [`combine.create` reference](/api/python/resources/datasets/subresources/combine/methods/create) for current request requirements and response fields.
