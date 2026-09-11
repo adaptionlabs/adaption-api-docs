@@ -94,7 +94,7 @@ Recipes are optional transformations that operate on the mapped data:
 
 - **Prompt deduplication** removes duplicate prompts to keep examples diverse.
 - **Prompt rephrasing** rewrites prompts for clarity and alignment with the task.
-- **Reasoning traces** add explicit intermediate reasoning to adapted completions.
+- **Reasoning traces** provides associated reasoning for adapted completions.
 
 In the SDK, recipes belong under `recipe_specification.recipes`. You can enable more than one recipe in the same run:
 
@@ -119,7 +119,7 @@ print(f"Run started: {run.run_id}")
   [`datasets.run` reference](/api/python/resources/datasets/methods/run).
 </Callout>
 
-Use reasoning traces when auditability, distillation, or supervised reasoning data matters. Omit them when you need only short final answers and want to reduce token use.
+Use reasoning traces if you want to fine-tune a model that supports chain-of-thought reasoning.
 
 ## Generate preference pairs
 

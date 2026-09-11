@@ -23,41 +23,51 @@ See the [`autoscientist.list_models` API reference](/api/python/resources/autosc
 
 ## Available models
 
-| Model                            | `model` ID                                    | Size  | Methods  | Training types |
-| -------------------------------- | --------------------------------------------- | ----- | -------- | -------------- |
-| Qwen 3.5 (0.8B)                  | `Qwen/Qwen3.5-0.8B`                           | 0.8B  | SFT, DPO | LoRA           |
-| Meta Llama 3.2 (3B Instruct)     | `meta-llama/Llama-3.2-3B-Instruct`            | 3B    | SFT, DPO | LoRA, full     |
-| Gemma 3 (4B Instruct)            | `google/gemma-3-4b-it`                        | 4B    | SFT, DPO | LoRA, full     |
-| Gemma 3 (4B) VLM                 | `google/gemma-3-4b-it-VLM`                    | 4B    | SFT, DPO | LoRA           |
-| Mistral (7B) Instruct v0.2       | `mistralai/Mistral-7B-Instruct-v0.2`          | 7B    | SFT, DPO | LoRA           |
-| Qwen 3.5 (9B) †                  | `Qwen/Qwen3.5-9B`                             | 9B    | SFT, DPO | LoRA           |
-| gpt-oss (20B)                    | `openai/gpt-oss-20b`                          | 20B   | SFT, DPO | LoRA           |
-| Gemma 3 (27B) VLM                | `google/gemma-3-27b-it-VLM`                   | 27B   | SFT, DPO | LoRA           |
-| Gemma 4 (31B Instruct)           | `google/gemma-4-31B-it`                       | 31B   | SFT, DPO | LoRA, full     |
-| Gemma 4 (31B) VLM                | `google/gemma-4-31B-it-VLM`                   | 31B   | SFT, DPO | LoRA           |
-| Mixtral 8x7B Instruct (v0.1)     | `mistralai/Mixtral-8x7B-Instruct-v0.1`        | 46.7B | SFT, DPO | LoRA, full     |
-| Llama 3.3 (70B Instruct)         | `meta-llama/Llama-3.3-70B-Instruct-Reference` | 70B   | SFT, DPO | LoRA, full     |
-| Llama 4 Scout (17B-16E Instruct) | `meta-llama/Llama-4-Scout-17B-16E-Instruct`   | 109B  | SFT, DPO | LoRA           |
-| gpt-oss (120B)                   | `openai/gpt-oss-120b`                         | 120B  | SFT, DPO | LoRA           |
+| Model                                 | `model` ID                                           | Size  | Methods  | Supported `training_type` | Min. Rows |
+| ------------------------------------- | ---------------------------------------------------- | ----- | -------- | ---------------------------- | --------- |
+| Gemma 3 (4B Instruct)                 | `google/gemma-3-4b-it`                               | 4B    | SFT, DPO | lora, full     | 1,000     |
+| Gemma 3 (27B Instruct)                | `google/gemma-3-27b-it`                              | 27B   | SFT, DPO | lora, full     | 10,000    |
+| Gemma 4 (26B A4B IT)                  | `google/gemma-4-26B-A4B-it`                          | 26B   | SFT, DPO | lora           | 10,000    |
+| Gemma 4 (31B Instruct)                | `google/gemma-4-31B-it`                              | 31B   | SFT, DPO | lora, full     | 10,000    |
+| GPT-OSS (20B)                         | `openai/gpt-oss-20b`                                 | 20B   | SFT, DPO | lora           | 1,000     |
+| GPT-OSS (120B)                        | `openai/gpt-oss-120b`                                | 120B  | SFT, DPO | lora           | 1,000     |
+| Llama 3.3 (70B Instruct)              | `meta-llama/Llama-3.3-70B-Instruct-Reference`        | 70B   | SFT, DPO | lora, full     | 1,000     |
+| Llama 4 Scout (17B-16E Instruct)      | `meta-llama/Llama-4-Scout-17B-16E-Instruct`          | 109B  | SFT, DPO | lora           | 1,000     |
+| Meta Llama 3.2 (3B Instruct)          | `meta-llama/Llama-3.2-3B-Instruct`                   | 3B    | SFT, DPO | lora, full     | 1,000     |
+| Mistral 7B Instruct (v0.2)            | `mistralai/Mistral-7B-Instruct-v0.2`                 | 7B    | SFT, DPO | lora           | 1,000     |
+| Mixtral 8x7B Instruct (v0.1)          | `mistralai/Mixtral-8x7B-Instruct-v0.1`               | 46.7B | SFT, DPO | lora, full     | 1,000     |
+| NVIDIA Nemotron 3 Nano Omni (30B A3B) | `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16` | 30B   | SFT, DPO | lora           | 10,000    |
+| NVIDIA Nemotron 3 Super (120B A12B)   | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`      | 120B  | SFT, DPO | lora           | 10,000    |
+| Qwen 3.5 (0.8B)                       | `Qwen/Qwen3.5-0.8B`                                  | 0.8B  | SFT, DPO | lora           | 1,000     |
+| Qwen 3.5 (9B)†                        | `Qwen/Qwen3.5-9B`                                    | 9B    | SFT, DPO | lora           | 1,000     |
+| Qwen 3.5 (122B A10B)                  | `Qwen/Qwen3.5-122B-A10B`                             | 122B  | SFT, DPO | lora           | 10,000    |
+| Qwen 3.6 (35B A3B)                    | `Qwen/Qwen3.6-35B-A3B`                               | 35B   | SFT, DPO | lora           | 10,000    |
 
-`VLM` variants accept image columns as multimodal context. `Qwen/Qwen3.5-9B` (†) is also multimodal despite not carrying the suffix. A `full` training type means full fine-tuning is available in addition to LoRA.
+**Min. Rows** is the minimum effective dataset size (base rows + [augmentation](/autoscientist/data-augmentation)) required to select that model. DPO training requires at least **12,000 rows** regardless of model, see [Row count](#row-count) for more details.
+
+`VLM` variants accept image columns as multimodal context. `Qwen/Qwen3.5-9B` (†) is multimodal despite not carrying a `VLM` suffix. A `full` value for `training_type` means full fine-tuning is available in addition to `lora`.
 
 ## Per-model training limits
 
 These limits are properties of the model and training hardware. AutoScientist accounts for them automatically; they matter primarily when you [override its recommended hyperparameters](/autoscientist/recommended-hyperparameters).
 
-| `model` ID                                    | Context (SFT) | Context (DPO) | Batch size | Gradient accumulation | Maximum `lora_r` |
-| --------------------------------------------- | ------------- | ------------- | ---------- | --------------------- | ---------------- |
-| `Qwen/Qwen3.5-0.8B`                           | 131072        | 131072        | 8          | 1                     | 64               |
-| `Qwen/Qwen3.5-9B`                             | 65536         | 49152         | 8          | 1                     | 64               |
-| `openai/gpt-oss-20b`                          | 131072        | 65536         | 1          | 8                     | 64               |
-| `google/gemma-4-31B-it`                       | 49152         | 24576         | 4          | 2                     | 64               |
-| `mistralai/Mixtral-8x7B-Instruct-v0.1`        | 32768         | 16384         | 8          | 1                     | 64               |
-| `meta-llama/Llama-3.3-70B-Instruct-Reference` | 24576         | 12288         | 8          | 1                     | 64               |
-| `meta-llama/Llama-4-Scout-17B-16E-Instruct`   | 65536         | 12288         | 8          | 1                     | 64               |
-| `openai/gpt-oss-120b`                         | 65536         | 32768         | 2          | 8                     | 64               |
+| `model` ID                                           | Context (SFT) | Context (DPO) | Batch Size | Gradient Accumulation | Maximum `lora_r` |
+| ---------------------------------------------------- | ------------- | ------------- | ---------- | --------------------- | ---------------- |
+| `google/gemma-4-26B-A4B-it`                          | 49152         | 24576         | 4          | 2                     | 64               |
+| `google/gemma-4-31B-it`                              | 49152         | 24576         | 4          | 2                     | 64               |
+| `meta-llama/Llama-3.3-70B-Instruct-Reference`        | 24576         | 12288         | 8          | 1                     | 64               |
+| `meta-llama/Llama-4-Scout-17B-16E-Instruct`          | 65536         | 12288         | 8          | 1                     | 64               |
+| `mistralai/Mixtral-8x7B-Instruct-v0.1`               | 32768         | 16384         | 8          | 1                     | 64               |
+| `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16` | 65536         | 32768         | 8          | 1                     | 64               |
+| `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`      | 49152         | 24576         | 2          | 4                     | 64               |
+| `openai/gpt-oss-20b`                                 | 131072        | 65536         | 1          | 8                     | 64               |
+| `openai/gpt-oss-120b`                                | 65536         | 32768         | 2          | 8                     | 64               |
+| `Qwen/Qwen3.5-0.8B`                                  | 131072        | 131072        | 8          | 1                     | 64               |
+| `Qwen/Qwen3.5-9B`                                    | 65536         | 49152         | 8          | 1                     | 64               |
+| `Qwen/Qwen3.5-122B-A10B`                             | 65536         | 32768         | 16         | 1                     | 64               |
+| `Qwen/Qwen3.6-35B-A3B`                               | 65536         | 32768         | 8          | 1                     | 64               |
 
-Limits for `google/gemma-3-4b-it`, `google/gemma-3-4b-it-VLM`, `google/gemma-3-27b-it-VLM`, and `meta-llama/Llama-3.2-3B-Instruct` are not published. Leave `batch_size` unset so AutoScientist resolves the correct value.
+Limits for `google/gemma-3-4b-it`, `google/gemma-3-27b-it`, `meta-llama/Llama-3.2-3B-Instruct`, and `mistralai/Mistral-7B-Instruct-v0.2` are not published. Leave `batch_size` unset so AutoScientist resolves the correct value.
 
 ### Batch size
 
@@ -83,7 +93,13 @@ run = client.autoscientist.create(
 
 ## Row count
 
-AutoScientist requires at least **1,000 effective rows for SFT** and **12,000 effective preference pairs for DPO**. Requested augmentation counts toward the effective size. A smaller model does not lower either platform-wide minimum.
+AutoScientist enforces the following minimum effective dataset sizes (base rows + augmentation):
+
+| Training method   | Minimum rows | Applies to                          |
+| ----------------- | ------------ | ----------------------------------- |
+| SFT (instruction) | **1,000**    | All models                          |
+| DPO (preference)  | **12,000**   | All models                          |
+| Any method        | **10,000**   | Gemma (≥ 26B), Qwen (≥ 35B), NVIDIA |
 
 ## Context length and your data
 
