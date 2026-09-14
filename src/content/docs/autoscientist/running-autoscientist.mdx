@@ -23,7 +23,6 @@ print(run.id, run.status)  # pending
 | `max_iterations`            | No       | From 1 through 5.                                                                                                                                                            |
 | `target_win_rate`           | No       | Greater than 0 and at most 1. Stops the loop early once reached.                                                                                                              |
 | `model`                     | No       | An ID returned by [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models). If omitted, AutoScientist selects a model for the dataset. |
-| `training_type`             | No       | `lora` by default, or `full` when supported by the model.                                                                                                                     |
 | `hyperparams`               | No       | Overrides to the [platform recipe](/autoscientist/recommended-hyperparameters); unset keys retain platform defaults.                                                          |
 | `augmentation_domain_rows`  | No       | [Domain-targeted rows](/autoscientist/data-augmentation) added before training.                                                                                               |
 | `augmentation_general_rows` | No       | General-purpose rows added before training.                                                                                                                                   |
