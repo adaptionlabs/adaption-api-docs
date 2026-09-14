@@ -33,7 +33,7 @@ The app's results page also shows the trained model ID, **Weights export**, and 
 
 ### DPO stage transitions
 
-A run returned with `training_method="dpo"` includes an SFT stage followed by DPO under the same public ID. During the handoff between stages, `status` remains `running`, `best_win_rate` and other best-result fields can be null, and `download_available` is false. Continue polling; once DPO starts, the public status, iterations, metrics, and artifact availability describe that stage.
+A run returned with `training_method="alignment"` includes an SFT stage followed by DPO under the same public ID. During the handoff between stages, `status` remains `running`, `best_win_rate` and other best-result fields can be null, and `download_available` is false. Continue polling; once DPO starts, the public status, iterations, metrics, and artifact availability describe that stage.
 
 ## Training win rate
 

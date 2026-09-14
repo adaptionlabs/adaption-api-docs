@@ -14,8 +14,8 @@ import { Callout } from "@stainless-api/docs/components";
   This is the same curated-pool operation as
   [`datasets.augment`](/adaptive-data/expand-data). Use that helper when you
   want a new dataset before training. Use `augmentation_domain_rows` and
-  `augmentation_general_rows` on `create` when you want the rows applied as
-  part of the training run.
+  `augmentation_general_rows` on `create` when you want the rows applied as part
+  of the training run.
 </Callout>
 
 ## Calculate the additions
@@ -46,12 +46,12 @@ Omit either augmentation parameter to skip that type of addition. AutoScientist 
 
 ## Augment preference data
 
-For a text DPO run, set `training_method="dpo"` on the same request. AutoScientist produces preference-shaped additions, and those additions count toward the minimum of 12,000 effective preference pairs:
+For a text DPO run, set `training_method="alignment"` on the same request. AutoScientist produces preference-shaped additions, and those additions count toward the minimum of 12,000 effective preference pairs:
 
 ```python
 run = client.autoscientist.create(
     dataset_id=dataset_id,
-    training_method="dpo",
+    training_method="alignment",
     augmentation_domain_rows=domain_rows_to_add,
     augmentation_general_rows=8_000,
 )

@@ -34,14 +34,14 @@ print(run.id, run.status)  # pending
 
 ### Train on preference pairs
 
-First, complete an [Adaptive Data preference-pair run](/adaptive-data/configure-adaptive-data#generate-preference-pairs). A preference-pair dataset does not by itself select DPO, so set `training_method` explicitly:
+First, complete an [Adaptive Data preference-pair run](/adaptive-data/configure-adaptive-data#generate-preference-pairs). A preference-pair dataset does not by itself select alignment, so set `training_method` explicitly:
 
 ```python
 run = client.autoscientist.create(
     dataset_id=dataset_id,
-    training_method="dpo",
+    training_method="alignment",
 )
-print(run.id, run.training_method)  # dpo
+print(run.id, run.training_method)  # alignment
 ```
 
 Standard Adaptive Data output can be inferred without `column_mapping`. If the adapted schema instead exposes separate custom columns, map all three roles:
@@ -49,7 +49,7 @@ Standard Adaptive Data output can be inferred without `column_mapping`. If the a
 ```python
 run = client.autoscientist.create(
     dataset_id=dataset_id,
-    training_method="dpo",
+    training_method="alignment",
     column_mapping={
         "prompt": "question",
         "chosen": "preferred_answer",
@@ -58,9 +58,9 @@ run = client.autoscientist.create(
 )
 ```
 
-DPO requires at least **12,000 effective preference pairs**, including requested augmentation. SFT requires at least 1,000 effective rows. Selecting `dpo` does not convert another dataset type: the API falls back to SFT unless the dataset was prepared as `preference_pairs`.
+DPO requires at least **12,000 effective preference pairs**, including requested augmentation. SFT requires at least 1,000 effective rows. Selecting `alignment` does not convert another dataset type: the API resolves the run to `instruction` unless the dataset was prepared as `preference_pairs`. Read `run.training_method` to confirm the resolved objective.
 
-AutoScientist presents DPO as one run, but trains an SFT adapter before the DPO stage. The public run ID and `training_method="dpo"` remain stable across both stages. During the handoff, the run stays `running`, metrics can be temporarily unavailable, and `download_available` is false. A cancellation request during this brief handoff can return `409`; retry after an iteration becomes active.
+AutoScientist presents alignment as one run, but trains an SFT adapter before the DPO stage. The public run ID and resolved `training_method="alignment"` remain stable across both stages. During the handoff, the run stays `running`, metrics can be temporarily unavailable, and `download_available` is false. A cancellation request during this brief handoff can return `409`; retry after an iteration becomes active.
 
 ## Wait for completion
 
