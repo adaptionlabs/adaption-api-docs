@@ -5,7 +5,7 @@ description: Generate a model-ready dataset from scratch, with no source dataset
 
 import { Callout } from "@stainless-api/docs/components";
 
-Invent generates a model-ready dataset from scratch—no source dataset required. Choose one or more domains, optionally narrow with subdomains, set a target row count, and the API creates a dataset for your task.
+Invent generates a model-ready dataset from scratch—no source dataset required. Describe your dataset with a prompt, optionally narrow with domains and subdomains, and the API creates a dataset for your task.
 
 Use [`datasets.create`](/adaptive-data/create-a-dataset) instead when you want to import and adapt an existing dataset.
 
@@ -16,7 +16,7 @@ Use [`datasets.create`](/adaptive-data/create-a-dataset) instead when you want t
 
 ### How it works
 
-1. **Choose domains.** Fetch the current domain and subdomain codes with [`datasets.invent_domains`](/api/python/resources/datasets/methods/invent_domains).
+1. **Describe your dataset.** Use the `dataset_prompt` and optional `domains` and `subdomains` to guide the dataset invention process.
 2. **Estimate (optional).** Price the exact request with `estimate=True`. Nothing is created or charged.
 3. **Generate.** Call [`datasets.invent`](/api/python/resources/datasets/methods/invent) to create the dataset and start generation. The call returns immediately with status `running`.
 4. **Poll and download.** Poll [`datasets.get`](/api/python/resources/datasets/methods/get) until the status is `succeeded`, then [download the rows](#download-the-rows).
@@ -31,25 +31,32 @@ from adaption import Adaption
 client = Adaption()
 
 dataset = client.datasets.invent(
-    name="Clinical Q&A",
-    domains=["medical"],
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     rows=1000,
+    name="Clinical Q&A",
 )
 
 dataset_id = dataset.id
 print(dataset_id, dataset.status)  # running
 ```
 
+### Describe the dataset
+
+To invent a dataset, you must specify one of:
+
+| Parameter            |Notes                                                                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `dataset_prompt`      | Description of the data to generate. Generated from your domain selections when omitted. Maximum 10,000 characters. |
+| `domains`             | Domain codes to generate from. Provide at least one domain or subdomain. See [Choose domains and subdomains](#choose-domains-and-subdomains).                            |
+| `subdomains`          | Qualified subdomain codes that narrow generation. Provide at least one domain or subdomain.                                                                              |
+
 ### Request parameters
 
 | Parameter            | Required    | Notes                                                                                                                                                                    |
-| -------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| -------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `rows`               | Yes         | Number of rows to generate. Subject to your plan's per-launch row limit.                                                                                                 |
-| `domains`            | Conditional | Domain codes to generate from. Provide at least one domain or subdomain. See [Choose domains and subdomains](#choose-domains-and-subdomains).                            |
-| `subdomains`         | Conditional | Qualified subdomain codes that narrow generation. Provide at least one domain or subdomain.                                                                              |
 | `name`               | No          | Display name for the invented dataset.                                                                                                                                   |
 | `training_type`      | No          | `instruction_dataset` (default) or `preference_pairs`. See [Choose the training format](#choose-the-training-format).                                                    |
-| `prompt`             | No          | Description of the data to generate. Used to select source material and steer generation. Generated from your domain selections when omitted. Maximum 10,000 characters. |
 | `language_expansion` | No          | Translates or localizes a sample of the generated rows. See [Expand across languages and locales](#expand-across-languages-and-locales).                                 |
 | `estimate`           | No          | Returns a credit estimate without creating or launching a dataset. Defaults to `False`.                                                                                  |
 | `idempotency_key`    | No          | Makes retries safe. Repeating a request with the same key returns the original dataset instead of starting generation again. Maximum 255 characters.                     |
@@ -60,6 +67,7 @@ Set `estimate=True` to price the exact request. Nothing is generated or charged:
 
 ```python
 estimate = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     domains=["medical"],
     subdomains=[
         "medical.symptoms_diagnosis",
@@ -100,6 +108,7 @@ Pass subdomain codes exactly as returned by `invent_domains`. `subdomains` is a 
 
 ```python
 dataset = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     domains=["medical", "legal"],
     subdomains=[
         "medical.symptoms_diagnosis",
@@ -125,6 +134,7 @@ After choosing domains, configure the output format, steer what the rows are abo
 
 ```python
 dataset = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     domains=["medical"],
     rows=1000,
     training_type="preference_pairs",
@@ -132,18 +142,6 @@ dataset = client.datasets.invent(
 ```
 
 Use `instruction_dataset` for standard supervised fine-tuning. Use `preference_pairs` for preference-based training such as DPO. The same formats are described in [Configure Adaptive Data](/adaptive-data/configure-adaptive-data#generate-preference-pairs).
-
-### Steer generation with a prompt
-
-Use `prompt` to describe the specific data you need in plain language:
-
-```python
-dataset = client.datasets.invent(
-    domains=["medical"],
-    rows=1000,
-    prompt="Patient-facing answers in plain language.",
-)
-```
 
 ### Expand across languages and locales
 
@@ -154,6 +152,7 @@ dataset = client.datasets.invent(
 
 ```python
 dataset = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     domains=["medical"],
     rows=1000,
     language_expansion={
@@ -170,6 +169,7 @@ For localization, pass country and language pairs:
 
 ```python
 dataset = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     domains=["medical"],
     rows=1000,
     language_expansion={
@@ -188,6 +188,7 @@ Provide an idempotency key when a network failure might cause your application t
 
 ```python
 dataset = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     domains=["medical"],
     rows=1000,
     idempotency_key="clinical-qa-2026-09-02",
@@ -203,6 +204,7 @@ domains = ["medical"]
 subdomains = ["medical.symptoms_diagnosis"]
 
 estimate = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     domains=domains,
     subdomains=subdomains,
     rows=1000,
@@ -211,12 +213,12 @@ estimate = client.datasets.invent(
 print(f"Estimated credits: {estimate.estimated_credits}")
 
 dataset = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     name="Clinical Q&A",
     domains=domains,
     subdomains=subdomains,
     rows=1000,
     training_type="instruction_dataset",
-    prompt="Patient-facing answers in plain language.",
     idempotency_key="clinical-qa-2026-09-02",
 )
 dataset_id = dataset.id
@@ -279,12 +281,12 @@ estimate = client.datasets.invent(
 print(f"Estimated credits: {estimate.estimated_credits}")
 
 dataset = client.datasets.invent(
+    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
     name="Clinical Q&A",
     domains=domains,
     subdomains=subdomains,
     rows=1000,
     training_type="instruction_dataset",
-    prompt="Patient-facing answers in plain language.",
     idempotency_key="clinical-qa-2026-09-02",
 )
 dataset_id = dataset.id
