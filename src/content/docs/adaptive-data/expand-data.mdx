@@ -1,0 +1,124 @@
+---
+title: Expand your data
+description: Augment, translate, or localize rows to increase dataset size after import or adaptation.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+After you [import a dataset](/adaptive-data/create-a-dataset) and optionally [run Adaptive Data](/api/python/resources/datasets/methods/run), you can increase row count without re-running the full adaptation pipeline. Each method below returns a **new dataset** that includes your source rows plus the added ones.
+
+The SDK examples assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to a dataset that is ready to expand:
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+```
+
+## Data augmentation
+
+[`datasets.augment`](/api/python/resources/datasets/methods/augment) retrieves additional rows from the curated pool and returns them as a new dataset. Use it when you want more examples in the same topic mix or broader coverage across topics:
+
+- **Domain rows** match topics in your dataset.
+- **General rows** come from other topics to broaden diversity.
+
+```python
+estimate = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+)
+print(response.dataset_id, response.status)
+```
+
+The response carries the new dataset's id and its current status; both are `None` for an estimate. Wait for the new dataset before you download or train on it:
+
+```python
+from adaption import DatasetTimeout
+
+try:
+    final = client.datasets.wait_for_completion(response.dataset_id)
+except DatasetTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+print(final.status, final.row_count)
+```
+
+`wait_for_completion` backs off from 2 to 30 seconds and has a one-hour default timeout. A timeout stops waiting, not the expansion job. Call it again with the same dataset ID to resume tracking. The same wait applies after [`translate`](#translate-rows) and [`localize`](#localize-rows).
+
+Omit either row parameter to skip that type of addition. Augmentation is billed on the rows retrieved. See the [`augment` reference](/api/python/resources/datasets/methods/augment) for current limits and request fields.
+
+<Callout variant="note">
+  `datasets.augment` works on text datasets whose topic mix can be determined.
+  It does not support image datasets. This is the same curated-pool operation as
+  `augmentation_domain_rows` and `augmentation_general_rows` on
+  [`autoscientist.create`](/autoscientist/data-augmentation). The AutoScientist
+  path applies those rows at training time instead of writing a new dataset.
+</Callout>
+
+## Translate rows
+
+[`datasets.translate`](/api/python/resources/datasets/methods/translate) converts a sample of existing rows into other languages. Adaptive Data supports up to 242 languages. Provide [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` is the fraction of source rows expanded for each target language:
+
+```python
+estimate = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+)
+print(response.dataset_id, response.status)
+```
+
+With two target languages and a `0.25` sample rate, the output contains approximately `1 + (0.25 × 2) = 1.5` times as many rows as the input.
+
+## Localize rows
+
+[`datasets.localize`](/api/python/resources/datasets/methods/localize) adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone. Provide country/language pairs using [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) and [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+
+```python
+response = client.datasets.localize(
+    dataset_id,
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
+)
+print(response.dataset_id, response.status)
+```
+
+Each pair creates a country- and language-specific variant rather than only translating the text.
+
+<Callout variant="note">
+  Translate and localize are billed on output rows. Set `estimate=True` on any
+  of these methods to price a request before it runs. Pass `idempotency_key` on
+  any of them to make a retried request return the dataset the first request
+  created instead of starting and charging for a second run. See the
+  [`translate`](/api/python/resources/datasets/methods/translate) and
+  [`localize`](/api/python/resources/datasets/methods/localize) references for
+  the current schema and supported values.
+</Callout>
+
+For recipes, preference pairs, row limits, and brand controls on an adaptation run, see [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
+
+The methods on this page each write a new dataset and leave the source unchanged. `datasets.run` also accepts a `language_expansion` setting; that path stores the setting on the dataset and expands rows inside its own adaptation run, without creating a new dataset. See the [`run` reference](/api/python/resources/datasets/methods/run) for that shape.
