@@ -22,7 +22,7 @@ See the [`autoscientist.list_models` API reference](/api/python/resources/autosc
 
 ## Available models
 
-These are the models supporting for fine-tuning via AutoScientist. The limits below are properties of the model and training hardware. AutoScientist accounts for them automatically; they matter primarily when you [override its recommended hyperparameters](/autoscientist/recommended-hyperparameters). 
+These are the models supported for fine-tuning via AutoScientist. The limits below are properties of the model and training hardware. AutoScientist accounts for them automatically; they matter primarily when you [override its recommended hyperparameters](/autoscientist/recommended-hyperparameters). 
 
 | Model                                              | `model` ID                                                   | Size  | Training types | Context (SFT) | Context (DPO) | Max batch (SFT) | Max batch (DPO) | Gradient accumulation | Maximum `lora_r` |
 | -------------------------------------------------- | ------------------------------------------------------------ | ----- | -------------- | ------------- | ------------- | --------------- | --------------- | --------------------- | ---------------- |
@@ -73,12 +73,13 @@ run = client.autoscientist.create(
 
 ## Row count
 
-AutoScientist applies these hard minimums to the effective dataset size (processed rows plus configured augmentation):
+AutoScientist enforces the following minimum effective dataset sizes (base rows + augmentation):
 
-- **SFT / instruction tuning:** at least **1,000 training rows**.
-- **SFT → alignment tuning:** at least **12,000 training rows**. 
-
-These training-method minimums are the same for LoRA and full fine-tuning. Model availability can be more restrictive: with fewer than **10,000 effective rows**, AutoScientist normally excludes full-size, non-VLM models in the Qwen, Gemma, and NVIDIA families. 
+| Training method   | Minimum rows | Applies to                          |
+| ----------------- | ------------ | ----------------------------------- |
+| SFT (instruction) | **1,000**    | All models                          |
+| DPO (preference)  | **12,000**   | All models                          |
+| Any method        | **10,000**   | Gemma (≥ 26B), Qwen (≥ 35B), NVIDIA |
 
 Text datasets can use augmentation to reach a minimum. Multimodal datasets cannot currently be augmented, so they must already contain enough processed rows. AutoScientist treats **20,000 rows** as a recommended quality target, not a hard launch requirement.
 
