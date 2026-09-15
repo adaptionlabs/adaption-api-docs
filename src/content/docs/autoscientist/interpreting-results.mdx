@@ -45,7 +45,7 @@ The **Training Winrates** chart compares the base model with the adapted model o
 
 The charts plot standard diagnostics over training steps:
 
-- **Loss** measures the optimized training objective. For SFT, it reflects next-token prediction error. For DPO, it reflects how strongly the model separates chosen responses from rejected responses relative to the reference policy. Compare either loss with evaluation win rate rather than interpreting it alone.
+- **Loss** measures prediction error. Falling training and evaluation loss generally indicates learning; falling training loss paired with worsening evaluation loss can indicate overfitting. For DPO, loss reflects how strongly the model separates chosen responses from rejected responses relative to the reference policy; compare it with evaluation win rate rather than interpreting it alone.
 - **Learning rate** shows the optimizer's step size over time and reflects the configured warmup and schedule.
 - **Gradient norm** measures the overall gradient magnitude. Sudden spikes can indicate unstable updates, while a stable curve suggests optimization has settled.
 
