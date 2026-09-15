@@ -55,11 +55,9 @@ These limits are properties of the model and training hardware. AutoScientist ac
 
 | `model` ID                                                   | Context (SFT) | Context (DPO) | Max batch (SFT) | Max batch (DPO) | Gradient accumulation | Maximum `lora_r` |
 | ------------------------------------------------------------ | ------------- | ------------- | --------------- | --------------- | --------------------- | ---------------- |
+| **SFT / Alignment**                                          |               |               |                 |                 |                       |                  |
 | `google/gemma-3-4b-it`                                       | 131072        | 65536         | 8               | 8               | 1                     | 64               |
-| `google/gemma-3-4b-it-VLM`                                   | 32768         | 32768         | 8               | 8               | 1                     | 64               |
-| `google/gemma-3-27b-it-VLM`                                  | 32768         | 24576         | 8               | 8               | 1                     | 64               |
 | `google/gemma-4-31B-it`                                      | 49152         | 24576         | 4               | 4               | 2                     | 64               |
-| `google/gemma-4-31B-it-VLM`                                  | 24576         | 12288         | 8               | 8               | 1                     | 64               |
 | `openai/gpt-oss-20b`                                         | 131072        | 65536         | 1               | 1               | 8                     | 64               |
 | `openai/gpt-oss-120b`                                        | 65536         | 32768         | 2               | 2               | 8                     | 64               |
 | `meta-llama/Llama-3.3-70B-Instruct-Reference`                | 24576         | 12288         | 8               | 8               | 1                     | 64               |
@@ -70,9 +68,13 @@ These limits are properties of the model and training hardware. AutoScientist ac
 | `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16`         | 65536         | 32768         | 8               | 8               | 1                     | 64               |
 | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`              | 49152         | 24576         | 2               | 2               | 4                     | 64               |
 | `Qwen/Qwen3.5-0.8B`                                          | 131072        | 131072        | 8               | 8               | 1                     | 64               |
-| `Qwen/Qwen3.5-9B`                                            | 65536         | 49152         | 8               | 8               | 1                     | 64               |
 | `Qwen/Qwen3.5-122B-A10B`                                     | 65536         | 32768         | 16              | 16              | 1                     | 64               |
 | `Qwen/Qwen3.6-35B-A3B`                                       | 65536         | 32768         | 8               | 8               | 1                     | 64               |
+| **SFT / Alignment (multimodal)**                             |               |               |                 |                 |                       |                  |
+| `google/gemma-3-4b-it-VLM`                                   | 32768         | 32768         | 8               | 8               | 1                     | 64               |
+| `google/gemma-3-27b-it-VLM`                                  | 32768         | 24576         | 8               | 8               | 1                     | 64               |
+| `google/gemma-4-31B-it-VLM`                                  | 24576         | 12288         | 8               | 8               | 1                     | 64               |
+| `Qwen/Qwen3.5-9B`                                            | 65536         | 49152         | 8               | 8               | 1                     | 64               |
 
 
 ### Batch size
