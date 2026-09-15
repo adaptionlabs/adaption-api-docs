@@ -44,7 +44,7 @@ print(dataset_id, dataset.status)  # running
 
 ### Describe the dataset
 
-To invent a dataset, provide a `dataset_prompt`, at least one domain or subdomain, or both:
+To invent a dataset, provide **at least one** of the following parameters:
 
 | Parameter        | Notes                                                                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -106,11 +106,13 @@ for domain in response.domains:
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `code`       | The value to send in `domains` or `subdomains`. Domain codes are values such as `medical`; subdomain codes are qualified values such as `medical.symptoms_diagnosis`. |
 | `title`      | Human-readable name for the domain or subdomain.                                                                                                                      |
-| `subdomains` | Subdomains available within a domain. An empty list means the domain has no subdivisions.                                                                             |
+| `subdomains` | Subdomains available within a domain. An empty list means the domain has no subdomains.                                                                             |
 
 ### Narrow with subdomains
 
 Pass subdomain codes exactly as returned by `invent_domains`. `subdomains` is a flat list of qualified codes:
+
+Here, the medical portion is narrowed to the selected subdomains. The legal portion draws from the full legal domain because no legal subdomains were provided.
 
 ```python
 dataset = client.datasets.invent(
@@ -128,7 +130,6 @@ dataset = client.datasets.invent(
 )
 ```
 
-Here, the medical portion is narrowed to the selected subdomains. The legal portion draws from the full legal domain because no legal subdomains were provided.
 
 ### Combine multiple domains
 
