@@ -3,8 +3,6 @@ title: Invent a dataset
 description: Generate a model-ready dataset from scratch, with no source dataset required.
 ---
 
-import { Callout } from "@stainless-api/docs/components";
-
 Invent generates a model-ready dataset from scratch—no source dataset required. Describe your dataset with a prompt, optionally narrow with domains and subdomains, and the API creates a dataset for your task.
 
 Use [`datasets.create`](/adaptive-data/create-a-dataset) instead when you want to import and adapt an existing dataset.
@@ -23,7 +21,7 @@ Use [`datasets.create`](/adaptive-data/create-a-dataset) instead when you want t
 
 ## Generate a dataset
 
-A single call to `datasets.invent` creates the dataset and starts generating rows from your domain selections. The examples assume you have [installed the Python SDK and set `ADAPTION_API_KEY`](/introduction/getting-started).
+A single call to `datasets.invent` creates the dataset and starts generating rows from your description and optional domain selections. The examples assume you have [installed the Python SDK and set `ADAPTION_API_KEY`](/introduction/getting-started).
 
 ```python
 from adaption import Adaption
@@ -31,7 +29,11 @@ from adaption import Adaption
 client = Adaption()
 
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     rows=1000,
     name="Clinical Q&A",
 )
@@ -42,24 +44,24 @@ print(dataset_id, dataset.status)  # running
 
 ### Describe the dataset
 
-To invent a dataset, you must specify one of:
+To invent a dataset, provide a `dataset_prompt`, at least one domain or subdomain, or both:
 
-| Parameter            |Notes                                                                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `dataset_prompt`      | Description of the data to generate. Generated from your domain selections when omitted. Maximum 10,000 characters. |
-| `domains`             | Domain codes to generate from. Provide at least one domain or subdomain. See [Choose domains and subdomains](#choose-domains-and-subdomains).                            |
-| `subdomains`          | Qualified subdomain codes that narrow generation. Provide at least one domain or subdomain.                                                                              |
+| Parameter        | Notes                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_prompt` | Description of the data to generate. If omitted, a description is generated from your domain selections. Maximum 10,000 characters. |
+| `domains`        | Domain codes to generate from. See [Choose domains and subdomains](#choose-domains-and-subdomains).                                 |
+| `subdomains`     | Qualified subdomain codes that narrow generation. See [Choose domains and subdomains](#choose-domains-and-subdomains).              |
 
 ### Request parameters
 
-| Parameter            | Required    | Notes                                                                                                                                                                    |
-| -------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `rows`               | Yes         | Number of rows to generate. Subject to your plan's per-launch row limit.                                                                                                 |
-| `name`               | No          | Display name for the invented dataset.                                                                                                                                   |
-| `training_type`      | No          | `instruction_dataset` (default) or `preference_pairs`. See [Choose the training format](#choose-the-training-format).                                                    |
-| `language_expansion` | No          | Translates or localizes a sample of the generated rows. See [Expand across languages and locales](#expand-across-languages-and-locales).                                 |
-| `estimate`           | No          | Returns a credit estimate without creating or launching a dataset. Defaults to `False`.                                                                                  |
-| `idempotency_key`    | No          | Makes retries safe. Repeating a request with the same key returns the original dataset instead of starting generation again. Maximum 255 characters.                     |
+| Parameter            | Required | Notes                                                                                                                                                |
+| -------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rows`               | Yes      | Number of rows to generate. Subject to your plan's per-launch row limit.                                                                             |
+| `name`               | No       | Display name for the invented dataset.                                                                                                               |
+| `training_type`      | No       | `instruction_dataset` (default) or `preference_pairs`. See [Choose the output format](#choose-the-output-format).                                    |
+| `language_expansion` | No       | Translates or localizes a sample of the generated rows. See [Expand across languages and locales](#expand-across-languages-and-locales).             |
+| `estimate`           | No       | Returns a credit estimate without creating or launching a dataset. Defaults to `False`.                                                              |
+| `idempotency_key`    | No       | Makes retries safe. Repeating a request with the same key returns the original dataset instead of starting generation again. Maximum 255 characters. |
 
 ### Price a request first
 
@@ -67,7 +69,11 @@ Set `estimate=True` to price the exact request. Nothing is generated or charged:
 
 ```python
 estimate = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=["medical"],
     subdomains=[
         "medical.symptoms_diagnosis",
@@ -108,7 +114,11 @@ Pass subdomain codes exactly as returned by `invent_domains`. `subdomains` is a 
 
 ```python
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=["medical", "legal"],
     subdomains=[
         "medical.symptoms_diagnosis",
@@ -126,7 +136,7 @@ Every code in `domains` contributes to the same generation run. For a domain wit
 
 ## Configure generation
 
-After choosing domains, configure the output format, steer what the rows are about, expand languages, and make retries safe.
+Configure the output format, expand languages, and make retries safe.
 
 ### Choose the output format
 
@@ -134,7 +144,11 @@ After choosing domains, configure the output format, steer what the rows are abo
 
 ```python
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=["medical"],
     rows=1000,
     training_type="preference_pairs",
@@ -152,7 +166,11 @@ Use `instruction_dataset` for standard supervised fine-tuning. Use `preference_p
 
 ```python
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=["medical"],
     rows=1000,
     language_expansion={
@@ -169,7 +187,11 @@ For localization, pass country and language pairs:
 
 ```python
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=["medical"],
     rows=1000,
     language_expansion={
@@ -188,7 +210,11 @@ Provide an idempotency key when a network failure might cause your application t
 
 ```python
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=["medical"],
     rows=1000,
     idempotency_key="clinical-qa-2026-09-02",
@@ -204,7 +230,11 @@ domains = ["medical"]
 subdomains = ["medical.symptoms_diagnosis"]
 
 estimate = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=domains,
     subdomains=subdomains,
     rows=1000,
@@ -213,7 +243,11 @@ estimate = client.datasets.invent(
 print(f"Estimated credits: {estimate.estimated_credits}")
 
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     name="Clinical Q&A",
     domains=domains,
     subdomains=subdomains,
@@ -273,6 +307,11 @@ domains = ["medical"]
 subdomains = ["medical.symptoms_diagnosis"]
 
 estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     domains=domains,
     subdomains=subdomains,
     rows=1000,
@@ -281,7 +320,11 @@ estimate = client.datasets.invent(
 print(f"Estimated credits: {estimate.estimated_credits}")
 
 dataset = client.datasets.invent(
-    dataset_prompt="A dataset of medical question-answer pairs covering diagnoses, treatments, drug explanations, and healthcare roles. Each entry includes a prompt and a detailed, expert-generated response."
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
     name="Clinical Q&A",
     domains=domains,
     subdomains=subdomains,
