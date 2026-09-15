@@ -1,15 +1,23 @@
 ---
 title: Run on non-adapted data
-description: Upload a training-ready prompt/completion file and send it directly to AutoScientist.
+description: Upload training-ready prompt/completion data for supervised fine-tuning.
 ---
 
 import { Callout } from "@stainless-api/docs/components";
 
-Use [raw dataset processing](/api/python/resources/datasets/methods/create) when a tabular file already contains training-ready prompt and completion columns and you want AutoScientist to train on those rows as-is. This skips Adaptive Data's adaptation pipeline.
+Use [raw dataset processing](/api/python/resources/datasets/methods/create) when a tabular file already contains training-ready prompt and completion columns and you want AutoScientist to train on those rows as-is with SFT. This skips Adaptive Data's adaptation pipeline.
 
 <Callout variant="warning">
   For best results, [adapt your data first](/adaptive-data/overview). Use raw
   processing only when training on the original rows is intentional.
+</Callout>
+
+<Callout variant="note">
+  Raw processing does not mark a dataset as `preference_pairs`. For DPO, first
+  complete an [Adaptive Data preference-pair
+  run](/adaptive-data/configure-adaptive-data#generate-preference-pairs), then
+  [create a DPO
+  run](/autoscientist/running-autoscientist#train-on-preference-pairs).
 </Callout>
 
 Raw processing supports CSV, JSON, JSONL, and Parquet files. Set `processing_mode` to `raw` and [map both required source columns](/adaptive-data/select-columns) when creating the dataset.
