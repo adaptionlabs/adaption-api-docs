@@ -1,11 +1,11 @@
 ---
 title: Configure Adaptive Data
-description: Expand datasets, generate instruction or preference data, apply recipes, limit rows, and control adapted outputs.
+description: Generate instruction or preference data, apply recipes, limit rows, and control adapted outputs.
 ---
 
 import { Callout } from "@stainless-api/docs/components";
 
-After you [map your columns](/adaptive-data/select-columns), configure how Adaptive Data transforms them. You can expand the dataset, choose its training format, apply recipes, limit the run, and define output requirements.
+After you [map your columns](/adaptive-data/select-columns), configure how Adaptive Data transforms them. You can choose its training format, apply recipes, limit the run, and define output requirements.
 
 The SDK examples below assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to an [imported dataset](/adaptive-data/create-a-dataset):
 
@@ -21,73 +21,6 @@ column_mapping = {
     "completion": "response",
 }
 ```
-
-## Expand across languages and locales
-
-Language expansion can increase the size of a dataset in two ways:
-
-- **Translate** converts existing rows into other languages. Adaptive Data supports up to 242 languages.
-- **Localize** adapts rows for both a language and a country, including locale-specific wording rather than direct translation alone.
-
-### Translate rows
-
-Set `language_expansion.type` to `translate`, then provide [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` is the fraction of source rows expanded for each target language:
-
-```python
-translation = {
-    "type": "translate",
-    "sample_rate": 0.25,
-    "languages": ["es", "fr"],
-}
-
-estimate = client.datasets.run(
-    dataset_id,
-    column_mapping=column_mapping,
-    language_expansion=translation,
-    estimate=True,
-)
-print(f"Estimated credits: {estimate.estimated_credits_consumed}")
-
-run = client.datasets.run(
-    dataset_id,
-    column_mapping=column_mapping,
-    language_expansion=translation,
-)
-print(f"Run started: {run.run_id}")
-```
-
-With two target languages and a `0.25` sample rate, the output contains approximately `1 + (0.25 × 2) = 1.5` times as many rows as the input.
-
-### Localize rows
-
-Set `type` to `localize` and provide country/language pairs using [ISO 3166-1 alpha-2 country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) and [ISO 639-1 language codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
-
-```python
-run = client.datasets.run(
-    dataset_id,
-    column_mapping=column_mapping,
-    language_expansion={
-        "type": "localize",
-        "sample_rate": 0.25,
-        "pairs": [
-            {"country": "CA", "language": "fr"},
-            {"country": "MX", "language": "es"},
-        ],
-    },
-)
-print(f"Run started: {run.run_id}")
-```
-
-Each pair creates a country- and language-specific variant rather than only translating the text.
-
-<Callout variant="note">
-  Expansion is billed on output rows. Omitting `language_expansion` preserves
-  expansion previously saved in the app; passing `language_expansion=None`
-  explicitly clears it. See the [`datasets.run`
-  reference](/api/python/resources/datasets/methods/run) for the current schema
-  and supported values.
-</Callout>
-
 ## Apply recipes
 
 Recipes are optional transformations that operate on the mapped data:

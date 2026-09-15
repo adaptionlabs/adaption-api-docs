@@ -14,19 +14,52 @@ AutoScientist [proposes a complete training recipe](/api/python/resources/autosc
   specific experimental or infrastructure constraint.
 </Callout>
 
-## Recipe fields
+## Hyperparameter reference
 
-- **Algorithm** selects LoRA or full fine-tuning. Full fine-tuning is available only for supported models.
-- **Epochs** controls how many passes training makes over the dataset.
-- **LoRA rank (`r`)** controls the capacity of the low-rank matrices. Higher ranks can represent more complex changes but require more memory and compute.
-- **Alpha** scales the LoRA adapter's contribution to the base model.
-- **Model name** selects the base model used for training.
-- **Target layers** identifies modules such as `q_proj`, `v_proj`, or all linear layers where LoRA adapters are inserted.
-- **Optimizer and schedule settings** control parameter updates and how the learning rate changes. For example, a linear schedule decays steadily, while a cosine schedule slows its decay near the end.
-- **Warmup ratio** is the fraction of training steps used to increase the learning rate gradually from zero.
-- **Gradient clipping** caps the gradient norm to reduce exploding gradients and unstable updates.
+### General training
 
-These are conceptual names from the app. The accepted API keys and value types are model-dependent; use the [`recommend_hyperparams` reference](/api/python/resources/autoscientist/methods/recommend_hyperparams) rather than translating labels into guessed field names.
+These hyperparameters apply to both SFT and DPO runs.
+
+| Hyperparameter           | Definition                                                                                                                                                                | Valid Values                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `learning_rate`          | Peak learning rate for the optimizer. Controls the step size during weight updates.                                                                                       | Float in `[1e-6, 5e-4]`                                                   |
+| `n_epochs`               | Number of complete passes training makes over the dataset.                                                                                                                | Integer, `1`–`5`                                                           |
+| `batch_size`             | Number of samples per training step. In SFT, must be `"max"`. In DPO, a power-of-2 integer or `"max"`.                                                                   | `"max"` or power-of-2 integer ≥ 1                                         |
+| `lr_scheduler_type`      | How the learning rate changes during training. A linear schedule decays steadily; a cosine schedule slows its decay near the end.                                          | `"linear"` \| `"cosine"`                                                  |
+| `min_lr_ratio`           | Floor learning rate as a fraction of the peak. The learning rate will not decay below `learning_rate × min_lr_ratio`.                                                     | Float, `0.0`–`1.0`                                                        |
+| `scheduler_num_cycles`   | Number or fraction of cosine decay cycles across training. Only affects cosine schedules.                                                                                 | Float `> 0.0` (default `0.5`)                                             |
+| `warmup_ratio`           | Fraction of total training steps spent gradually increasing the learning rate from zero. Smooths the transition into the target learning rate.                             | Float, `0.0`–`1.0` (typically `0.03`–`0.1`)                               |
+| `max_grad_norm`          | Maximum gradient norm for gradient clipping. Caps gradient magnitude to reduce exploding gradients and unstable updates. Set to `0.0` to disable.                         | Float ≥ `0.0`                                                              |
+| `weight_decay`           | L2 regularization penalty. Discourages excessively large weights, which helps prevent overfitting and improves generalization to unseen data.                              | Float ≥ `0.0`                                                              |
+| `training_type`          | Training strategy. `"lora"` inserts low-rank adapters; `"full"` updates all model weights. Full fine-tuning is only available for [supported models](/autoscientist/supported-models). | `"lora"` \| `"full"`                                                       |
+
+### LoRA
+
+These hyperparameters configure Low-Rank Adaptation and are only applicable when `training_type` is `"lora"`. In alignment (SFT → DPO) pipelines, LoRA settings are frozen from the winning SFT iteration and cannot be changed during DPO.
+
+| Hyperparameter           | Definition                                                                                                                                                                | Valid Values                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `lora_r`                 | Rank of the LoRA adapter matrices. Controls adapter capacity — higher ranks can represent more complex adaptations but require more memory and compute.                    | Power-of-2 integer, `1`–`64`                                              |
+| `lora_alpha`             | Scaling factor for the LoRA adapter's contribution to the base model. Must be `1×` or `2×` the value of `lora_r`.                                                        | Power-of-2 integer (`1×` or `2× lora_r`)                                  |
+| `lora_dropout`           | Dropout probability applied to LoRA layers during training. Adds regularization to reduce overfitting.                                                                    | Float, `0.0`–`1.0` (typically `0.0`–`0.1`)                                |
+| `lora_trainable_modules` | Which model layers receive LoRA adapters. `"all-linear"` targets every linear layer; alternatively, specify a comma-separated list of module names.                       | `"all-linear"` or comma-separated list (e.g. `"q_proj,v_proj,o_proj"`)    |
+
+### SFT specific
+
+| Hyperparameter   | Definition                                                                                                                                                                    | Valid Values       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `train_on_inputs` | Whether training loss is computed over prompt tokens in addition to completion tokens. Setting to `false` masks the prompt so the model only learns to generate completions.  | `true` \| `false`  |
+
+### Alignment specific
+
+These hyperparameters apply only to preference-based (DPO) training. They are inert for SFT runs.
+
+| Hyperparameter                        | Definition                                                                                                                                                                                                                                                                                                                                          | Valid Values                                         |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `dpo_beta`                            | Controls how far the model is allowed to drift from the reference model. Lower values (around `0.1`) update more aggressively toward the preferred output; higher values (around `0.7`) stay closer to the reference.                                                                                                                               | Float, `0.05`–`0.9`                                 |
+| `dpo_normalize_logratios_by_length`   | Normalizes log ratios by sample length during loss calculation. Changing this flag alters the effective scale of `dpo_beta`; treat a change as a major intervention.                                                                                                                                                                                 | `true` \| `false`                                    |
+| `rpo_alpha`                           | Weight of an auxiliary negative log-likelihood (NLL) loss on preferred responses, added on top of the standard DPO loss (Regularized Preference Optimization). Counteracts likelihood displacement — the failure mode where chosen-response probability drifts downward even as the reward margin grows. Set to `0.0` to disable. **Cannot be combined with `simpo_gamma`.** | Float ≥ `0.0` (typical `0.1`–`1.0`)                |
+| `simpo_gamma`                         | Target reward margin from Simple Preference Optimization. Above `0.0`, the objective becomes reference-free and length-normalized: the chosen response must beat the rejected response by at least this margin. Raise `dpo_beta` alongside it since SimPO typically calls for a substantially larger beta. Set to `0.0` to disable. **Cannot be combined with `rpo_alpha`.**         | Float ≥ `0.0` (typical `0.3`–`1.6`)                |
 
 ## Review in the app
 

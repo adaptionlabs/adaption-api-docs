@@ -19,37 +19,19 @@ Raw processing supports CSV, JSON, JSONL, and Parquet files. Set `processing_mod
 This example uploads a CSV whose `instruction` and `response` columns contain the training pairs:
 
 ```python
-import hashlib
-from pathlib import Path
-
-import httpx
 from adaption import Adaption
 
 client = Adaption()
 
-path = Path("training_data.csv")
-data = path.read_bytes()
-
-dataset = client.datasets.create(
-    source={
-        "name": path.stem,
-        "file_format": "csv",
-        "processing_mode": "raw",
-        "column_mapping": {
-            "prompt": "instruction",
-            "completion": "response",
-        },
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
     },
 )
 
-response = httpx.put(dataset.upload_instructions.url, content=data)
-response.raise_for_status()
-
-client.datasets.upload.complete_by_id(
-    dataset.dataset_id,
-    file_size_bytes=len(data),
-    sha256=hashlib.sha256(data).hexdigest(),
-)
 client.datasets.wait_for_completion(dataset.dataset_id)
 
 run = client.autoscientist.create(dataset_id=dataset.dataset_id)
