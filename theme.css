@@ -194,6 +194,18 @@
 
 /* ─── Chrome (header / sidebar / TOC) ───────────────────────────────────────── */
 
+/* Stainless clips the mobile menu to the first screen of the page grid.
+   Span the full page and stick it under the header so it stays on screen. */
+@media not (min-width: 50rem) {
+  .page > .sidebar > .sidebar-pane {
+    position: sticky;
+    top: var(--stl-nav-height);
+    grid-row-end: -1;
+    height: calc(100dvh - var(--stl-nav-height));
+    align-self: start;
+  }
+}
+
 .site-title,
 .stl-ui-button,
 .stl-ui-button-label,
