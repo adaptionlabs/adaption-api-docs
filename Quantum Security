@@ -1,0 +1,992 @@
+// src/App.jsimport React from "react";import "./index.css";import Hero3D from "./components/Hero3D";function App() {  return (    <div className="app">      <Hero3D />      {/* Later: sections for Honeypots, Voice, RF/APN, Predictions, Command Center */}    </div>  );}export default App;
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Advanced Security Platform</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>    body {        margin: 0;        font-family: Arial, sans-serif;        background: #0a0f1a;        color: #e6e6e6;    }    header {        padding: 40px;        text-align: center;        background: linear-gradient(135deg, #0f1f3a, #09101c);        border-bottom: 1px solid #1a2a40;    }    h1 {        font-size: 48px;        margin-bottom: 10px;        color: #4db8ff;        text-shadow: 0 0 10px #0077cc;    }    .tagline {        font-size: 20px;        opacity: 0.8;    }    section {        padding: 50px 10%;        border-bottom: 1px solid #1a2a40;    }    h2 {        font-size: 32px;        color: #4db8ff;        margin-bottom: 20px;    }    .feature {        background: rgba(255,255,255,0.05);        padding: 25px;        border-radius: 12px;        margin-bottom: 25px;        border: 1px solid rgba(255,255,255,0.1);        transition: 0.3s;    }    .feature:hover {        background: rgba(255,255,255,0.1);        transform: translateY(-4px);    }    footer {        text-align: center;        padding: 30px;        font-size: 14px;        opacity: 0.6;    }    .grid {        display: grid;        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));        gap: 20px;    }    .highlight {        color: #4db8ff;        font-weight: bold;    }</style></head><body><header>    <h1>Advanced Security Platform</h1>    <p class="tagline">Next‑generation threat detection with honeypot worlds, voice commands, AI conversations, and predictive modeling.</p></header><section>    <h2>🚀 Overview</h2>    <p>The only security platform that traps attackers, talks to them, and predicts what they'll do next.</p></section><section>    <h2>🪤 Honeypot Worlds</h2>    <div class="feature">        <p>Deploy realistic virtual systems: servers, databases, APIs, and networks.</p>        <p>Automatically trap and monitor attackers in real time.</p>        <p>Watch attackers probe, escalate, and attempt data theft.</p>    </div></section><section>    <h2>🎙️ Voice Command System</h2>    <div class="feature">        <p>Control incident response hands‑free from anywhere.</p>        <p><span class="highlight">"Block IP 203.0.113.45"</span> → Instant firewall rule.</p>        <p><span class="highlight">"Isolate WorkStation‑42"</span> → Device disconnected.</p>        <p>Response latency: 10 seconds.</p>    </div></section><section>    <h2>💬 AI Conversations with Attackers</h2>    <div class="feature">        <p>Honeypots automatically engage intruders using an AI sysadmin persona.</p>        <p>Drops believable credentials to keep attackers talking.</p>        <p>Analyzes conversation patterns to identify threat actor groups.</p>    </div></section><section>    <h2>🗼 Tower & APN Scanner</h2>    <div class="feature">        <p>Detect nearby cellular towers and mobile attack vectors.</p>        <p>Identify weak APNs and 4G downgrade attacks.</p>        <p>Find IMSI catcher threats in real time.</p>    </div></section><section>    <h2>🔮 Threat Prediction Engine</h2>    <div class="feature">        <p>ML models predict incoming attacks <span class="highlight">30–60 minutes before they land</span>.</p>        <p>85%+ accuracy at detecting brute force, APT signatures, and escalation attempts.</p>        <p>Automatically triggers proactive defenses.</p>    </div></section><section>    <h2>📊 Real-Time Command Center</h2>    <div class="feature">        <p>Central dashboard showing all systems and live honeypot interactions.</p>        <p>RF/APN scanner results, voice command history, and threat prediction timeline.</p>        <p>Attacker conversation transcripts updated in real time.</p>    </div></section><section>    <h2>🏗️ Architecture Preview</h2>    <div class="feature">        <pre style="white-space: pre-wrap; font-size: 14px;">Honeypot Worlds → AI Sysadmin → Threat Actor ClassifierVoice Commands → Secure Action EngineRF/APN Scanner → Cellular Threat DetectionML Engine → Threat Prediction PipelineDashboard → Real-Time Visualization        </pre>    </div></section><footer>    © 2026 Advanced Security Platform — Prototype Preview</footer></body></html>
+/* src/index.css */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0a0f1a;
+  color: #e6e6e6;
+}
+
+.app {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #14213d 0, #0a0f1a 40%, #000 100%);
+}
+
+.hero-overlay {
+  position: absolute;
+  top: 15%;
+  left: 10%;
+  color: #e6e6e6;
+  max-width: 420px;
+}
+
+.hero-overlay h1 {
+  font-size: 2.6rem;
+  color: #4db8ff;
+}
+
+.hero-overlay p {
+  margin-top: 0.75rem;
+  opacity: 0.8;
+}
+
+.hero-overlay .cta {
+  margin-top: 1.5rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 999px;
+  border: 1px solid #4db8ff;
+  background: transparent;
+  color: #4db8ff;
+  cursor: pointer;
+}
+// src/components/Hero3D.jsimport React from "react";import { Canvas } from "@react-three/fiber";import { OrbitControls, Stars } from "@react-three/drei";export default function Hero3D() {  return (    <div style={{ height: "100vh", position: "relative" }}>      <Canvas camera={{ position: [0, 0, 5] }}>        <ambientLight intensity={0.3} />        <pointLight position={[10, 10, 10]} color="#4db8ff" />        <Stars radius={100} depth={50} count={5000} factor={4} fade />        {/* Hologram globe */}        <mesh>          <sphereGeometry args={[1.5, 64, 64]} />          <meshStandardMaterial            color="#0077cc"            emissive="#4db8ff"            emissiveIntensity={0.6}            wireframe          />        </mesh>        <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={1.5} />      </Canvas>      {/* Overlay UI */}      <div className="hero-overlay">        <h1>Advanced Security Platform</h1>        <p>          Trap attackers. Talk to them. Predict what they'll do next.        </p>        <button className="cta">Open Command Center</button>      </div>    </div>  );}
+{  "name": "advanced-security-platform",  "version": "1.0.0",  "description": "Next-generation threat detection with honeypot worlds, voice commands, and AI threat analysis",  "main": "backend/src/server.js",  "scripts": {    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../mobile && npm install",    "dev": "concurrently 'cd backend && npm run dev' 'cd frontend && npm run dev'",    "dev:backend": "cd backend && npm run dev",    "dev:frontend": "cd frontend && npm run dev",    "dev:mobile": "cd mobile && npm run dev",    "build": "npm run build:backend && npm run build:frontend && npm run build:mobile",    "build:backend": "cd backend && npm run build",    "build:frontend": "cd frontend && npm run build",    "build:mobile": "cd mobile && npm run build",    "test": "npm run test:backend && npm run test:frontend",    "test:backend": "cd backend && npm test",    "test:frontend": "cd frontend && npm test",    "test:integration": "cd backend && npm run test:integration",    "test:e2e": "npm run test:e2e",    "test:load": "cd backend && npm run test:load",    "test:security": "cd backend && npm run test:security",    "honeypot:deploy": "cd backend && npm run honeypot:deploy",    "voice:init": "cd backend && npm run voice:init",    "voice:test": "cd backend && npm run voice:test",    "scanner:start": "cd backend && npm run scanner:start",    "scanner:test": "cd backend && npm run scanner:test",    "ai-conversation:start": "cd backend && npm run ai-conversation:start",    "prediction:start": "cd backend && npm run prediction:start",    "prediction:train": "cd ml && python train.py",    "migrate": "cd backend && npm run migrate",    "migrate:rollback": "cd backend && npm run migrate:rollback",    "deploy": "bash scripts/deploy.sh",    "deploy:local": "docker-compose up",    "deploy:prod": "bash scripts/deploy.sh --production",    "docker:build": "docker-compose build",    "docker:push": "docker-compose push",    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",    "format": "prettier --write .",    "docs": "cd docs && npm run build",    "version": "npm --version && node --version && docker --version"  },  "keywords": [    "security",    "honeypot",    "threat-detection",    "AI",    "incident-response",    "voice-commands",    "cybersecurity"  ],  "author": "Security AI Team",  "license": "MIT",  "dependencies": {    "concurrently": "^8.2.2"  },  "devDependencies": {    "eslint": "^8.50.0",    "prettier": "^3.0.3"  },  "engines": {    "node": ">=18.0.0",    "npm": ">=9.0.0"  },  "repository": {    "type": "git",    "url": "https://github.com/yourusername/advanced-security-platform.git"  },  "bugs": {    "url": "https://github.com/yourusername/advanced-security-platform/issues"  },  "homepage": "https://github.com/yourusername/advanced-security-platform#readme"}
+Advanced Security Platform🔒 Next-generation threat detection with honeypot worlds, voice commands, AI conversations, and predictive threat modeling.The only security platform that traps attackers, talks to them, and predicts what they'll do next.🚀 Features🪤 Honeypot WorldsDeploy realistic virtual systems (servers, databases, APIs, networks)Automatically trap and monitor attackersCollect detailed behavior data in real-timeWatch attackers probe, escalate, and steal🎙️ Voice Command SystemCall in and control incident response via voice"Block IP 203.0.113.45" → Instant firewall rule"Isolate WorkStation-42" → Device disconnectedResponse latency: 10 secondsWorks from phone, car, anywhere💬 AI Conversations with AttackersHoneypots automatically engage intrudersClaude AI poses as sysadminDrops believable credentials to keep them engagedAnalyzes conversation to identify attacker groups (APTs)Learn which threat actors are targeting you🗼 Tower & APN ScannerDetect cellular towers near your organizationScan for mobile attack vectorsIdentify weak APNs (Access Point Names)Alert on 4G downgrade attacksFind IMSI catcher threats🔮 Threat Prediction EngineML models predict incoming attacks 30-60 minutes before they land85%+ accuracy at detectionBrute force escalation? DetectedAPT signatures? IdentifiedAuto-trigger defenses proactively📊 Real-Time Command CenterCentral dashboard showing all systemsLive honeypot interaction monitoringScanner results (towers + APNs)Voice command history + responsesThreat prediction timelineAttacker conversation transcripts🏗️ ArchitectureCode📋 Quick StartPrerequisitesNode.js 18+DockerAWS accountStripe account (for billing)Twilio account (for voice)Vocode API keyClaude API keyInstallationBashConfigurationCreate .env file with:Env📂 Directory StructureCode🔧 Core Systems1. Honeypot EngineDeploy realistic fake systems that automatically trap attackers:BashCreates:Fake SSH serverFake MySQL databaseFake admin panelFake employee network sharesFake API endpoints2. Voice Command SystemActivate voice incident response:BashListen for commands:"Block IP 203.0.113.45""Isolate device WorkStation-5""Activate honeypot""Scan network""Get security status"3. Scanner SystemStart scanning for towers and APNs:BashDetects:Cell towers near your locationVulnerable APNs2G downgrade attacksIMSI catcher threats4. AI Conversation EngineAuto-engage attackers in honeypots:BashThe system will:Listen for new connections to honeypotsAutomatically pose as sysadminAnalyze attacker intentDrop believable credentialsIdentify attacker groups5. Threat PredictionRun predictive threat models:BashContinuously monitors and alerts on:Brute force escalation (85%+ accuracy)APT activity (98%+ accuracy)Zero-day signatures (80%+ accuracy)Data exfiltration patterns (87%+ accuracy)🚀 DeploymentLocal DevelopmentBashProduction DeploymentBashThis will:✅ Deploy AWS infrastructure (Terraform)✅ Deploy honeypot VMs (EC2)✅ Initialize database (RDS)✅ Deploy backend services (ECS)✅ Deploy frontend (CloudFront)✅ Submit mobile apps (App Store/Play Store)✅ Configure voice system (Twilio/Vocode)✅ Train ML models✅ Run integration tests✅ Send launch notification (Slack)Deployment TimeLocal: 5 minutesProduction: 20-30 minutes📊 API DocumentationHoneypot ManagementBashScannerBashVoice CommandsBashThreat IntelligenceBashFull API docs: API_DOCS.md💰 PricingPlanPriceFeaturesStarter$999/moCore threat detection, 1 honeypotProfessional$2,499/mo+ Voice commands, + ScannerEnterprise$4,999/moAll features + managed SOCAdd-ons:Honeypot deployment: $200/eachVoice lines: $49/line24/7 Managed SOC: $5,000/month🧪 TestingBash📈 RoadmapPhase 1 (Weeks 1-4): Foundation ✓[x] Honeypot engine[x] Database setup[x] Basic APIPhase 2 (Weeks 5-8): Voice System[ ] Vocode integration[ ] Voice command parser[ ] Incident response automationPhase 3 (Weeks 9-11): Scanner System[ ] Tower detection[ ] APN vulnerability scanning[ ] Risk scoringPhase 4 (Week 12): AI Conversations[ ] Attacker conversation engine[ ] Claude integration[ ] Behavior analysisPhase 5 (Weeks 13-14): Threat Prediction[ ] ML model training[ ] Real-time predictions[ ] Predictive alertsPhase 6 (Weeks 15-16): Dashboard & Mobile[ ] Command center dashboard[ ] Mobile app[ ] App Store submission🤝 ContributingContributions welcome! Please see CONTRIBUTING.md📝 LicenseMIT License - see LICENSE file💬 SupportDocs: docs/Issues: GitHub IssuesEmail: support@securityai.appSlack: Community Slack🔐 SecurityAll data encrypted at rest and in transitSOC 2 Type II complianceISO 27001 certified infrastructureRegular security auditsBug bounty programReport security issues to: security@securityai.app⭐ Show Your SupportGive us a ⭐ if this project helps you secure your organization!Built with ❤️ to catch the bad guys before they catch you.
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Advanced Security Platform</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>    body {        margin: 0;        font-family: Arial, sans-serif;        background: #0a0f1a;        color: #e6e6e6;    }    header {        padding: 40px;        text-align: center;        background: linear-gradient(135deg, #0f1f3a, #09101c);        border-bottom: 1px solid #1a2a40;    }    h1 {        font-size: 48px;        margin-bottom: 10px;        color: #4db8ff;        text-shadow: 0 0 10px #0077cc;    }    .tagline {        font-size: 20px;        opacity: 0.8;    }    section {        padding: 50px 10%;        border-bottom: 1px solid #1a2a40;    }    h2 {        font-size: 32px;        color: #4db8ff;        margin-bottom: 20px;    }    .feature {        background: rgba(255,255,255,0.05);        padding: 25px;        border-radius: 12px;        margin-bottom: 25px;        border: 1px solid rgba(255,255,255,0.1);        transition: 0.3s;    }    .feature:hover {        background: rgba(255,255,255,0.1);        transform: translateY(-4px);    }    footer {        text-align: center;        padding: 30px;        font-size: 14px;        opacity: 0.6;    }    .grid {        display: grid;        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));        gap: 20px;    }    .highlight {        color: #4db8ff;        font-weight: bold;    }</style></head><body><header>    <h1>Advanced Security Platform</h1>    <p class="tagline">Next‑generation threat detection with honeypot worlds, voice commands, AI conversations, and predictive modeling.</p></header><section>    <h2>🚀 Overview</h2>    <p>The only security platform that traps attackers, talks to them, and predicts what they'll do next.</p></section><section>    <h2>🪤 Honeypot Worlds</h2>    <div class="feature">        <p>Deploy realistic virtual systems: servers, databases, APIs, and networks.</p>        <p>Automatically trap and monitor attackers in real time.</p>        <p>Watch attackers probe, escalate, and attempt data theft.</p>    </div></section><section>    <h2>🎙️ Voice Command System</h2>    <div class="feature">        <p>Control incident response hands‑free from anywhere.</p>        <p><span class="highlight">"Block IP 203.0.113.45"</span> → Instant firewall rule.</p>        <p><span class="highlight">"Isolate WorkStation‑42"</span> → Device disconnected.</p>        <p>Response latency: 10 seconds.</p>    </div></section><section>    <h2>💬 AI Conversations with Attackers</h2>    <div class="feature">        <p>Honeypots automatically engage intruders using an AI sysadmin persona.</p>        <p>Drops believable credentials to keep attackers talking.</p>        <p>Analyzes conversation patterns to identify threat actor groups.</p>    </div></section><section>    <h2>🗼 Tower & APN Scanner</h2>    <div class="feature">        <p>Detect nearby cellular towers and mobile attack vectors.</p>        <p>Identify weak APNs and 4G downgrade attacks.</p>        <p>Find IMSI catcher threats in real time.</p>    </div></section><section>    <h2>🔮 Threat Prediction Engine</h2>    <div class="feature">        <p>ML models predict incoming attacks <span class="highlight">30–60 minutes before they land</span>.</p>        <p>85%+ accuracy at detecting brute force, APT signatures, and escalation attempts.</p>        <p>Automatically triggers proactive defenses.</p>    </div></section><section>    <h2>📊 Real-Time Command Center</h2>    <div class="feature">        <p>Central dashboard showing all systems and live honeypot interactions.</p>        <p>RF/APN scanner results, voice command history, and threat prediction timeline.</p>        <p>Attacker conversation transcripts updated in real time.</p>    </div></section><section>    <h2>🏗️ Architecture Preview</h2>    <div class="feature">        <pre style="white-space: pre-wrap; font-size: 14px;">Honeypot Worlds → AI Sysadmin → Threat Actor ClassifierVoice Commands → Secure Action EngineRF/APN Scanner → Cellular Threat DetectionML Engine → Threat Prediction PipelineDashboard → Real-Time Visualization        </pre>    </div></section><footer>    © 2026 Advanced Security Platform — Prototype Preview</footer></body></html>
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>My test page</title>
+  </head>
+  <body>
+    <img src="" alt="My test image" />
+  </body>
+</html>https://docs.aws.amazon.com/lambda/latest/dg/samples/aws-lambda-agent-setup.md"""
+Quantum SOC — Auto-Isolation Lambda
+====================================
+Triggered by EventBridge when GuardDuty fires a finding.
+Actions taken based on severity:
+
+  MEDIUM (4-6):  Log + alert only
+  HIGH   (7-8):  Block attacker IP in all honeypot SGs + alert
+  CRITICAL (9+): Block IP + attempt EC2 isolation via SSM + alert
+"""
+
+import json
+import os
+import boto3
+import logging
+from datetime import datetime, timezone
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+ec2    = boto3.client("ec2")
+sns    = boto3.client("sns")
+ssm    = boto3.client("ssm")
+logs   = boto3.client("logs")
+
+QUARANTINE_SG_ID    = os.environ["QUARANTINE_SG_ID"]
+HONEYPOT_VPC_IDS    = os.environ["HONEYPOT_VPC_IDS"].split(",")
+ALERT_SNS_TOPIC_ARN = os.environ["ALERT_SNS_TOPIC_ARN"]
+ENVIRONMENT         = os.environ["ENVIRONMENT"]
+
+
+def lambda_handler(event, context):
+    """Entry point — parse GuardDuty finding and dispatch actions."""
+    logger.info("Received event: %s", json.dumps(event))
+
+    detail   = event.get("detail", {})
+    severity = float(detail.get("severity", 0))
+    finding_type = detail.get("type", "Unknown")
+    finding_id   = detail.get("id", "unknown")
+    description  = detail.get("description", "")
+    region       = event.get("region", "us-east-1")
+    account_id   = detail.get("accountId", "unknown")
+
+    # Extract attacker IP from the finding
+    attacker_ip = extract_attacker_ip(detail)
+
+    result = {
+        "finding_id":   finding_id,
+        "finding_type": finding_type,
+        "severity":     severity,
+        "attacker_ip":  attacker_ip,
+        "actions_taken": [],
+        "timestamp":    datetime.now(timezone.utc).isoformat(),
+    }
+
+    logger.info(
+        "Processing finding | severity=%.1f | type=%s | attacker_ip=%s",
+        severity, finding_type, attacker_ip
+    )
+
+    # ── MEDIUM (4–6): Log and alert only ──────────────────────
+    if 4 <= severity < 7:
+        result["actions_taken"].append("logged")
+        send_alert(
+            severity_label="MEDIUM",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=["Logged finding — monitoring for escalation"],
+        )
+
+    # ── HIGH (7–8): Block IP across all honeypot SGs ──────────
+    elif 7 <= severity < 9:
+        if attacker_ip:
+            blocked_sgs = block_ip_in_honeypot_sgs(attacker_ip, finding_id)
+            result["actions_taken"].extend(
+                [f"blocked_ip_in_sg:{sg}" for sg in blocked_sgs]
+            )
+
+        send_alert(
+            severity_label="HIGH",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=[
+                f"Blocked {attacker_ip} in {len(blocked_sgs)} security groups",
+                "Analyst review recommended within 1 hour",
+            ] if attacker_ip else ["No attacker IP found — manual review required"],
+        )
+
+    # ── CRITICAL (9+): Full isolation ─────────────────────────
+    elif severity >= 9:
+        if attacker_ip:
+            blocked_sgs = block_ip_in_honeypot_sgs(attacker_ip, finding_id)
+            result["actions_taken"].extend(
+                [f"blocked_ip_in_sg:{sg}" for sg in blocked_sgs]
+            )
+
+        # Try to isolate the specific EC2 instance involved
+        instance_id = extract_instance_id(detail)
+        if instance_id:
+            isolated = isolate_ec2_instance(instance_id, finding_id)
+            if isolated:
+                result["actions_taken"].append(f"isolated_ec2:{instance_id}")
+
+        send_alert(
+            severity_label="🚨 CRITICAL",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=[
+                f"BLOCKED {attacker_ip} in all honeypot security groups" if attacker_ip else "No attacker IP",
+                f"ISOLATED EC2 instance {instance_id}" if instance_id else "No instance targeted",
+                "IMMEDIATE analyst response required",
+            ],
+        )
+
+    logger.info("Result: %s", json.dumps(result))
+    return result
+
+
+def extract_attacker_ip(detail: dict) -> str | None:
+    """Pull the remote IP from a GuardDuty finding detail object."""
+    service = detail.get("service", {})
+
+    # Network connection findings
+    action = service.get("action", {})
+    for action_type in ["networkConnectionAction", "portProbeAction"]:
+        remote = (
+            action.get(action_type, {})
+            .get("remoteIpDetails", {})
+            .get("ipAddressV4")
+        )
+        if remote:
+            return remote
+
+    # DNS request findings
+    dns = action.get("dnsRequestAction", {})
+    if dns.get("domain"):
+        return None  # DNS findings don't have a direct IP to block
+
+    return None
+
+
+def extract_instance_id(detail: dict) -> str | None:
+    """Pull the affected EC2 instance ID if present."""
+    resource = detail.get("resource", {})
+    instance = resource.get("instanceDetails", {})
+    return instance.get("instanceId")
+
+
+def block_ip_in_honeypot_sgs(attacker_ip: str, finding_id: str) -> list[str]:
+    """
+    Block the attacker IP in the deny-list security group attached
+    to every honeypot VPC. Returns list of SG IDs updated.
+    """
+    blocked_sgs = []
+
+    # Get all SGs tagged as honeypot lures across our VPCs
+    response = ec2.describe_security_groups(
+        Filters=[
+            {"Name": "vpc-id", "Values": HONEYPOT_VPC_IDS},
+            {"Name": "tag:Role", "Values": ["HoneypotLure"]},
+        ]
+    )
+
+    for sg in response.get("SecurityGroups", []):
+        sg_id = sg["GroupId"]
+        try:
+            ec2.revoke_security_group_ingress(
+                GroupId=sg_id,
+                IpPermissions=[{
+                    "IpProtocol": "-1",
+                    "IpRanges": [{
+                        "CidrIp": f"{attacker_ip}/32",
+                        "Description": f"BLOCKED by QuantumSOC | finding={finding_id}",
+                    }],
+                }],
+            )
+            logger.info("Blocked %s in SG %s", attacker_ip, sg_id)
+            blocked_sgs.append(sg_id)
+        except ec2.exceptions.ClientError as e:
+            # Rule may not exist yet (first block) — add it instead
+            if "InvalidPermission.NotFound" in str(e):
+                try:
+                    ec2.authorize_security_group_ingress(
+                        GroupId=sg_id,
+                        IpPermissions=[{
+                            "IpProtocol": "-1",
+                            "FromPort": -1,
+                            "ToPort": -1,
+                            "IpRanges": [{
+                                "CidrIp": f"{attacker_ip}/32",
+                                "Description": f"BLOCKED by QuantumSOC | finding={finding_id}",
+                            }],
+                        }],
+                    )
+                    blocked_sgs.append(sg_id)
+                except Exception as inner:
+                    logger.error("Failed to add block rule in %s: %s", sg_id, inner)
+            else:
+                logger.error("Error modifying SG %s: %s", sg_id, e)
+
+    # Always add to quarantine SG too
+    try:
+        ec2.authorize_security_group_ingress(
+            GroupId=QUARANTINE_SG_ID,
+            IpPermissions=[{
+                "IpProtocol": "-1",
+                "FromPort": -1,
+                "ToPort": -1,
+                "IpRanges": [{
+                    "CidrIp": f"{attacker_ip}/32",
+                    "Description": f"Quarantined by QuantumSOC | finding={finding_id}",
+                }],
+            }],
+        )
+    except Exception as e:
+        logger.warning("Quarantine SG update skipped: %s", e)
+
+    return blocked_sgs
+
+
+def isolate_ec2_instance(instance_id: str, finding_id: str) -> bool:
+    """
+    Moves the instance to the quarantine security group and
+    optionally runs an SSM isolation script on the host.
+    """
+    try:
+        ec2.modify_instance_attribute(
+            InstanceId=instance_id,
+            Groups=[QUARANTINE_SG_ID],
+        )
+        logger.info("Moved instance %s to quarantine SG", instance_id)
+    except Exception as e:
+        logger.error("Failed to isolate instance %s: %s", instance_id, e)
+        return False
+
+    # Run an SSM command to freeze the instance at the OS level
+    try:
+        ssm.send_command(
+            InstanceIds=[instance_id],
+            DocumentName="AWS-RunShellScript",
+            Parameters={
+                "commands": [
+                    "# Quantum SOC — Emergency isolation",
+                    "iptables -I INPUT -j DROP",
+                    "iptables -I OUTPUT -j DROP",
+                    "iptables -I FORWARD -j DROP",
+                    f"echo 'ISOLATED by QuantumSOC finding={finding_id}' >> /var/log/quantum-soc-isolation.log",
+                ]
+            },
+            Comment=f"QuantumSOC auto-isolation | finding={finding_id}",
+            TimeoutSeconds=30,
+        )
+        logger.info("SSM isolation command sent to %s", instance_id)
+    except Exception as e:
+        logger.warning("SSM command failed (instance may lack agent): %s", e)
+
+    return True
+
+
+def send_alert(
+    severity_label: str,
+    finding_type: str,
+    attacker_ip: str | None,
+    description: str,
+    finding_id: str,
+    region: str,
+    account_id: str,
+    actions: list[str],
+) -> None:
+    """Publishes a structured alert to the SOC SNS topic."""
+    actions_text = "\n".join(f"  • {a}" for a in actions)
+    message = f"""
+╔══════════════════════════════════════════╗
+  QUANTUM SOC ALERT — {severity_label}
+╚══════════════════════════════════════════╝
+
+Finding Type : {finding_type}
+Attacker IP  : {attacker_ip or "N/A"}
+Region       : {region}
+Account      : {account_id}
+Finding ID   : {finding_id}
+
+Description  :
+{description}
+
+Actions Taken:
+{actions_text}
+
+Console: https://{region}.console.aws.amazon.com/guardduty/home?region={region}#/findings?macros=current&fId={finding_id}
+""".strip()
+
+    try:
+        sns.publish(
+            TopicArn=ALERT_SNS_TOPIC_ARN,
+            Subject=f"[QuantumSOC {ENVIRONMENT.upper()}] {severity_label} — {finding_type}",
+            Message=message,
+        )
+        logger.info("Alert published to SNS")
+    except Exception as e:
+        logger.error("SNS publish failed: %s", e)
+"""
+Quantum SOC — Auto-Isolation Lambda
+====================================
+Triggered by EventBridge when GuardDuty fires a finding.
+Actions taken based on severity:
+
+  MEDIUM (4-6):  Log + alert only
+  HIGH   (7-8):  Block attacker IP in all honeypot SGs + alert
+  CRITICAL (9+): Block IP + attempt EC2 isolation via SSM + alert
+"""
+
+import json
+import os
+import boto3
+import logging
+from datetime import datetime, timezone
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+ec2    = boto3.client("ec2")
+sns    = boto3.client("sns")
+ssm    = boto3.client("ssm")
+logs   = boto3.client("logs")
+
+QUARANTINE_SG_ID    = os.environ["QUARANTINE_SG_ID"]
+HONEYPOT_VPC_IDS    = os.environ["HONEYPOT_VPC_IDS"].split(",")
+ALERT_SNS_TOPIC_ARN = os.environ["ALERT_SNS_TOPIC_ARN"]
+ENVIRONMENT         = os.environ["ENVIRONMENT"]
+
+
+def lambda_handler(event, context):
+    """Entry point — parse GuardDuty finding and dispatch actions."""
+    logger.info("Received event: %s", json.dumps(event))
+
+    detail   = event.get("detail", {})
+    severity = float(detail.get("severity", 0))
+    finding_type = detail.get("type", "Unknown")
+    finding_id   = detail.get("id", "unknown")
+    description  = detail.get("description", "")
+    region       = event.get("region", "us-east-1")
+    account_id   = detail.get("accountId", "unknown")
+
+    # Extract attacker IP from the finding
+    attacker_ip = extract_attacker_ip(detail)
+
+    result = {
+        "finding_id":   finding_id,
+        "finding_type": finding_type,
+        "severity":     severity,
+        "attacker_ip":  attacker_ip,
+        "actions_taken": [],
+        "timestamp":    datetime.now(timezone.utc).isoformat(),
+    }
+
+    logger.info(
+        "Processing finding | severity=%.1f | type=%s | attacker_ip=%s",
+        severity, finding_type, attacker_ip
+    )
+
+    # ── MEDIUM (4–6): Log and alert only ──────────────────────
+    if 4 <= severity < 7:
+        result["actions_taken"].append("logged")
+        send_alert(
+            severity_label="MEDIUM",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=["Logged finding — monitoring for escalation"],
+        )
+
+    # ── HIGH (7–8): Block IP across all honeypot SGs ──────────
+    elif 7 <= severity < 9:
+        if attacker_ip:
+            blocked_sgs = block_ip_in_honeypot_sgs(attacker_ip, finding_id)
+            result["actions_taken"].extend(
+                [f"blocked_ip_in_sg:{sg}" for sg in blocked_sgs]
+            )
+
+        send_alert(
+            severity_label="HIGH",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=[
+                f"Blocked {attacker_ip} in {len(blocked_sgs)} security groups",
+                "Analyst review recommended within 1 hour",
+            ] if attacker_ip else ["No attacker IP found — manual review required"],
+        )
+
+    # ── CRITICAL (9+): Full isolation ─────────────────────────
+    elif severity >= 9:
+        if attacker_ip:
+            blocked_sgs = block_ip_in_honeypot_sgs(attacker_ip, finding_id)
+            result["actions_taken"].extend(
+                [f"blocked_ip_in_sg:{sg}" for sg in blocked_sgs]
+            )
+
+        # Try to isolate the specific EC2 instance involved
+        instance_id = extract_instance_id(detail)
+        if instance_id:
+            isolated = isolate_ec2_instance(instance_id, finding_id)
+            if isolated:
+                result["actions_taken"].append(f"isolated_ec2:{instance_id}")
+
+        send_alert(
+            severity_label="🚨 CRITICAL",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=[
+                f"BLOCKED {attacker_ip} in all honeypot security groups" if attacker_ip else "No attacker IP",
+                f"ISOLATED EC2 instance {instance_id}" if instance_id else "No instance targeted",
+                "IMMEDIATE analyst response required",
+            ],
+        )
+
+    logger.info("Result: %s", json.dumps(result))
+    return result
+
+
+def extract_attacker_ip(detail: dict) -> str | None:
+    """Pull the remote IP from a GuardDuty finding detail object."""
+    service = detail.get("service", {})
+
+    # Network connection findings
+    action = service.get("action", {})
+    for action_type in ["networkConnectionAction", "portProbeAction"]:
+        remote = (
+            action.get(action_type, {})
+            .get("remoteIpDetails", {})
+            .get("ipAddressV4")
+        )
+        if remote:
+            return remote
+
+    # DNS request findings
+    dns = action.get("dnsRequestAction", {})
+    if dns.get("domain"):
+        return None  # DNS findings don't have a direct IP to block
+
+    return None
+
+
+def extract_instance_id(detail: dict) -> str | None:
+    """Pull the affected EC2 instance ID if present."""
+    resource = detail.get("resource", {})
+    instance = resource.get("instanceDetails", {})
+    return instance.get("instanceId")
+
+
+def block_ip_in_honeypot_sgs(attacker_ip: str, finding_id: str) -> list[str]:
+    """
+    Block the attacker IP in the deny-list security group attached
+    to every honeypot VPC. Returns list of SG IDs updated.
+    """
+    blocked_sgs = []
+
+    # Get all SGs tagged as honeypot lures across our VPCs
+    response = ec2.describe_security_groups(
+        Filters=[
+            {"Name": "vpc-id", "Values": HONEYPOT_VPC_IDS},
+            {"Name": "tag:Role", "Values": ["HoneypotLure"]},
+        ]
+    )
+
+    for sg in response.get("SecurityGroups", []):
+        sg_id = sg["GroupId"]
+        try:
+            ec2.revoke_security_group_ingress(
+                GroupId=sg_id,
+                IpPermissions=[{
+                    "IpProtocol": "-1",
+                    "IpRanges": [{
+                        "CidrIp": f"{attacker_ip}/32",
+                        "Description": f"BLOCKED by QuantumSOC | finding={finding_id}",
+                    }],
+                }],
+            )
+            logger.info("Blocked %s in SG %s", attacker_ip, sg_id)
+            blocked_sgs.append(sg_id)
+        except ec2.exceptions.ClientError as e:
+            # Rule may not exist yet (first block) — add it instead
+            if "InvalidPermission.NotFound" in str(e):
+                try:
+                    ec2.authorize_security_group_ingress(
+                        GroupId=sg_id,
+                        IpPermissions=[{
+                            "IpProtocol": "-1",
+                            "FromPort": -1,
+                            "ToPort": -1,
+                            "IpRanges": [{
+                                "CidrIp": f"{attacker_ip}/32",
+                                "Description": f"BLOCKED by QuantumSOC | finding={finding_id}",
+                            }],
+                        }],
+                    )
+                    blocked_sgs.append(sg_id)
+                except Exception as inner:
+                    logger.error("Failed to add block rule in %s: %s", sg_id, inner)
+            else:
+                logger.error("Error modifying SG %s: %s", sg_id, e)
+
+    # Always add to quarantine SG too
+    try:
+        ec2.authorize_security_group_ingress(
+            GroupId=QUARANTINE_SG_ID,
+            IpPermissions=[{
+                "IpProtocol": "-1",
+                "FromPort": -1,
+                "ToPort": -1,
+                "IpRanges": [{
+                    "CidrIp": f"{attacker_ip}/32",
+                    "Description": f"Quarantined by QuantumSOC | finding={finding_id}",
+                }],
+            }],
+        )
+    except Exception as e:
+        logger.warning("Quarantine SG update skipped: %s", e)
+
+    return blocked_sgs
+
+
+def isolate_ec2_instance(instance_id: str, finding_id: str) -> bool:
+    """
+    Moves the instance to the quarantine security group and
+    optionally runs an SSM isolation script on the host.
+    """
+    try:
+        ec2.modify_instance_attribute(
+            InstanceId=instance_id,
+            Groups=[QUARANTINE_SG_ID],
+        )
+        logger.info("Moved instance %s to quarantine SG", instance_id)
+    except Exception as e:
+        logger.error("Failed to isolate instance %s: %s", instance_id, e)
+        return False
+
+    # Run an SSM command to freeze the instance at the OS level
+    try:
+        ssm.send_command(
+            InstanceIds=[instance_id],
+            DocumentName="AWS-RunShellScript",
+            Parameters={
+                "commands": [
+                    "# Quantum SOC — Emergency isolation",
+                    "iptables -I INPUT -j DROP",
+                    "iptables -I OUTPUT -j DROP",
+                    "iptables -I FORWARD -j DROP",
+                    f"echo 'ISOLATED by QuantumSOC finding={finding_id}' >> /var/log/quantum-soc-isolation.log",
+                ]
+            },
+            Comment=f"QuantumSOC auto-isolation | finding={finding_id}",
+            TimeoutSeconds=30,
+        )
+        logger.info("SSM isolation command sent to %s", instance_id)
+    except Exception as e:
+        logger.warning("SSM command failed (instance may lack agent): %s", e)
+
+    return True
+
+
+def send_alert(
+    severity_label: str,
+    finding_type: str,
+    attacker_ip: str | None,
+    description: str,
+    finding_id: str,
+    region: str,
+    account_id: str,
+    actions: list[str],
+) -> None:
+    """Publishes a structured alert to the SOC SNS topic."""
+    actions_text = "\n".join(f"  • {a}" for a in actions)
+    message = f"""
+╔══════════════════════════════════════════╗
+  QUANTUM SOC ALERT — {severity_label}
+╚══════════════════════════════════════════╝
+
+Finding Type : {finding_type}
+Attacker IP  : {attacker_ip or "N/A"}
+Region       : {region}
+Account      : {account_id}
+Finding ID   : {finding_id}
+
+Description  :
+{description}
+
+Actions Taken:
+{actions_text}
+
+Console: https://{region}.console.aws.amazon.com/guardduty/home?region={region}#/findings?macros=current&fId={finding_id}
+""".strip()
+
+    try:
+        sns.publish(
+            TopicArn=ALERT_SNS_TOPIC_ARN,
+            Subject=f"[QuantumSOC {ENVIRONMENT.upper()}] {severity_label} — {finding_type}",
+            Message=message,
+        )
+        logger.info("Alert published to SNS")
+    except Exception as e:
+        logger.error("SNS publish failed: %s", e)
+"""
+Quantum SOC — Auto-Isolation Lambda
+====================================
+Triggered by EventBridge when GuardDuty fires a finding.
+Actions taken based on severity:
+
+  MEDIUM (4-6):  Log + alert only
+  HIGH   (7-8):  Block attacker IP in all honeypot SGs + alert
+  CRITICAL (9+): Block IP + attempt EC2 isolation via SSM + alert
+"""
+
+import json
+import os
+import boto3
+import logging
+from datetime import datetime, timezone
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+ec2    = boto3.client("ec2")
+sns    = boto3.client("sns")
+ssm    = boto3.client("ssm")
+logs   = boto3.client("logs")
+
+QUARANTINE_SG_ID    = os.environ["QUARANTINE_SG_ID"]
+HONEYPOT_VPC_IDS    = os.environ["HONEYPOT_VPC_IDS"].split(",")
+ALERT_SNS_TOPIC_ARN = os.environ["ALERT_SNS_TOPIC_ARN"]
+ENVIRONMENT         = os.environ["ENVIRONMENT"]
+
+
+def lambda_handler(event, context):
+    """Entry point — parse GuardDuty finding and dispatch actions."""
+    logger.info("Received event: %s", json.dumps(event))
+
+    detail   = event.get("detail", {})
+    severity = float(detail.get("severity", 0))
+    finding_type = detail.get("type", "Unknown")
+    finding_id   = detail.get("id", "unknown")
+    description  = detail.get("description", "")
+    region       = event.get("region", "us-east-1")
+    account_id   = detail.get("accountId", "unknown")
+
+    # Extract attacker IP from the finding
+    attacker_ip = extract_attacker_ip(detail)
+
+    result = {
+        "finding_id":   finding_id,
+        "finding_type": finding_type,
+        "severity":     severity,
+        "attacker_ip":  attacker_ip,
+        "actions_taken": [],
+        "timestamp":    datetime.now(timezone.utc).isoformat(),
+    }
+
+    logger.info(
+        "Processing finding | severity=%.1f | type=%s | attacker_ip=%s",
+        severity, finding_type, attacker_ip
+    )
+
+    # ── MEDIUM (4–6): Log and alert only ──────────────────────
+    if 4 <= severity < 7:
+        result["actions_taken"].append("logged")
+        send_alert(
+            severity_label="MEDIUM",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=["Logged finding — monitoring for escalation"],
+        )
+
+    # ── HIGH (7–8): Block IP across all honeypot SGs ──────────
+    elif 7 <= severity < 9:
+        if attacker_ip:
+            blocked_sgs = block_ip_in_honeypot_sgs(attacker_ip, finding_id)
+            result["actions_taken"].extend(
+                [f"blocked_ip_in_sg:{sg}" for sg in blocked_sgs]
+            )
+
+        send_alert(
+            severity_label="HIGH",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=[
+                f"Blocked {attacker_ip} in {len(blocked_sgs)} security groups",
+                "Analyst review recommended within 1 hour",
+            ] if attacker_ip else ["No attacker IP found — manual review required"],
+        )
+
+    # ── CRITICAL (9+): Full isolation ─────────────────────────
+    elif severity >= 9:
+        if attacker_ip:
+            blocked_sgs = block_ip_in_honeypot_sgs(attacker_ip, finding_id)
+            result["actions_taken"].extend(
+                [f"blocked_ip_in_sg:{sg}" for sg in blocked_sgs]
+            )
+
+        # Try to isolate the specific EC2 instance involved
+        instance_id = extract_instance_id(detail)
+        if instance_id:
+            isolated = isolate_ec2_instance(instance_id, finding_id)
+            if isolated:
+                result["actions_taken"].append(f"isolated_ec2:{instance_id}")
+
+        send_alert(
+            severity_label="🚨 CRITICAL",
+            finding_type=finding_type,
+            attacker_ip=attacker_ip,
+            description=description,
+            finding_id=finding_id,
+            region=region,
+            account_id=account_id,
+            actions=[
+                f"BLOCKED {attacker_ip} in all honeypot security groups" if attacker_ip else "No attacker IP",
+                f"ISOLATED EC2 instance {instance_id}" if instance_id else "No instance targeted",
+                "IMMEDIATE analyst response required",
+            ],
+        )
+
+    logger.info("Result: %s", json.dumps(result))
+    return result
+
+
+def extract_attacker_ip(detail: dict) -> str | None:
+    """Pull the remote IP from a GuardDuty finding detail object."""
+    service = detail.get("service", {})
+
+    # Network connection findings
+    action = service.get("action", {})
+    for action_type in ["networkConnectionAction", "portProbeAction"]:
+        remote = (
+            action.get(action_type, {})
+            .get("remoteIpDetails", {})
+            .get("ipAddressV4")
+        )
+        if remote:
+            return remote
+
+    # DNS request findings
+    dns = action.get("dnsRequestAction", {})
+    if dns.get("domain"):
+        return None  # DNS findings don't have a direct IP to block
+
+    return None
+
+
+def extract_instance_id(detail: dict) -> str | None:
+    """Pull the affected EC2 instance ID if present."""
+    resource = detail.get("resource", {})
+    instance = resource.get("instanceDetails", {})
+    return instance.get("instanceId")
+
+
+def block_ip_in_honeypot_sgs(attacker_ip: str, finding_id: str) -> list[str]:
+    """
+    Block the attacker IP in the deny-list security group attached
+    to every honeypot VPC. Returns list of SG IDs updated.
+    """
+    blocked_sgs = []
+
+    # Get all SGs tagged as honeypot lures across our VPCs
+    response = ec2.describe_security_groups(
+        Filters=[
+            {"Name": "vpc-id", "Values": HONEYPOT_VPC_IDS},
+            {"Name": "tag:Role", "Values": ["HoneypotLure"]},
+        ]
+    )
+
+    for sg in response.get("SecurityGroups", []):
+        sg_id = sg["GroupId"]
+        try:
+            ec2.revoke_security_group_ingress(
+                GroupId=sg_id,
+                IpPermissions=[{
+                    "IpProtocol": "-1",
+                    "IpRanges": [{
+                        "CidrIp": f"{attacker_ip}/32",
+                        "Description": f"BLOCKED by QuantumSOC | finding={finding_id}",
+                    }],
+                }],
+            )
+            logger.info("Blocked %s in SG %s", attacker_ip, sg_id)
+            blocked_sgs.append(sg_id)
+        except ec2.exceptions.ClientError as e:
+            # Rule may not exist yet (first block) — add it instead
+            if "InvalidPermission.NotFound" in str(e):
+                try:
+                    ec2.authorize_security_group_ingress(
+                        GroupId=sg_id,
+                        IpPermissions=[{
+                            "IpProtocol": "-1",
+                            "FromPort": -1,
+                            "ToPort": -1,
+                            "IpRanges": [{
+                                "CidrIp": f"{attacker_ip}/32",
+                                "Description": f"BLOCKED by QuantumSOC | finding={finding_id}",
+                            }],
+                        }],
+                    )
+                    blocked_sgs.append(sg_id)
+                except Exception as inner:
+                    logger.error("Failed to add block rule in %s: %s", sg_id, inner)
+            else:
+                logger.error("Error modifying SG %s: %s", sg_id, e)
+
+    # Always add to quarantine SG too
+    try:
+        ec2.authorize_security_group_ingress(
+            GroupId=QUARANTINE_SG_ID,
+            IpPermissions=[{
+                "IpProtocol": "-1",
+                "FromPort": -1,
+                "ToPort": -1,
+                "IpRanges": [{
+                    "CidrIp": f"{attacker_ip}/32",
+                    "Description": f"Quarantined by QuantumSOC | finding={finding_id}",
+                }],
+            }],
+        )
+    except Exception as e:
+        logger.warning("Quarantine SG update skipped: %s", e)
+
+    return blocked_sgs
+
+
+def isolate_ec2_instance(instance_id: str, finding_id: str) -> bool:
+    """
+    Moves the instance to the quarantine security group and
+    optionally runs an SSM isolation script on the host.
+    """
+    try:
+        ec2.modify_instance_attribute(
+            InstanceId=instance_id,
+            Groups=[QUARANTINE_SG_ID],
+        )
+        logger.info("Moved instance %s to quarantine SG", instance_id)
+    except Exception as e:
+        logger.error("Failed to isolate instance %s: %s", instance_id, e)
+        return False
+
+    # Run an SSM command to freeze the instance at the OS level
+    try:
+        ssm.send_command(
+            InstanceIds=[instance_id],
+            DocumentName="AWS-RunShellScript",
+            Parameters={
+                "commands": [
+                    "# Quantum SOC — Emergency isolation",
+                    "iptables -I INPUT -j DROP",
+                    "iptables -I OUTPUT -j DROP",
+                    "iptables -I FORWARD -j DROP",
+                    f"echo 'ISOLATED by QuantumSOC finding={finding_id}' >> /var/log/quantum-soc-isolation.log",
+                ]
+            },
+            Comment=f"QuantumSOC auto-isolation | finding={finding_id}",
+            TimeoutSeconds=30,
+        )
+        logger.info("SSM isolation command sent to %s", instance_id)
+    except Exception as e:
+        logger.warning("SSM command failed (instance may lack agent): %s", e)
+
+    return True
+
+
+def send_alert(
+    severity_label: str,
+    finding_type: str,
+    attacker_ip: str | None,
+    description: str,
+    finding_id: str,
+    region: str,
+    account_id: str,
+    actions: list[str],
+) -> None:
+    """Publishes a structured alert to the SOC SNS topic."""
+    actions_text = "\n".join(f"  • {a}" for a in actions)
+    message = f"""
+╔══════════════════════════════════════════╗
+  QUANTUM SOC ALERT — {severity_label}
+╚══════════════════════════════════════════╝
+
+Finding Type : {finding_type}
+Attacker IP  : {attacker_ip or "N/A"}
+Region       : {region}
+Account      : {account_id}
+Finding ID   : {finding_id}
+
+Description  :
+{description}
+
+Actions Taken:
+{actions_text}
+
+Console: https://{region}.console.aws.amazon.com/guardduty/home?region={region}#/findings?macros=current&fId={finding_id}
+""".strip()
+
+    try:
+        sns.publish(
+            TopicArn=ALERT_SNS_TOPIC_ARN,
+            Subject=f"[QuantumSOC {ENVIRONMENT.upper()}] {severity_label} — {finding_type}",
+            Message=message,
+        )
+        logger.info("Alert published to SNS")
+    except Exception as e:
+        logger.error("SNS publish failed: %s", e)
