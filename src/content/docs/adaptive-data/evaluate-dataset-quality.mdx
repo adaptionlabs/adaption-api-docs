@@ -26,22 +26,12 @@ if evaluation.quality:
 
 When evaluation succeeds, `quality` can include before-and-after scores on a 0–10 scale, letter grades, improvement percentage, and an after-adaptation percentile. While status is `pending` or `running`, `quality` can be absent.
 
-## Poll until evaluation finishes
+## Wait until evaluation finishes
 
-Poll evaluation status with a deadline so a notebook or CI job cannot wait forever:
+`wait_for_evaluation` polls `get_evaluation` with exponential backoff and returns the same object once the status is `succeeded`, `failed`, or `skipped`. Set `timeout` so a notebook or CI job cannot wait forever; the helper raises `adaption.DatasetTimeout` when it passes:
 
 ```python
-import time
-
-deadline = time.monotonic() + 600
-
-while True:
-    evaluation = client.datasets.get_evaluation(dataset_id)
-    if evaluation.status in ("succeeded", "failed", "skipped"):
-        break
-    if time.monotonic() >= deadline:
-        raise TimeoutError("Evaluation did not finish within 10 minutes")
-    time.sleep(5)
+evaluation = client.datasets.wait_for_evaluation(dataset_id, timeout=600)
 
 if evaluation.status == "failed":
     raise RuntimeError("Dataset evaluation failed")
@@ -51,7 +41,9 @@ elif evaluation.quality:
     print(evaluation.quality.model_dump(exclude_none=True))
 ```
 
-Async clients return the same response shape with `await client.datasets.get_evaluation(dataset_id)`.
+The helper backs off from 2 to 30 seconds and has a one-hour default timeout. Tune it with `initial_interval`, `max_interval`, and `backoff_factor`. A timeout stops waiting, not evaluation. Call the helper again with the same `dataset_id` to resume.
+
+Async clients use the same helper with `await client.datasets.wait_for_evaluation(dataset_id, timeout=600)`.
 
 ## Read the summary from the dataset
 
@@ -74,23 +66,14 @@ This script reads a completed adaptation's dataset ID from the environment, wait
 
 ```python
 import os
-import time
 
 from adaption import Adaption
 
 client = Adaption()
 dataset_id = os.environ["ADAPTION_DATASET_ID"]
-deadline = time.monotonic() + 600
 
-while True:
-    evaluation = client.datasets.get_evaluation(dataset_id)
-    print(f"Evaluation status: {evaluation.status}")
-
-    if evaluation.status in ("succeeded", "failed", "skipped"):
-        break
-    if time.monotonic() >= deadline:
-        raise TimeoutError("Evaluation did not finish within 10 minutes")
-    time.sleep(5)
+evaluation = client.datasets.wait_for_evaluation(dataset_id, timeout=600)
+print(f"Evaluation status: {evaluation.status}")
 
 if evaluation.status == "failed":
     raise RuntimeError("Dataset evaluation failed")
