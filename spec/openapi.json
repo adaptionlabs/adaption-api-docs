@@ -1708,8 +1708,18 @@
           },
           "completion": {
             "type": "string",
-            "description": "Name of the raw column holding the completion / target text",
+            "description": "Name of the raw column holding the completion / target text. Required unless chosen and rejected are given.",
             "example": "answer"
+          },
+          "chosen": {
+            "type": "string",
+            "description": "Name of the raw column holding the preferred response. Give it together with rejected to ingest a preference dataset.",
+            "example": "chosen"
+          },
+          "rejected": {
+            "type": "string",
+            "description": "Name of the raw column holding the dispreferred response. Give it together with chosen.",
+            "example": "rejected"
           },
           "context": {
             "description": "Names of raw columns to fold in as context alongside the prompt. Each is validated against the uploaded file at ingestion; an unknown name fails the request listing the available columns. The columns themselves are kept in the dataset as well as folded.",
@@ -1723,8 +1733,7 @@
           }
         },
         "required": [
-          "prompt",
-          "completion"
+          "prompt"
         ]
       },
       "DatasetSourceDto": {
@@ -1803,7 +1812,7 @@
             "example": "raw"
           },
           "column_mapping": {
-            "description": "Required when processing_mode is `raw`: which columns to canonicalize as prompt and completion. Ignored when the dataset is adapted.",
+            "description": "Required when processing_mode is `raw`: which columns to canonicalize as the prompt and the answer — either a completion, or a chosen / rejected pair. Ignored when the dataset is adapted.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/PassthroughColumnMappingDto"
