@@ -1,10 +1,15 @@
 /**
  * Translations for chrome that lives in `astro.config.ts` rather than in a
- * content file: sidebar group labels and header links.
+ * content file: sidebar group labels and social links.
  *
  * Starlight keys sidebar `translations` by the locale's BCP-47 `lang`, not by
  * its URL prefix, so these maps use `zh-CN` / `pt-BR`. English is not listed —
  * it is the `label` on the entry itself.
+ *
+ * Only Starlight may read these. Anything this repo renders itself belongs in
+ * `ui.ts`, which is keyed by locale short code and typed per locale: mixing
+ * the two schemes is what once left `/zh` and `/pt` with blank header
+ * buttons.
  *
  * Product names (Adaption, Adaptive Data, AutoScientist, Blueprint, Forge) are
  * deliberately left in English in every language: they are proper nouns in the
@@ -87,22 +92,5 @@ export const SIDEBAR_LINKS = {
     "pt-BR": "Blog",
     es: "Blog",
     ar: "المدونة",
-  },
-} satisfies Record<string, Translated>;
-
-export const HEADER_LINKS = {
-  support: {
-    "zh-CN": "支持",
-    ja: "サポート",
-    "pt-BR": "Suporte",
-    es: "Soporte",
-    ar: "الدعم",
-  },
-  login: {
-    "zh-CN": "登录",
-    ja: "ログイン",
-    "pt-BR": "Entrar",
-    es: "Iniciar sesión",
-    ar: "تسجيل الدخول",
   },
 } satisfies Record<string, Translated>;

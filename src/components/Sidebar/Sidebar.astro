@@ -1,0 +1,107 @@
+---
+/**
+ * Starlight `Sidebar` override.
+ *
+ * On narrow viewports the header links collapse into the sidebar, and
+ * Stainless renders them there from the same build-time global that
+ * `Header.astro` had to work around: untranslated, and pointing at the
+ * unprefixed `/resources/support`, which drops a reader out of their
+ * language. This is the stock `BaseSidebar` with that one row swapped for the
+ * localized `HeaderLinks`.
+ *
+ * Everything with real logic is imported rather than copied; the sidebar-tree
+ * helpers below are vendored only because they are module-local in
+ * `@stainless-api/docs/stl-docs/components/sidebars/BaseSidebar.astro`. If
+ * that package changes how it builds the tree, this file is what needs
+ * re-checking. `Header.astro` and `Pagination.astro` vendor from the same
+ * package for the same reason.
+ */
+import HeaderLinks from '../Header/HeaderLinks.tsx';
+import { toTranslationKey } from '@/i18n/locales';
+import { SidebarWithComponents } from '../../../node_modules/@stainless-api/docs/stl-docs/components/sidebars/SidebarWithComponents';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+import { convertAstroSidebarToStl } from '../../../node_modules/@stainless-api/docs/stl-docs/components/sidebars/convertAstroSidebarToStl';
+import { StlSidebarEntry, StlSidebarGroup, StlSidebarLink } from '@stainless-api/docs-ui/components';
+import { LINK_GROUP_TITLES_TO_OVERVIEW_PAGES } from 'virtual:stl-docs-virtual-module';
+
+const { sidebar } = Astro.locals.starlightRoute;
+const lang = toTranslationKey(Astro.currentLocale);
+
+let stlSidebar = convertAstroSidebarToStl(sidebar);
+
+function extractOverviewPage(entry: StlSidebarGroup): {
+  overviewLink: StlSidebarLink | null;
+  remainingEntries: StlSidebarEntry[];
+} {
+  let overviewLink: StlSidebarLink | null = null;
+
+  const withoutOverview = entry.entries.filter((e) => {
+    if (e.type !== 'link') {
+      return true;
+    }
+    const overviewAttr = e.attrs?.['data-stldocs-overview'];
+    if (!overviewAttr) {
+      return true;
+    }
+    overviewLink = e;
+    return false;
+  });
+
+  return {
+    overviewLink,
+    remainingEntries: withoutOverview,
+  };
+}
+
+function linkGroupTitleToOverviewPages(sidebar: StlSidebarEntry[]): StlSidebarEntry[] {
+  return sidebar.map((entry) => {
+    if (entry.type === 'group') {
+      const { overviewLink, remainingEntries } = extractOverviewPage(entry);
+
+      // group only contained an overview link
+      if (overviewLink && remainingEntries.length === 0) {
+        return {
+          ...overviewLink,
+          label: entry.label, // keep the group label
+        };
+      }
+
+      // set the group target to the overview link target
+
+      let target = entry.target;
+      let isCurrent = entry.isCurrent;
+      let collapsed = entry.collapsed;
+      if (overviewLink) {
+        target = overviewLink.target;
+        isCurrent = overviewLink.isCurrent;
+        if (isCurrent) {
+          collapsed = false;
+        }
+      }
+
+      return {
+        ...entry,
+        entries: linkGroupTitleToOverviewPages(remainingEntries),
+        target,
+        isCurrent,
+        collapsed,
+      };
+    } else {
+      return entry;
+    }
+  });
+}
+
+// Since Terraform only renders the top level resource, we don't need to link group titles to overview pages.
+if (LINK_GROUP_TITLES_TO_OVERVIEW_PAGES === true && Astro.locals.language !== 'terraform') {
+  stlSidebar = linkGroupTitleToOverviewPages(stlSidebar);
+}
+---
+
+<div class="stl-sidebar-header-links">
+  <HeaderLinks lang={lang} />
+</div>
+<slot name="sdk-select" />
+<SidebarPersister>
+  <SidebarWithComponents entries={stlSidebar} withStarlightRestoration />
+</SidebarPersister>

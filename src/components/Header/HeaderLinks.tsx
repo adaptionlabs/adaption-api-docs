@@ -1,5 +1,5 @@
 import { Button } from "@/shared/ui/kit";
-import { HEADER_LINKS } from "@/i18n/nav";
+import { t } from "@/i18n/ui";
 import { localizePath, type TranslationKey } from "@/i18n/locales";
 
 type Props = {
@@ -29,12 +29,12 @@ type Props = {
 export default function HeaderLinks({ lang = "en" }: Props) {
   const links = [
     {
-      label: lang === "en" ? "Support" : HEADER_LINKS.support[lang],
+      label: t("headerSupport", lang),
       href: localizePath("/resources/support", lang),
       variant: "secondary" as const,
     },
     {
-      label: lang === "en" ? "Login" : HEADER_LINKS.login[lang],
+      label: t("headerLogin", lang),
       href: "https://adaptionlabs.ai/app/auth",
       variant: "black" as const,
     },

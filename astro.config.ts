@@ -263,6 +263,9 @@ export default defineConfig({
             // Localizes the "Support" / "Login" buttons, which Stainless bakes
             // into one build-time global with no per-locale hook.
             Header: "./src/components/Header/Header.astro",
+            // Same problem in the mobile sidebar, which renders its own
+            // copy of those links from that same global.
+            Sidebar: "./src/components/Sidebar/Sidebar.astro",
             PageTitle: "./src/components/PageTitle/PageTitle.astro",
             Pagination: "./src/components/Pagination/Pagination.astro",
           },

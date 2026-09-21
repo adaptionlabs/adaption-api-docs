@@ -13,6 +13,30 @@ import type { TranslationKey } from "./locales";
 type Table = Record<TranslationKey, string>;
 
 export const UI = {
+  /**
+   * Header buttons. These live here, keyed by locale short code, rather than
+   * in `nav.ts`, which is keyed by BCP-47 tag because Starlight's sidebar
+   * `translations` require that. Indexing one table with the other's keys is
+   * what made `/zh` and `/pt` render empty buttons; `Table` is
+   * `Record<TranslationKey, string>`, so a missing locale is a type error now.
+   */
+  headerSupport: {
+    en: "Support",
+    zh: "支持",
+    ja: "サポート",
+    pt: "Suporte",
+    es: "Soporte",
+    ar: "الدعم",
+  },
+  headerLogin: {
+    en: "Login",
+    zh: "登录",
+    ja: "ログイン",
+    pt: "Entrar",
+    es: "Iniciar sesión",
+    ar: "تسجيل الدخول",
+  },
+
   /** PageTitle: the link out to the source file on GitHub. */
   editOnGitHub: {
     en: "Edit on GitHub",
