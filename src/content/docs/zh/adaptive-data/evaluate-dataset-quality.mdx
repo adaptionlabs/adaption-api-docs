@@ -1,0 +1,109 @@
+---
+title: 评估数据集质量
+description: 使用 Python SDK 轮询评估状态，并查看适配后数据集的质量指标。
+---
+
+在[适配运行](/zh/adaptive-data/configure-adaptive-data)成功之后，评估会在平台所衡量的各个质量维度上对比源数据与适配后数据。评估按自己的节奏运行，因此适配可能先于质量结果完成。
+
+Python SDK 以两种形式提供结果：
+
+- **[`datasets.get_evaluation(dataset_id)`](/api/python/resources/datasets/methods/get_evaluation)** 返回评估状态和完整的 `quality` 结果。
+- **[`datasets.get(dataset_id)`](/api/python/resources/datasets/methods/get)** 返回数据集记录及其精简的 `evaluation_summary`。
+
+## 获取评估结果
+
+用适配运行所使用的同一个 `dataset_id` 调用 `get_evaluation`：
+
+```python
+evaluation = client.datasets.get_evaluation(dataset_id)
+
+print(evaluation.status)
+if evaluation.quality:
+    print(f"Score before: {evaluation.quality.score_before}")
+    print(f"Score after:  {evaluation.quality.score_after}")
+    print(f"Improvement:  {evaluation.quality.improvement_percent}%")
+```
+
+评估成功时，`quality` 可能包含 0–10 分制的前后评分、字母等级、提升百分比以及适配后的百分位。当状态为 `pending` 或 `running` 时，`quality` 可能不存在。
+
+## 轮询直到评估结束
+
+轮询评估状态时请设置截止时间，以免 notebook 或 CI 任务无限等待：
+
+```python
+import time
+
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped")
+elif evaluation.quality:
+    print(evaluation.quality.model_dump(exclude_none=True))
+```
+
+异步客户端使用 `await client.datasets.get_evaluation(dataset_id)`，返回的响应结构完全相同。
+
+## 从数据集读取摘要
+
+如果你的应用已经[获取了数据集](/api/python/resources/datasets/methods/get)，可以直接用 `evaluation_summary` 获取关键指标，而无需再发一次评估请求：
+
+```python
+dataset = client.datasets.get(dataset_id)
+
+if dataset.evaluation_summary:
+    summary = dataset.evaluation_summary
+    print(f"Score after: {summary.score_after}")
+    print(f"Improvement: {summary.improvement_percent}%")
+```
+
+[`datasets.get_status`](/api/python/resources/datasets/methods/get_status) 报告的是数据摄取与适配进度，不包含评估结果。
+
+## 完整示例
+
+下面的脚本从环境变量中读取一次已完成适配的数据集 ID，等待评估结束，并同时打印详细结果和精简摘要：
+
+```python
+import os
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    print(f"Evaluation status: {evaluation.status}")
+
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped for this dataset")
+elif not evaluation.quality:
+    raise RuntimeError("Evaluation succeeded without quality metrics")
+else:
+    print(evaluation.quality.model_dump(exclude_none=True))
+
+dataset = client.datasets.get(dataset_id)
+if dataset.evaluation_summary:
+    print(dataset.evaluation_summary.model_dump(exclude_none=True))
+```
+
+当你需要明确的流水线状态或完整的质量细节时，请使用 `get_evaluation`。如果数据集记录上的精简结果已经够用，则使用 `evaluation_summary`。若想以更低成本迭代质量，可以在扩大规模之前先[限制行数并估算运行](/zh/adaptive-data/configure-adaptive-data#限制行数并估算运行)。

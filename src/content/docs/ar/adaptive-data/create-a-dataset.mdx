@@ -1,0 +1,99 @@
+---
+title: إنشاء مجموعة بيانات
+description: ارفع ملفًا محليًا أو استورد مجموعة بيانات من Hugging Face أو Kaggle باستخدام حزمة Python SDK.
+---
+
+import { Accordion, Callout } from "@stainless-api/docs/components";
+
+استورد البيانات من ملف محلّي أو من Hugging Face أو Kaggle دون كتابة سكربت تحويل. تُعيد كل طريقة `dataset_id` تمرّره إلى [`datasets.run`](/api/python/resources/datasets/methods/run).
+
+تفترض الأمثلة أنّك [ثبّت حزمة Python SDK وضبطت `ADAPTION_API_KEY`](/ar/introduction/getting-started):
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>1. رفع ملف محلّي</Accordion.Summary>
+
+    ينشئ مساعد حزمة SDK مجموعة البيانات، ويرفع الملف، ويؤكّد اكتمال الرفع.
+
+    الامتدادات المدعومة: **`.csv`** و**`.json`** و**`.jsonl`** و**`.parquet`**.
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>2. الاستيراد من Hugging Face</Accordion.Summary>
+
+    أشِر إلى عنوان مجموعة بيانات على Hugging Face وإلى الملف أو الملفات المراد استيرادها.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+            "files": [
+                "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+            ],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>3. الاستيراد من Kaggle</Accordion.Summary>
+
+    استخدم عنوان صفحة مجموعة البيانات على Kaggle والملفات المراد سحبها.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    يجب تسجيل **بيانات اعتماد Kaggle** في Adaption: افتح **[إعدادات API keys](https://adaptionlabs.ai/app/settings?tab=api_keys)** (سجّل الدخول إذا طُلب منك ذلك) وأضِف بيانات اعتماد واجهة برمجة تطبيقات Kaggle هناك قبل الاستيراد.
+
+  </Accordion>
+</Accordion.Group>
+
+<Callout variant="note">
+  المعالجة الخام (المرور المباشر) مدعومة حاليًا لعمليات رفع الملفات المحلّية
+  فقط. لا تجمع بين `processing_mode="raw"` وعنوان Hugging Face أو Kaggle. راجع
+  [التشغيل على بيانات غير مكيّفة](/ar/autoscientist/run-on-non-adapted-data)
+  للاطّلاع على مثال بملف محلّي.
+</Callout>
+
+## انتظار الاستيراد
+
+تعمل عمليات الاستيراد بشكل غير متزامن. استطلِع [حالة مجموعة البيانات](/api/python/resources/datasets/methods/get_status) إلى أن ينتهي الاستيعاب من تعبئة مجموعة البيانات قبل بدء تشغيلة التكييف:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        error = status.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset import failed: {message}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+بعد ذلك، [اربط الأعمدة المستوردة](/ar/adaptive-data/select-columns)، ثم [اضبط تشغيلة التكييف](/ar/adaptive-data/configure-adaptive-data). وللاطّلاع على تفاصيل نقاط النهاية، راجع مرجعَي [`create`](/api/python/resources/datasets/methods/create) و[`get_status`](/api/python/resources/datasets/methods/get_status). ويتكفّل المساعد `datasets.upload_file` بخطوات الإنشاء والرفع والإتمام للملفات المحلّية.

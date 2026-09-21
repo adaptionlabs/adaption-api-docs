@@ -1,0 +1,167 @@
+---
+title: AutoScientist クイックスタート
+description: 学習にすぐ使えるデータセットを作成し、AutoScientist を実行して、最良のモデルチェックポイントをダウンロードします。
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **Google Colab で試す**
+
+対話的な手順は [AutoScientist API の Colab ノートブック](https://colab.research.google.com/drive/16Zly8_sDqQSP86MvdgTJ1I1T6Vjq6bkJ?usp=sharing)で確認できます。
+
+</Callout>
+
+このガイドには `adaption >= 0.7.0` が必要です。短い単独の例とするため、[raw 処理](/ja/autoscientist/run-on-non-adapted-data)を使用しています。最良の結果を得るには、まず [Adaptive Data](/ja/adaptive-data-quickstart) でデータセットを改善し、そのアダプト済みデータセットの ID を AutoScientist に渡してください。リサーチループの仕組みと結果の読み方については、[AutoScientist の概要](/ja/autoscientist/overview)を参照してください。
+
+## SDK をインストールする
+
+```shell
+pip install "adaption>=0.7.0"
+```
+
+## API キーを作成する
+
+<Steps>
+  <Step>Adaption に[サインイン](https://adaptionlabs.ai/app/auth)します。</Step>
+  <Step>
+    [**Settings**](https://adaptionlabs.ai/app/settings) を開き、続いて [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys) を開きます。
+  </Step>
+  <Step>
+    キーを作成してコピーします。キーをあとから再表示することはできません。
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  API キーは環境変数またはシークレットマネージャーに保存してください。ソース管理にはコミットしないでください。
+</Callout>
+
+## Python でキーを使う
+
+ローカルでの検証では、キーを直接渡すことができます:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+アプリケーションや CI では、`ADAPTION_API_KEY` を設定します:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+SDK は環境変数を自動的に読み取ります:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## 学習にすぐ使えるデータセットを作成する
+
+[raw データセットの作成](/ja/autoscientist/run-on-non-adapted-data)が適しているのは、ローカルファイルにプロンプト列とコンプリーション列がすでに含まれている場合だけです。この例では、`instruction` 列と `response` 列を持つ `training_data.csv` を使用します:
+
+```python
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+アップロードは完了後に非同期で処理されます。データセットを使う前に、行数が取得できるようになるまで[データセットのステータス](/api/python/resources/datasets/methods/get_status)をポーリングします:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## データセットに行を追加して拡張する
+
+[拡張](/ja/autoscientist/data-augmentation)は任意ですが、強く推奨されます。当社のモデルの多くは、妥当な性能を保証するために最小データセットサイズを必要とします。具体的な要件については[サポート対象モデル](/ja/autoscientist/supported-models)を参照してください。
+
+この例では、ドメイン行を少なくとも 20,000 行にし、その行が拡張後データセットの 40% を占めるだけの汎用行を追加します。
+
+<Callout variant="note">
+  **なぜ汎用行を追加するのか?** ドメイン固有のデータだけでファインチューニングすると、**破滅的忘却**が起こることがあります。モデルが事前学習で獲得した汎用的な能力を失ってしまう現象です。汎用データを混ぜることで、モデルが対象ドメインを学習する間もこうした既存の強みが保たれ、より頑健でバランスの取れたファインチューンになります。
+</Callout>
+
+```python
+import math
+
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+total_domain_rows = (dataset.row_count or 0) + domain_rows_to_add
+
+target_general_ratio = 0.4
+general_rows_to_add = math.ceil(
+    target_general_ratio
+    * total_domain_rows
+    / (1 - target_general_ratio)
+)
+
+print(f"Domain rows to add: {domain_rows_to_add}")
+print(f"General rows to add: {general_rows_to_add}")
+```
+
+## AutoScientist を実行する
+
+準備したデータセットから [AutoScientist の実行](/api/python/resources/autoscientist/methods/create)を作成します:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=general_rows_to_add,
+)
+print(run.id, run.status)  # "pending"
+```
+
+実行に使うモデルを指定するには、`client.autoscientist.create()` に `model` パラメーターを渡します。省略した場合、AutoScientist がデータセットに最適なモデルを自動的に選択します。コンテキスト上限、学習タイプ（LoRA と Full）、マルチモーダル対応の詳細については、[サポート対象モデル](/ja/autoscientist/supported-models)のドキュメントを参照してください。
+
+## 実行の完了を待つ
+
+実行の完了を待ってから、その[ステータスと結果](/api/python/resources/autoscientist/methods/get)を確認します:
+
+```python
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status != "succeeded":
+    raise RuntimeError(f"{run.status}: {run.error}")
+
+print(f"Best win rate: {run.best_win_rate}")
+```
+
+## モデルをダウンロードする
+
+`download_available` は、AutoScientist がチェックポイントを生成したことを示します。[ダウンロードエンドポイント](/api/python/resources/autoscientist/methods/download)は、アーカイブをメモリに読み込まずにストリーミングします:
+
+```python
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+アーカイブには最良のイテレーションのチェックポイントが含まれます。必ずしも最後のイテレーションとは限りません。実行パラメーターの一覧は [`create` リファレンス](/api/python/resources/autoscientist/methods/create)を、レスポンスフィールドは [`get` リファレンス](/api/python/resources/autoscientist/methods/get)を参照してください。

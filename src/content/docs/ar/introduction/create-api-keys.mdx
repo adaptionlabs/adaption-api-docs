@@ -1,0 +1,52 @@
+---
+title: إنشاء مفاتيح واجهة برمجة التطبيقات
+description: أنشئ مفاتيح Adaption واستخدمها للوصول البرمجي الآمن إلى Adaptive Data من التطبيقات وأنظمة التكامل المستمر ودفاتر الملاحظات.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+تُصادق مفاتيح واجهة برمجة التطبيقات على **الوصول البرمجي** إلى Adaptive Data — أي قدرات المنصّة نفسها التي تستخدمها في التطبيق، لكن باستدعائها من شيفرتك أو أتمتتك أو دفاتر ملاحظاتك. تعامَل معها بوصفها بيانات اعتماد لعمليات تكامل إنتاجية، لا رموزًا قابلة للمشاركة.
+
+<Callout variant="note">
+  احفظ المفاتيح في مدير أسرار أو في متغيّرات البيئة. لا تُضِفها إلى نظام إدارة الشيفرة.
+</Callout>
+
+## إنشاء مفتاح من التطبيق
+
+<Steps>
+  <Step>[سجّل الدخول](https://adaptionlabs.ai/app/auth) إلى Adaption.</Step>
+  <Step>
+    افتح [**Settings**](https://adaptionlabs.ai/app/settings) ثم قسم [**API keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    أنشئ مفتاحًا وانسخه فورًا واحفظه بأمان. لن تتمكّن من عرضه مرّة أخرى.
+  </Step>
+</Steps>
+
+## استخدام المفتاح في Python
+
+مرِّر المفتاح صراحةً:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+أو اضبط **`ADAPTION_API_KEY`** وأنشئ العميل دون وسائط:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+```python
+from adaption import Adaption
+
+client = Adaption()  # reads ADAPTION_API_KEY
+```
+
+ينطبق النمط نفسه على **`AsyncAdaption`** في الشيفرة غير المتزامنة.
+
+## الخطوة التالية
+
+انتقل إلى **[البداية](/ar/introduction/getting-started)** لتثبيت حزمة SDK وتشغيل أول سير عمل **استيراد ← تكييف ← تنزيل**.

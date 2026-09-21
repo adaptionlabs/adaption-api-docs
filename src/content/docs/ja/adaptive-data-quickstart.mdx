@@ -1,0 +1,220 @@
+---
+title: Adaptive Data クイックスタート
+description: Adaption Python SDK をインストールし、データを取り込み、Adaptive Data を実行して、アダプト済みデータセットをダウンロードします。
+---
+
+import {
+  Accordion,
+  Callout,
+  Steps,
+  Step,
+} from "@stainless-api/docs/components";
+
+## SDK をインストールする
+
+```shell
+pip install adaption
+```
+
+## API キーを作成する
+
+<Steps>
+  <Step>Adaption に[サインイン](https://adaptionlabs.ai/app/auth)します。</Step>
+  <Step>
+    [**Settings**](https://adaptionlabs.ai/app/settings) を開き、続いて [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys) を開きます。
+  </Step>
+  <Step>
+    キーを作成してコピーします。キーをあとから再表示することはできません。
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  API キーは環境変数またはシークレットマネージャーに保存してください。ソース管理にはコミットしないでください。
+</Callout>
+
+## Python でキーを使う
+
+ローカルでの検証では、キーを直接渡すことができます:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+アプリケーションや CI では、`ADAPTION_API_KEY` を設定します:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+SDK は環境変数を自動的に読み取ります:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## データセットを作成する
+
+このクイックスタートでは [Hugging Face から Alpaca データセットを取り込みます](/ja/adaptive-data/create-a-dataset):
+
+```python
+dataset = client.datasets.create(
+    source={
+        "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+        "files": [
+            "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+        ],
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+代わりにローカルファイルをアップロードしたり、Kaggle から取り込んだりすることもできます。どのソースでも同じ [`datasets.create`](/api/python/resources/datasets/methods/create) エンドポイントを使用し、このガイドの以降で使う `dataset_id` が返されます。
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>ローカルファイルをアップロードする</Accordion.Summary>
+
+    SDK のヘルパーがデータセットを作成し、ファイルをアップロードし、アップロードの完了を確認します。
+
+    サポートされる拡張子: **`.csv`**、**`.json`**、**`.jsonl`**、**`.parquet`**。
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>Kaggle から取り込む</Accordion.Summary>
+
+    Kaggle のデータセットページの URL と、取得するファイルを指定します。
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    **Kaggle の認証情報**は Adaption に登録しておく必要があります。**[API keys の設定](https://adaptionlabs.ai/app/settings?tab=api_keys)** を開き（求められたらサインインします）、取り込みの前に Kaggle API の認証情報を追加してください。
+
+  </Accordion>
+</Accordion.Group>
+
+[取り込みは非同期で実行されます](/ja/adaptive-data/create-a-dataset#インポートの完了を待つ)。Adaptive Data を開始する前に、取り込みによってデータセットが構築されるまで待ちます。
+
+## データセットの取り込みを待つ
+
+取り込まれた行数が取得できるようになるまで、[データセットのステータス](/api/python/resources/datasets/methods/get_status)をポーリングします:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## データセットをアダプトする
+
+**アダプト**では、プラットフォームのレシピと最適化が適用されます。[ソースの列をマッピング](/ja/adaptive-data/select-columns)して、Adaptive Data が想定するロールに対応付けます。Alpaca の場合、`instruction` がプロンプト、`output` がコンプリーション、`input` がコンテキストです。
+
+[まず見積もりを取得します](/ja/adaptive-data/configure-adaptive-data#行数を制限して実行を見積もる)。これにより設定が検証され、実行を開始せずに見積もりが返されます:
+
+```python
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "output",
+    "context": ["input"],
+}
+job_specification = {"max_rows": 5_000}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+```
+
+実行の準備ができたら、同じ設定を `estimate=True` なしで送信します:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+## Adaptive Data の完了を待つ
+
+SDK のヘルパーは、アダプト実行が終了するまで[データセットのステータス](/api/python/resources/datasets/methods/get_status)をポーリングします:
+
+```python
+status = client.datasets.wait_for_completion(dataset_id, timeout=3600)
+if status.status == "failed":
+    raise RuntimeError(f"Adaptive Data failed: {status.error_data}")
+
+print(status.status)
+```
+
+## アダプト済みデータセットをダウンロードする
+
+**エクスポート**では、学習パイプライン、評価ハーネス、下流のストレージ向けに拡張済みデータを取り出します。[`download`](/api/python/resources/datasets/methods/download) は、指定したファイル形式で処理済みの行をストリーミングします。`file_format` 引数には `csv`、`json`、`jsonl`、`parquet` を指定でき、既定値は `csv` です。
+
+```python
+client.datasets.download(dataset_id, file_format="parquet").write_to_file(
+    "adapted-alpaca.tar.gz"
+)
+```
+
+`download` が返すのはファイルそのものであり、ファイルへのリンクではありません。`.read()` でバイト列を読み取るか、`.write_to_file(path)` でそのままディスクに書き出すか、テキスト形式なら `.text()` でデコードします（`.text()` はプロパティではなくメソッドです）。この形式には `adaption >= 0.9.0` が必要です。それ以前のリリースでは文字列が返され、バイナリ形式はすべて壊れていました。
+
+大きなエクスポートでは、ボディをメモリに保持せずにストリーミングします:
+
+```python
+with client.datasets.with_streaming_response.download(
+    dataset_id, file_format="parquet"
+) as export:
+    export.stream_to_file("adapted-alpaca.tar.gz")
+```
+
+`file_format="parquet"` が返すのは単一の `.parquet` ファイルではなく、**Parquet シャードを gzip 圧縮した tar アーカイブ**です。読み込む前に展開してください:
+
+```python
+import tarfile
+
+with tarfile.open("adapted-alpaca.tar.gz") as archive:
+    archive.extractall("adapted-alpaca/")
+```
+
+ステータスが **`succeeded`** のデータセットには、完全な出力が含まれます。**`failed`** のデータセットの場合、ダウンロードには実行が停止するまでに処理された行が含まれます。実行が一度も開始されていない場合にのみ、API は `422` を返します。
+
+## さらに進む
+
+- [AutoScientist クイックスタート](/ja/autoscientist-quickstart) — アダプト済みデータセットからモデルを学習します。
+- [Adaptive Data を設定する](/ja/adaptive-data/configure-adaptive-data) — 行数の制限、ハルシネーションの低減、推論トレースの生成、ブランドコントロールの適用を行います。
+- [データセット品質を評価する](/ja/adaptive-data/evaluate-dataset-quality) — 評価のステータスと指標を確認します。
+- [非構造化ドキュメントを処理する](/ja/tutorials/processing-unstructured-documents) — ドキュメント形式のデータを準備します。
+- 完全なメソッドシグネチャとレスポンススキーマについては、[API リファレンス](/api/python)を参照してください。

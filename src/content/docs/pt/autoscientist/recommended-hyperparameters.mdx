@@ -1,0 +1,113 @@
+---
+title: Hiperparâmetros
+description: Entenda a receita de treinamento que o AutoScientist seleciona e aprimora automaticamente.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+O AutoScientist [propõe uma receita de treinamento completa](/api/python/resources/autoscientist/methods/recommend_hyperparams) antes do treinamento e depois avalia e ajusta essa receita ao longo das iterações. **Na maioria das execuções, mantenha os valores recomendados sem alterações.** O AutoScientist é otimizado para selecionar esses valores em conjunto e melhorá-los com base em resultados medidos.
+
+<Callout variant="warning">
+  Alterar hiperparâmetros individualmente não é recomendado. Uma substituição
+  pode impedir que o AutoScientist explore a configuração que ele escolheria e
+  pode reduzir a qualidade do treinamento. Substitua um valor apenas quando
+  você tiver uma restrição experimental ou de infraestrutura específica.
+</Callout>
+
+## Referência de hiperparâmetros
+
+`training_method` é um argumento de nível superior de `create` (`instruction` ou `alignment`). Os demais campos abaixo são chaves dentro de `hyperparams`.
+
+### Treinamento geral
+
+Estes hiperparâmetros se aplicam tanto a execuções de SFT quanto de DPO.
+
+| Hiperparâmetro           | Definição                                                                                                                                                                | Valores válidos                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `learning_rate`          | Taxa de aprendizado máxima do otimizador. Controla o tamanho do passo durante as atualizações de pesos.                                                                    | Float em `[1e-6, 5e-4]`                                                   |
+| `n_epochs`               | Número de passagens completas do treinamento sobre o conjunto de dados.                                                                                                   | Inteiro, `1`–`5`                                                           |
+| `batch_size`             | Número de amostras por etapa de treinamento. No SFT, precisa ser `"max"`. No DPO, um inteiro potência de 2 ou `"max"`.                                                   | `"max"` ou inteiro potência de 2 ≥ 1                                         |
+| `lr_scheduler_type`      | Como a taxa de aprendizado muda durante o treinamento. Um agendamento linear decai de forma constante; um agendamento cosseno desacelera o decaimento perto do fim.        | `"linear"` \| `"cosine"`                                                  |
+| `min_lr_ratio`           | Taxa de aprendizado mínima como fração do pico. A taxa de aprendizado não decairá abaixo de `learning_rate × min_lr_ratio`.                                               | Float, `0.0`–`1.0`                                                        |
+| `scheduler_num_cycles`   | Número ou fração de ciclos de decaimento cosseno ao longo do treinamento. Afeta apenas agendamentos cosseno.                                                              | Float `> 0.0` (padrão `0.5`)                                             |
+| `warmup_ratio`           | Fração do total de etapas de treinamento usada para aumentar gradualmente a taxa de aprendizado a partir de zero. Suaviza a transição até a taxa de aprendizado desejada.   | Float, `0.0`–`1.0` (normalmente `0.03`–`0.1`)                               |
+| `max_grad_norm`          | Norma máxima do gradiente para o recorte de gradiente. Limita a magnitude do gradiente para reduzir gradientes explosivos e atualizações instáveis. Defina `0.0` para desativar. | Float ≥ `0.0`                                                              |
+| `weight_decay`           | Penalidade de regularização L2. Desencoraja pesos excessivamente grandes, o que ajuda a evitar overfitting e melhora a generalização para dados não vistos.                | Float ≥ `0.0`                                                              |
+| `training_type`          | Estratégia de treinamento. `"lora"` insere adaptadores de baixa ordem; `"full"` atualiza todos os pesos do modelo. O ajuste fino completo só está disponível para [modelos compatíveis](/pt/autoscientist/supported-models). | `"lora"` \| `"full"`                                                       |
+
+### LoRA
+
+Estes hiperparâmetros configuram o Low-Rank Adaptation e só se aplicam quando `training_type` é `"lora"`. Em pipelines de alinhamento (SFT → DPO), as configurações de LoRA são congeladas a partir da iteração de SFT vencedora e não podem ser alteradas durante o DPO.
+
+| Hiperparâmetro           | Definição                                                                                                                                                                | Valores válidos                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `lora_r`                 | Ordem das matrizes do adaptador LoRA. Controla a capacidade do adaptador — ordens mais altas podem representar adaptações mais complexas, mas exigem mais memória e computação. | Inteiro potência de 2, `1`–`64`                                              |
+| `lora_alpha`             | Fator de escala da contribuição do adaptador LoRA para o modelo base. Precisa ser `1×` ou `2×` o valor de `lora_r`.                                                        | Inteiro potência de 2 (`1×` ou `2× lora_r`)                                  |
+| `lora_dropout`           | Probabilidade de dropout aplicada às camadas LoRA durante o treinamento. Adiciona regularização para reduzir o overfitting.                                               | Float, `0.0`–`1.0` (normalmente `0.0`–`0.1`)                                |
+| `lora_trainable_modules` | Quais camadas do modelo recebem adaptadores LoRA. `"all-linear"` abrange todas as camadas lineares; como alternativa, especifique uma lista de nomes de módulos separados por vírgula. | `"all-linear"` ou lista separada por vírgula (ex.: `"q_proj,v_proj,o_proj"`)    |
+
+### Específicos de SFT
+
+| Hiperparâmetro   | Definição                                                                                                                                                                    | Valores válidos       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `train_on_inputs` | Se a perda de treinamento é calculada sobre os tokens do prompt além dos tokens da completion. Definir como `false` mascara o prompt para que o modelo aprenda apenas a gerar completions. | `true` \| `false`  |
+
+### Específicos de alinhamento
+
+Estes hiperparâmetros se aplicam apenas ao treinamento baseado em preferência (DPO). Eles são inertes em execuções de SFT.
+
+| Hiperparâmetro                      | Definição                                                                                                                                                                                                                                                                                                                                                                   | Valores válidos                        |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `dpo_beta`                          | Controla o quanto o modelo pode se afastar do modelo de referência. Valores mais baixos (em torno de `0.1`) atualizam de forma mais agressiva em direção à saída preferida; valores mais altos (em torno de `0.7`) ficam mais próximos da referência.                                                                                                                        | Float, `0.05`–`0.9`                 |
+| `dpo_normalize_logratios_by_length` | Normaliza as razões logarítmicas pelo comprimento da amostra durante o cálculo da perda. É definido automaticamente como `true` quando `simpo_gamma` é maior que `0`. Alterar essa flag muda a escala efetiva de `dpo_beta`; trate essa mudança como uma intervenção importante.                                                                                             | `true` \| `false`                   |
+| `rpo_alpha`                         | Peso de uma perda auxiliar de log-verossimilhança negativa (NLL) sobre as respostas preferidas, somada à perda padrão do DPO (Regularized Preference Optimization). Compensa o deslocamento de verossimilhança — o modo de falha em que a probabilidade da resposta escolhida cai mesmo com o aumento da margem de recompensa. Defina `0.0` para desativar. **Não pode ser combinado com `simpo_gamma`.** | Float ≥ `0.0` (típico `0.1`–`1.0`) |
+| `simpo_gamma`                       | Margem de recompensa alvo do Simple Preference Optimization. Acima de `0.0`, o objetivo passa a ser livre de referência e normalizado por comprimento: a resposta escolhida precisa superar a rejeitada por pelo menos essa margem. Aumente `dpo_beta` junto com ele, já que o SimPO normalmente requer um beta substancialmente maior. Defina `0.0` para desativar. **Não pode ser combinado com `rpo_alpha`.** | Float ≥ `0.0` (típico `0.3`–`1.6`) |
+
+## Revisar no aplicativo
+
+Os campos propostos são editáveis, mas o fluxo padrão é revisá-los e aceitá-los:
+
+1. Revise o modelo, o algoritmo e a receita gerada.
+2. Mantenha os valores recomendados, a menos que uma restrição conhecida exija uma substituição.
+3. Inspecione o JSON final de **AutoScientist Config** antes de confirmar.
+4. Deixe o AutoScientist avaliar e refinar a receita ao longo das iterações.
+5. Após o treinamento, compare a taxa de vitória e os diagnósticos conforme descrito em [Interpretar os resultados](/pt/autoscientist/interpreting-results).
+
+## Avançado: aplicar substituições pela API
+
+As substituições pela API são um recurso avançado para experimentos controlados ou requisitos rígidos. O SDK aceita o objetivo de treinamento pelo `training_method` de nível superior, o modelo base pelo `model` de nível superior e as substituições da receita por `hyperparams`. `training_type` é um campo dentro de `hyperparams`, não um argumento de nível superior.
+
+Se uma substituição for necessária, evite nomes de chave não suportados: copie um objeto `hyperparams` válido da configuração atual do aplicativo ou construa-o a partir do [esquema atual da API de `create`](/api/python/resources/autoscientist/methods/create), salve-o como `hyperparams.json` e passe-o sem alterações:
+
+```python
+import json
+from pathlib import Path
+
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+hyperparams = json.loads(Path("hyperparams.json").read_text())
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    hyperparams={
+        **hyperparams,
+        "training_type": "lora",
+        "dpo_beta": 0.1,
+    },
+)
+print(run.id, run.status)
+```
+
+As chaves de hiperparâmetros não definidas permanecem sob controle da plataforma. Para impor um modelo específico, consulte os [modelos compatíveis](/pt/autoscientist/supported-models), liste os IDs disponíveis no momento e passe um deles por `model`:
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+```
+
+Prefira deixar `model` e `hyperparams` sem definição para que o AutoScientist possa escolhê-los e iterar sobre eles automaticamente. Consulte [Executar o AutoScientist](/pt/autoscientist/running-autoscientist) para o fluxo completo de requisição e status.

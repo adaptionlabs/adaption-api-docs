@@ -1,0 +1,143 @@
+---
+title: Adaptive Data アプリのウォークスルー
+description: Adaption アプリで、データセットを取り込み、列をマッピングし、アダプトを設定し、実行を開始して、結果を確認します。
+---
+
+## 始める前に
+
+[adaptionlabs.ai/app](https://adaptionlabs.ai/app) でサインインします。このアプリのウォークスルーに API キーは必要ありません。
+
+Adaptive Data では次のものを作成できます:
+
+- **インストラクションデータセット**。教師ありファインチューニング向けに、プロンプトと期待されるコンプリーションを対にしたものです。
+- **選好ペア**。2 つのコンプリーションを比較し、どちらが好ましいかを示したものです。
+
+## ステップ 1 | データを取り込む
+
+次のいずれかのソースから、アプリで[データセットを作成](/ja/adaptive-data/create-a-dataset)します:
+
+- **ローカルファイル:** CSV、JSON、JSONL、Parquet、PDF、DOCX、PPTX、XLSX、HTML、ZIP、TXT。
+- **Hugging Face:** データセットの URL を入力し、取り込むファイルを選択します。データセットがゲート付きの場合は、取り込む前に Hugging Face でアクセス権をリクエストしてください。
+- **Kaggle:** データセットページの URL を入力します。
+
+PDF、スキャン、スライド、メールのスレッドといったドキュメント形式のソースでは、追加の抽出と分割のフローが起動します。[非構造化ドキュメントを処理する](/ja/tutorials/processing-unstructured-documents)を参照してください。
+
+Adaptive Data は現在、金融の時系列のようなテキスト以外の表形式データをサポートしていません。
+
+## ステップ 2 | 列をマッピングする
+
+[各ソース列にロールを割り当てます](/ja/adaptive-data/select-columns):
+
+- **Prompt:** 各行の質問、指示、タスク。
+- **Context:** プロンプトに答えるために必要な背景資料。画像を含め、複数のコンテキスト列を選択できます。
+- **Completion:** 期待されるレスポンス。
+- **Chat:** マルチターンの会話または対話履歴。
+
+どの実行にも、少なくともプロンプトかコンプリーションのいずれかが必要です。欠けているロールは Adaptive Data が生成できます。
+
+- プロンプト列がない場合: **I don't have prompt** を選択し、行ごとに Adaption に作成させるか、**Write universal prompt** を選択します。
+- コンプリーション列がない場合: **I don't have a completion column** を選択して生成します。
+
+たとえば、ドキュメント抽出のデータセットでは、`document_body` をコンテキストにして、次のユニバーサルプロンプトを使えます:
+
+> Extract the customer name, contract start date, renewal date, and total contract value. Return valid JSON with the keys `customer_name`, `start_date`, `renewal_date`, and `contract_value`.
+
+プロンプトに答えるために必要な列がすべてコンテキストとしてマッピングされていることを確認してください。列選択のガイドには、[画像列](/ja/adaptive-data/select-columns#画像列をマッピングする)の詳細なマッピングパターンも記載されています。
+
+## ステップ 3 | データ品質を評価する
+
+[**Data Evaluation** のステップ](/ja/adaptive-data/evaluate-dataset-quality)では、次の情報が表示されます:
+
+- レターグレードと 0 から 10 までの品質スコア。
+- 検出されたドメイン内の他のデータセットと比較したパーセンタイル。
+- 検出されたドメイン、言語、トーン。
+
+このベースラインを使って、実行後にソースデータセットとアダプト結果を比較します。
+
+## ステップ 4 | レシピを選ぶ
+
+目的に合う[レシピだけを選択](/ja/adaptive-data/configure-adaptive-data#レシピを適用する)します:
+
+- **Prompt Deduplication** は重複したプロンプトを削除し、繰り返しの例がデータセットを支配しないようにします。
+- **Prompt Rephrasing** は、明確さとタスクとの整合性のためにプロンプトを書き換えます。
+- **Reasoning Traces** は、対応するワークフローにおいて、最終出力に加えて段階的な推論を追加します。
+- **Hallucination Mitigation** は、根拠づけと検証を適用して、裏付けのないコンプリーションを減らします。
+- **Freeform Brand Voice** は、生成されるデータを特定の人格、トーン、スタイルへと導きます。
+
+プロンプトを 1 バイトも変えたくない場合は、**Prompt Rephrasing** と **Metadata Injection** を無効にしてください。
+
+## ステップ 5 | Blueprint を設定する
+
+**Do you want to add brand guidelines or global constraints?** に **Yes** と答えると、アプリは [Blueprint とそのブランドコントロール](/ja/adaptive-data/configure-adaptive-data#ブランドコントロールを設定する)を開きます。
+
+システムレベルの指示を直接入力するか、ブランドガイドライン、システムプロンプト、安全性・トーン・長さに関するポリシーをアップロードします。例:
+
+> Write concise customer-support answers in British English. Use a warm, direct tone. Never recommend third-party products, and do not make claims that are not supported by the supplied context.
+
+Blueprint には構造化されたコントロールもあります:
+
+- **Length:** Detailed、Extensive、Minimal、Concise。
+- **Safety Classification:** Sexual、Self-harm、Hate、Harassment、Violence。
+- **Hallucination mitigation:** 生成されたコンプリーションに含まれる裏付けのない内容を減らします。
+
+これらのコントロールはアダプト後のすべての行に適用されるため、行ごとの指示ではなく、本当に全体に共通する要件に使用してください。
+
+## ステップ 6 | 確認して開始する
+
+**Summary** の画面には次が表示されます:
+
+- 処理する行数を減らすための [**Reduce Rows** スライダー](/ja/adaptive-data/configure-adaptive-data#行数を制限して実行を見積もる)。
+- 利用可能なクレジット。
+- 設定したジョブの正確なクレジットコスト。
+
+見積もりを確認してから実行を開始します。ダッシュボードには次の状態が表示されることがあります:
+
+- **Job launched:** 送信済み、またはキュー待ち。
+- **Running:** 実行中。
+- **Job completed:** 結果と品質スコアが利用可能。
+- **Job failed:** 完了前に処理が停止。
+
+大きな取り込みでは、キューで数時間かかることがあります。ジョブが止まっているように見える場合は:
+
+1. 経過時間を表示されている見積もりと比較し、キューの待ち時間を考慮します。
+2. データセットがサポートされているプロンプト／コンプリーションの列か、OpenAI 形式のチャットデータを使っているか確認します。
+3. 失敗したジョブは 1 度だけ再試行します。特に失敗前に 100% に達していた場合は有効です。
+4. それでも止まったままだったり再び失敗したりする場合は、データセット ID を添えて[サポートに連絡](/ja/resources/support)してください。
+
+## ステップ 7 | 結果を確認する
+
+処理が終わったら、データセットを開いて **View** タブを選択します。各行には、元のプロンプトと強化されたプロンプト、元のコンプリーションと強化されたコンプリーション、インラインのコンテキストを含め、ソースデータとアダプト済みデータが並べて表示されます。
+
+前後を比較します:
+
+- 0 から 10 までの品質スコア。
+- レターグレード。
+- 0 から 100 までのドメインのパーセンタイル。
+- 個々のソース行とアダプト済みの行。
+
+プロンプトの重複排除によって重複した例が削除されるため、行数は減ることがあります。
+
+## ステップ 8 | データセットを拡張する
+
+Adaptive Data の実行が完了したら、任意で[データセットを拡張](/ja/adaptive-data/expand-data)して、行数の多い新しいバージョンを作成できます:
+
+- **Augment** は、キュレーション済みのプールからドメインに一致する行や汎用の行を追加で取得します。
+- **Translate** は、既存の行の翻訳版を作成します。アプリは最大 242 言語をサポートします。[サポート対象言語の一覧](https://docs.google.com/spreadsheets/d/17NTJw8MF04B_zpNLT72V1bXbQk-VJOxuYOah1w7YboY/edit?usp=sharing)を参照してください。
+- **Localize** は、単なる直訳ではなくロケール固有の言い回しを含めて、言語と国の両方に合わせて行を適応させます。
+
+アダプト済みデータセットがすでに必要なサイズとカバレッジを備えている場合は、拡張をスキップしてください。
+
+## よくある問題
+
+- **Job launched のまま数時間:** 見積もりにキューの待ち時間が含まれていないことがあります。エスカレーションする前に、表示された見積もりを超えて待ってください。
+- **Hugging Face や Kaggle の画像取り込みが保留のまま:** マルチモーダルの取り込みが進まない場合は、データセット ID を添えて[サポートに連絡](/ja/resources/support)してください。
+- **大きな JSONL ファイルで処理が失敗する:** 1 度再試行し、それでも失敗する場合はデータセット ID を添えてサポートに連絡してください。
+- **形式が理由でデータセットが拒否される:** プロンプト／コンプリーションの列か OpenAI 形式のチャット列に整形し直し、[列のマッピング](#ステップ-2--列をマッピングする)をやり直してください。
+- **プロンプトが意図せず変わった:** プロンプトを厳密に維持するため、**Prompt Rephrasing** と **Metadata Injection** を無効にしてください。
+
+## 次のステップ
+
+- [画像列を扱う](/ja/adaptive-data/select-columns#画像列をマッピングする)
+- [Adaptive Data を詳しく設定する](/ja/adaptive-data/configure-adaptive-data)
+- [非構造化ドキュメントを処理する](/ja/tutorials/processing-unstructured-documents)
+- 同じワークフローを自動化する準備ができたら、[API リファレンス](/api/python)を使用してください。

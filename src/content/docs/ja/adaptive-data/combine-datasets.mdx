@@ -1,0 +1,70 @@
+---
+title: データセットを結合する
+description: Python SDK で複数の Adaptive Data データセットを検証し、1 つの新しいデータセットにマージします。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+関連する学習例が複数の Adaptive Data の結果に分散している場合は、データセットを結合します。結合では新しいデータセットが作成され、元のデータセットはいずれも変更されません。
+
+各ソースは自組織に属し、Adaptive Data の実行が完了している必要があります。以下の例は、[Python SDK を設定済み](/ja/introduction/getting-started)であることを前提としています。
+
+## ソースデータセットを検証する
+
+結合する前にデータセットを検証します。検証では、データを書き込まずに互換性を確認します:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_ids = [
+    "dataset_abc123",
+    "dataset_def456",
+]
+
+validation = client.datasets.combine.validate(dataset_ids=dataset_ids)
+
+for issue in validation.issues:
+    print(issue.level, issue.code, issue.message)
+
+if not validation.compatible:
+    raise ValueError("The datasets cannot be combined")
+
+print(validation.training_type, validation.total_estimated_rows)
+```
+
+各検証の問題には、`level`、安定した `code`、ユーザー向けの `message` があります:
+
+- **エラー**は結合をブロックします。たとえば、ソースが未準備である、別の組織に属している、テキストとマルチモーダルのデータが混在している、といった場合です。
+- **警告**は、結合操作が自動的に行える変更を示します。一致しない列の型を共通の型にキャストしたり、混在する学習タイプをインストラクションデータセットに解決したりできます。
+
+検証フィールドと問題コードの一覧については、[`combine.validate` リファレンス](/api/python/resources/datasets/subresources/combine/methods/validate)を参照してください。
+
+## データセットを結合する
+
+同じソース ID を `combine.create` に渡し、出力データセットに名前を付けます:
+
+```python
+from uuid import uuid4
+
+idempotency_key = str(uuid4())
+
+combined = client.datasets.combine.create(
+    dataset_ids=dataset_ids,
+    name="Combined support data",
+    idempotency_key=idempotency_key,
+)
+
+print(combined.dataset_id)
+```
+
+このリクエストは同期的に実行され、マージ完了後に新しい `dataset_id` を返します。結合ジョブをポーリングする公開フローはありません。
+
+<Callout variant="note">
+  リクエストを再試行する場合は、同じ `idempotency_key` を使ってください。そのキーで再試行すると、別のマージを開始するのではなく、最初のリクエストで作成されたデータセットが返されます。このキーは任意ですが、長時間実行されるリクエストが接続を失う場合に役立ちます。
+</Callout>
+
+学習タイプが同じデータセットは、そのタイプを保持します。インストラクションデータセットと選好データセットを結合すると、インストラクションデータセットになります。その他の警告レベルの調整は、マージを開始する前に検証で報告されます。
+
+現在のリクエスト要件とレスポンスフィールドについては、[`combine.create` リファレンス](/api/python/resources/datasets/subresources/combine/methods/create)を参照してください。

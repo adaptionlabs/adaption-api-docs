@@ -1,0 +1,32 @@
+---
+title: 概览
+description: 了解 Adaptive Data 的产出，以及数据如何从导入走向适配与评估。
+---
+
+Adaptive Data 会分析源数据的结构，然后将其适配并优化为可直接用于 AI 训练的数据集。
+
+## 你可以构建什么
+
+- **指令数据集** —— 提示词与期望补全成对出现，用于有监督微调
+- **偏好对** —— 对比两个补全以指明哪一个更好，用于基于偏好的训练
+
+## 工作原理
+
+Adaptive Data 包含六个阶段：
+
+1. **[导入](/zh/adaptive-data/create-a-dataset)** —— 从本地文件、Hugging Face 或 Kaggle 引入数据。
+2. **[映射列](/zh/adaptive-data/select-columns)** —— 标识提示词、补全、上下文、图像或对话数据。
+3. **[应用配方](/zh/adaptive-data/configure-adaptive-data#应用配方)** —— 可选地去重或改写提示词，并生成推理轨迹。
+4. **[扩展](/zh/adaptive-data/expand-data)** —— 可选地对数据行进行增强、翻译或本地化，生成新的数据集。
+5. **[设置品牌控制](/zh/adaptive-data/configure-adaptive-data#配置品牌控制)** —— 可选地控制长度、安全性、事实依据、语气以及其他 Blueprint 指令。
+6. **[运行](/api/python/resources/datasets/methods/run)并[评估](/zh/adaptive-data/evaluate-dataset-quality)** —— 启动适配，然后对比源数据与适配后数据的质量指标。
+
+完成多次运行后，你可以[合并它们的数据集](/zh/adaptive-data/combine-datasets)，得到一个新的训练数据集。
+
+## 支持的输入
+
+- **文件格式**：CSV、JSON、JSONL、Parquet、PDF、DOCX、PPTX、XLSX、HTML、ZIP 和 TXT
+- **Hugging Face**：指向一个数据集 URL
+- **Kaggle**：指向一个数据集页面 URL
+
+可以从 [Adaptive Data 快速上手](/zh/adaptive-data-quickstart)开始，或浏览完整的 [API 参考](/api/python)。

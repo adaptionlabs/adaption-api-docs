@@ -1,0 +1,119 @@
+---
+title: Modelos admitidos
+description: Modelos base disponibles para AutoScientist y los límites de cada modelo en longitud de contexto, tamaño de lote y rango de LoRA.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Todos los modelos siguientes pueden pasarse en el campo `model` al [crear una ejecución de AutoScientist](/es/autoscientist/running-autoscientist). La lista de modelos en tiempo de ejecución es la fuente autorizada; usa esta página como referencia de planificación.
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id, model.api_model_size, model.methods, model.training_types)
+```
+
+Consulta la [referencia de API de `autoscientist.list_models`](/api/python/resources/autoscientist/methods/list_models) para conocer el esquema de respuesta actual.
+
+<Callout variant="note">
+  No hace falta que selecciones un modelo. Omite `model` y AutoScientist
+  elegirá uno que admita el `training_method` solicitado. El ID del modelo
+  resuelto se devuelve en la ejecución.
+</Callout>
+
+## Modelos disponibles
+
+| Modelo | ID de `model` | Tamaño | Métodos | `training_type` admitido | Admite entrenamiento de razonamiento | Filas mín. |
+| ------ | ------------- | ------ | ------- | ------------------------ | ------------------------------------ | ---------- |
+| **SFT / Alineación** | | | | | | |
+| Gemma 3 (4B Instruct) | `google/gemma-3-4b-it` | 4B | SFT, DPO | lora, full | false | 1.000 |
+| Gemma 4 (31B Instruct) | `google/gemma-4-31B-it` | 31B | SFT, DPO | lora, full | true | 10.000 |
+| gpt-oss (20B) | `openai/gpt-oss-20b` | 20B | SFT, DPO | lora | true | 1.000 |
+| gpt-oss (120B) | `openai/gpt-oss-120b` | 120B | SFT, DPO | lora | true | 1.000 |
+| Llama 3.3 (70B Instruct) | `meta-llama/Llama-3.3-70B-Instruct-Reference` | 70B | SFT, DPO | lora, full | false | 1.000 |
+| Llama 4 Scout (17B-16E Instruct) | `meta-llama/Llama-4-Scout-17B-16E-Instruct` | 109B | SFT, DPO | lora | false | 1.000 |
+| Meta Llama 3.2 (3B Instruct) | `meta-llama/Llama-3.2-3B-Instruct` | 3B | SFT, DPO | lora, full | false | 1.000 |
+| Mistral (7B) Instruct v0.2 | `mistralai/Mistral-7B-Instruct-v0.2` | 7B | SFT, DPO | lora | false | 1.000 |
+| Mixtral 8x7B Instruct (v0.1) | `mistralai/Mixtral-8x7B-Instruct-v0.1` | 46.7B | SFT, DPO | lora, full | false | 1.000 |
+| NVIDIA Nemotron 3 Nano Omni 30B A3B Reasoning BF16 | `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16` | 30B | SFT, DPO | lora | true | 10.000 |
+| NVIDIA Nemotron 3 Super 120B A12B BF16 | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16` | 120B | SFT, DPO | lora | false | 10.000 |
+| Qwen 3.5 (0.8B) | `Qwen/Qwen3.5-0.8B` | 0.8B | SFT, DPO | lora | false | 1.000 |
+| Qwen 3.5 122B A10B | `Qwen/Qwen3.5-122B-A10B` | 122B | SFT, DPO | lora | true | 10.000 |
+| Qwen 3.6 35B A3B | `Qwen/Qwen3.6-35B-A3B` | 35B | SFT, DPO | lora | true | 10.000 |
+| **SFT / Alineación (multimodal)** | | | | | | |
+| Gemma 3 (4B) VLM | `google/gemma-3-4b-it-VLM` | 4B | SFT, DPO | lora | false | 1.000 |
+| Gemma 3 (27B) VLM | `google/gemma-3-27b-it-VLM` | 27B | SFT, DPO | lora | false | 1.000 |
+| Gemma 4 (31B) VLM | `google/gemma-4-31B-it-VLM` | 31B | SFT, DPO | lora | false | 1.000 |
+| Qwen 3.5 (9B) | `Qwen/Qwen3.5-9B` | 9B | SFT, DPO | lora | false | 1.000 |
+
+**Filas mín.** es el tamaño efectivo mínimo del conjunto de datos (filas base más [aumento de datos](/es/autoscientist/data-augmentation)) necesario para seleccionar ese modelo. El entrenamiento con DPO requiere al menos **12.000 filas** con independencia del modelo; consulta [Número de filas](#número-de-filas).
+
+Un valor `full` en `training_type` significa que el ajuste fino completo está disponible además de `lora`.
+
+## Límites de entrenamiento por modelo
+
+Estos límites son propiedades del modelo y del hardware de entrenamiento. AutoScientist los tiene en cuenta automáticamente; importan sobre todo cuando [anulas sus hiperparámetros recomendados](/es/autoscientist/recommended-hyperparameters).
+
+| ID de `model` | Contexto (SFT) | Contexto (DPO) | Lote máx. (SFT) | Lote máx. (DPO) | Acumulación de gradiente | `lora_r` máximo |
+| ------------- | -------------- | -------------- | --------------- | --------------- | ------------------------ | --------------- |
+| **SFT / Alineación** | | | | | | |
+| `google/gemma-3-4b-it` | 131072 | 65536 | 8 | 8 | 1 | 64 |
+| `google/gemma-4-31B-it` | 49152 | 24576 | 4 | 4 | 2 | 64 |
+| `openai/gpt-oss-20b` | 131072 | 65536 | 1 | 1 | 8 | 64 |
+| `openai/gpt-oss-120b` | 65536 | 32768 | 2 | 2 | 8 | 64 |
+| `meta-llama/Llama-3.3-70B-Instruct-Reference` | 24576 | 12288 | 8 | 8 | 1 | 64 |
+| `meta-llama/Llama-4-Scout-17B-16E-Instruct` | 65536 | 12288 | 8 | 8 | 1 | 64 |
+| `meta-llama/Llama-3.2-3B-Instruct` | 131072 | 65536 | 8 | 8 | 1 | 64 |
+| `mistralai/Mistral-7B-Instruct-v0.2` | 32768 | 32768 | 16 | 8 | 1 | 64 |
+| `mistralai/Mixtral-8x7B-Instruct-v0.1` | 32768 | 16384 | 8 | 8 | 1 | 64 |
+| `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16` | 65536 | 32768 | 8 | 8 | 1 | 64 |
+| `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16` | 49152 | 24576 | 2 | 2 | 4 | 64 |
+| `Qwen/Qwen3.5-0.8B` | 131072 | 131072 | 8 | 8 | 1 | 64 |
+| `Qwen/Qwen3.5-122B-A10B` | 65536 | 32768 | 16 | 16 | 1 | 64 |
+| `Qwen/Qwen3.6-35B-A3B` | 65536 | 32768 | 8 | 8 | 1 | 64 |
+| **SFT / Alineación (multimodal)** | | | | | | |
+| `google/gemma-3-4b-it-VLM` | 32768 | 32768 | 8 | 8 | 1 | 64 |
+| `google/gemma-3-27b-it-VLM` | 32768 | 24576 | 8 | 8 | 1 | 64 |
+| `google/gemma-4-31B-it-VLM` | 24576 | 12288 | 8 | 8 | 1 | 64 |
+| `Qwen/Qwen3.5-9B` | 65536 | 49152 | 8 | 8 | 1 | 64 |
+
+
+### Tamaño de lote
+
+Cada modelo tiene un único tamaño de lote válido. `batch_size` tiene el valor predeterminado `"max"`, que se resuelve a ese valor específico del modelo. **Dejarlo sin cambios es la opción correcta en casi todas las ejecuciones.** Indicar otro entero hace que el lanzamiento falle después de que el trabajo haya sido aceptado.
+
+Los modelos usan acumulación de gradiente cuando resulta útil un lote efectivo mayor.
+
+```python
+# Recommended: let AutoScientist resolve the model and batch size.
+run = client.autoscientist.create(dataset_id=dataset_id)
+
+# Advanced: pin a model and its required batch size.
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model="openai/gpt-oss-20b",
+    hyperparams={"batch_size": 1},
+)
+```
+
+### Rango de LoRA
+
+`lora_r` acepta valores de 1 a 64 en todos los modelos de esta página. `lora_alpha` debe ser exactamente una o dos veces `lora_r`; la API comprueba ambos valores cuando se envían en la misma solicitud.
+
+## Número de filas
+
+AutoScientist exige los siguientes tamaños efectivos mínimos de conjunto de datos (filas base + aumento de datos):
+
+| Método de entrenamiento | Filas mínimas | Se aplica a |
+| ----------------------- | ------------- | ----------- |
+| SFT (instrucciones) | **1.000** | Todos los modelos |
+| DPO (preferencias) | **12.000** | Todos los modelos |
+| Cualquier método | **10.000** | Gemma (≥ 26B), Qwen (≥ 35B), NVIDIA |
+
+Los conjuntos de datos de texto pueden recurrir al aumento de datos para alcanzar un mínimo. Los conjuntos de datos multimodales no se pueden aumentar por ahora, así que deben contener ya suficientes filas procesadas. AutoScientist considera las **20.000 filas** un objetivo de calidad recomendado, no un requisito obligatorio para el lanzamiento.
+
+## Longitud de contexto y tus datos
+
+El contexto de entrenamiento es la longitud máxima de secuencia utilizada durante el ajuste fino. Es más corta que el contexto de servicio. Las filas más largas que el límite de entrenamiento se truncan en lugar de rechazarse.
+
+El contexto de DPO puede ser más corto que el de SFT. Antes de fijar un modelo para DPO, confirma que `DPO` aparece en su lista `methods` en tiempo de ejecución y usa la columna de contexto de DPO de la tabla anterior.

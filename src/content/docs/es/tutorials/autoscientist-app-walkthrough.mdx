@@ -1,0 +1,115 @@
+---
+title: Tutorial de la aplicación de AutoScientist
+description: Selecciona datos de entrenamiento, revisa el modelo y la receta que propone AutoScientist, lanza el entrenamiento e interpreta el resultado en la aplicación de Adaption.
+---
+
+[AutoScientist](/es/autoscientist/overview) cooptimiza los datos de entrenamiento y la receta de entrenamiento del modelo. Ejecuta el bucle de entrenamiento y evaluación por ti, y produce un modelo adaptado en lugar de solo un conjunto de datos adaptado.
+
+## Antes de empezar
+
+Inicia sesión en [adaptionlabs.ai/app](https://adaptionlabs.ai/app) y abre **AutoScientist**.
+
+Selecciona un conjunto de datos que haya completado una ejecución de Adaptive Data. También puedes seleccionar varios conjuntos de datos y consolidarlos en uno nuevo para el entrenamiento; la consolidación cambia el número total de filas y crea un nuevo conjunto de datos en el panel.
+
+![Selecciona un conjunto de datos para AutoScientist](/auto-scientist/ASEX1.png)
+
+Si necesitas entrenar con las filas originales en lugar de las mejoradas dentro de la aplicación, selecciona las columnas originales durante el mapeo de columnas. Como alternativa programática independiente, el [procesamiento de conjuntos de datos en bruto](/es/autoscientist/run-on-non-adapted-data) sube directamente a AutoScientist columnas de prompt y completion listas para entrenar y se salta la canalización de Adaptive Data.
+
+## Paso 1 | Elegir un rango de tamaño de modelo
+
+Indica a AutoScientist si tu despliegue tiene una [restricción de tamaño de modelo](/es/autoscientist/running-autoscientist#restringir-el-tamaño-del-modelo).
+
+![Elige un rango de tamaño de modelo para AutoScientist](/auto-scientist/AS-EX-2.png)
+
+- **All sizes** permite que AutoScientist optimice la calidad sin restricción de tamaño. Elígelo cuando tu infraestructura de servicio pueda soportar modelos más grandes.
+- **Tiny AutoScientist** limita el entrenamiento a modelos de menos de 10.000 millones de parámetros. Elígelo para uso en dispositivo, un presupuesto de inferencia limitado, un objetivo de un solo dispositivo o menor latencia.
+
+El tamaño del modelo afecta a la calidad, al coste de servicio, a la latencia y a los requisitos de hardware. Aplica ahora una restricción de despliegue conocida en lugar de descubrir después del entrenamiento que el modelo no puede ejecutarse en su entorno de destino.
+
+## Paso 2 | Seleccionar las columnas de entrenamiento
+
+Elige las columnas **Prompt** y **Completion** que se usarán para el entrenamiento. La vista previa compara los valores originales y los mejorados, y puedes elegir cualquiera de las dos versiones.
+
+![Compara y selecciona las columnas de entrenamiento de AutoScientist](/auto-scientist/AS_col.png)
+
+En un conjunto de datos para un modelo de lenguaje visual, la aplicación también muestra la columna **Image Context**. Ese mapeo no se puede editar. Los trabajos multimodales de AutoScientist requieren más de 1.000 filas.
+
+![Revisa el mapeo de solo lectura del contexto de imagen](/auto-scientist/AS_imagecontext.png)
+
+Habilita el razonamiento solo si el conjunto de datos tiene una columna de razonamiento adecuada y necesitas un ajuste fino de razonamiento. Esto reduce el conjunto de modelos elegibles, porque solo algunos lo admiten.
+
+## Paso 3 | Configurar el aumento de datos
+
+AutoScientist evalúa los datos seleccionados y puede ofrecer dos expansiones de [aumento de datos](/es/autoscientist/data-augmentation) independientes y opcionales:
+
+- **Domain dataset expansion** aparece cuando el conjunto de datos tiene menos de 20.000 datos. Mueve el control deslizante para elegir un tamaño objetivo; la aplicación actualiza los créditos necesarios y el número de filas resultante.
+- **Diversity dataset expansion** aparece cuando los datos no son lo bastante diversos. Su control deslizante añade datos de propósito general y también actualiza el coste y el tamaño en tiempo real.
+
+Trátalas como decisiones independientes. Por ejemplo, un conjunto de datos jurídico de 12.000 filas podría beneficiarse de la expansión de dominio sin necesidad de expansión de propósito general si su cobertura es estrecha pero sus ejemplos ya son variados.
+
+## Paso 4 | Revisar la receta de entrenamiento
+
+AutoScientist propone una [receta de entrenamiento completa](/es/autoscientist/recommended-hyperparameters). Todos los campos siguen siendo editables antes de confirmar:
+
+- **Algorithm:** LoRA o ajuste fino completo.
+- **Epochs:** el número de pasadas por el conjunto de datos de entrenamiento.
+- **LoRA rank (`r`):** capacidad del adaptador; los rangos más altos usan más memoria y cómputo.
+- **Alpha:** escala la contribución del adaptador LoRA al modelo base.
+- **Model name:** el modelo base que se va a ajustar.
+- **Target layers:** módulos como `q_proj`, `v_proj` o todas las capas lineales que reciben adaptadores LoRA.
+- **Optimizer and schedule:** controla las actualizaciones de parámetros y cómo cambia la tasa de aprendizaje. Una planificación lineal decae de forma constante; una planificación coseno ralentiza el decaimiento cerca del final.
+- **Warmup ratio:** la fracción de pasos de entrenamiento que se usa para subir gradualmente la tasa de aprendizaje desde cero.
+- **Gradient clipping:** limita la magnitud del gradiente para reducir las actualizaciones inestables.
+
+Revisa primero el modelo y el algoritmo, porque determinan qué otros ajustes son válidos. Mantén los valores propuestos salvo que tengas un motivo para anularlos.
+
+## Paso 5 | Confirmar y lanzar el entrenamiento
+
+En **Confirm your optimization choices**, inspecciona la representación JSON en bruto de la configuración exacta. Usa **Copy** para guardarla o **Edit** para volver a la configuración.
+
+El resumen final del pedido separa el coste de:
+
+- La expansión del conjunto de datos de dominio.
+- La expansión del conjunto de datos de diversidad.
+- El entrenamiento de AutoScientist.
+
+Confirma el pedido y después [sigue la ejecución y su estado](/es/autoscientist/running-autoscientist#esperar-a-que-termine) desde la sección **AutoScientist** del panel.
+
+## Paso 6 | Interpretar los resultados
+
+Cuando la ejecución termine, [interpreta los resultados](/es/autoscientist/interpreting-results) en la página que muestra el ID del modelo entrenado y:
+
+- [**Weights export**](/es/autoscientist/download-the-model) para descargar el modelo entrenado.
+- **AutoScientist Config** para revisar la configuración que lo produjo.
+- **Training Winrates** para comparar el modelo adaptado con su modelo base.
+- **Train/Eval Metrics** para diagnosticar el entrenamiento a lo largo del tiempo.
+
+### Tasa de victorias del entrenamiento
+
+El gráfico de tasa de victorias informa de los resultados de la evaluación cara a cara. Por ejemplo, una puntuación de 70 para el modelo adaptado significa que ganó aproximadamente el 70 % de las comparaciones frente al modelo base original con los datos de evaluación.
+
+### Pérdida
+
+La pérdida de entrenamiento mide el error de predicción en los datos de entrenamiento; la pérdida de validación mide el error en datos reservados. Léelas juntas para juzgar si el modelo está aprendiendo patrones que generalizan o si simplemente está sobreajustando.
+
+### Tasa de aprendizaje
+
+El gráfico de tasa de aprendizaje muestra el tamaño de paso de actualización a lo largo de los pasos de entrenamiento. Su forma refleja la planificación y el calentamiento seleccionados.
+
+### Norma del gradiente
+
+La norma del gradiente mide la magnitud de los gradientes de actualización de pesos. Los picos repentinos pueden indicar inestabilidad, mientras que una curva estable o que se aplana puede indicar que la optimización se ha asentado.
+
+## Problemas habituales
+
+- **Tasa de victorias plana o negativa:** usa al menos un modelo de 7.000-8.000 millones de parámetros, valora aumentar el número de épocas y revisa si conviene un aumento de datos hasta los 20.000 datos.
+- **Necesitas publicar en Hugging Face:** [descarga el modelo](/es/autoscientist/download-the-model), crea un repositorio vacío en Hugging Face y sube los archivos desde su interfaz web.
+- **No sabes si un trabajo está en cola o atascado:** consulta la pestaña **AutoScientist** para ver el estado y la pestaña **Measure** para ver las métricas. Si sigue sin cambios mucho después de la duración prevista, [contacta con soporte](/es/resources/support).
+- **Necesitas entrenar con las filas originales:** selecciona las columnas originales de prompt y completion en lugar de las versiones mejoradas.
+
+## Siguientes pasos
+
+- [Automatizar una ejecución de AutoScientist](/es/autoscientist/running-autoscientist)
+- [Descargar el modelo entrenado](/es/autoscientist/download-the-model)
+- [Revisar los hiperparámetros recomendados](/es/autoscientist/recommended-hyperparameters)
+- Consulta el esquema actual de solicitud y respuesta en la [referencia de API](/api/python).

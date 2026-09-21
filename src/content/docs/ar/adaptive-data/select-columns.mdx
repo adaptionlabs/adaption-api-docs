@@ -1,0 +1,231 @@
+---
+title: اختيار الأعمدة المراد تكييفها
+description: اربط أعمدة مجموعة البيانات بأدوار الموجّه أو الإكمال أو السياق أو الصورة أو المحادثة قبل تشغيل Adaptive Data.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+تتكوّن مجموعة البيانات من صفوف وأعمدة مسمّاة. ويحتاج Adaptive Data إلى معرفة العمود الذي يحتوي على التعليمة، والعمود الذي يحتوي على الإجابة، والأعمدة التي توفّر المادّة المساندة. في حزمة Python SDK، تعرّف هذه الأدوار عبر **`column_mapping`** في [`datasets.run`](/api/python/resources/datasets/methods/run).
+
+ربط الأعمدة هو الأساس للخطوات اللاحقة مثل [الوصفات وضوابط العلامة](/ar/adaptive-data/configure-adaptive-data) و[التقييم](/ar/adaptive-data/evaluate-dataset-quality) و[التصدير](/api/python/resources/datasets/methods/download).
+
+## ربط الموجه أو الإكمال
+
+تحتاج كل تشغيلة إلى واحد على الأقل من هذين المرتكزين:
+
+- **الموجّه** — السؤال أو التعليمة أو المهمّة المراد إنجازها.
+- **الإكمال** — الاستجابة أو الإجابة المتوقّعة.
+
+يكفيك واحد منهما. فإذا كان الآخر مفقودًا، يستطيع Adaptive Data توليده.
+
+تفترض الأمثلة أدناه أنّك [ثبّت حزمة Python SDK وأعددتها](/ar/introduction/getting-started) و[رفعت مجموعة بيانات](/ar/adaptive-data/create-a-dataset) للحصول على `dataset_id`.
+
+### موجه بلا إكمال
+
+إذا كانت مجموعة البيانات تحتوي على موجّهات دون إكمالات، فاربط عمود الموجّه فقط. ويولّد Adaptive Data إكمالًا لكل صف.
+
+فمثلًا، قد يحتوي ملف CSV فيه عمود `instruction` على مهام حقيقية مثل “اشرح لماذا تبدو الأوراق خضراء” و“حوّل 15 ميلًا إلى كيلومترات”:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"prompt": "instruction"},
+)
+```
+
+### إكمال بلا موجه
+
+إذا كانت مجموعة البيانات تحتوي على إجابات عالية الجودة دون موجّهات، فاربط عمود الإكمال فقط. ويركّب Adaptive Data موجّهًا مناسبًا لكل إجابة.
+
+فمثلًا، قد يحتوي ملف CSV فيه عمود `response` على إجابات مرجعية مثل “تبدو الأوراق خضراء لأن الكلوروفيل يعكس أطوال الموجة الخضراء من الضوء”:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"completion": "response"},
+)
+```
+
+### الموجه والإكمال
+
+تحتوي معظم مجموعات بيانات التعليمات على كلا الدورين أصلًا:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+```
+
+## إضافة أعمدة السياق
+
+تحمل أعمدة السياق معلومات خلفية لكل صف، أو بيانات مرجعية، أو بيانات وصفية يحتاجها النموذج للإجابة عن الموجّه. وخلافًا لـ `prompt` و`completion`، فإنّ **`context` قائمة**، لذا يمكنك ربط عدّة أعمدة.
+
+يربط هذا المثال مجموعة بيانات للإجابة عن أسئلة المستندات، مع عنوان ومقطع لكل سؤال:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "context": ["document_title", "document_body"],
+    },
+)
+```
+
+ومن الأنماط الشائعة:
+
+- **التوليد المعزَّز بالاسترجاع (RAG)** — اربط الاستعلام بوصفه `prompt`، والمقاطع المسترجَعة بوصفها `context`، والإجابة المرجعية بوصفها `completion`.
+- **بيانات وصفية لكل صف** — وفّر جمهورًا أو نبرة أو موقعًا أو خط منتجات مع كل موجّه.
+- **موجّه شامل مع سياق** — طبّق تعليمة واحدة على كل صف بينما توفّر أعمدة السياق المادّة الخاصّة بكل صف.
+
+وللحصول على تعليمة واحدة مشتركة بين كل الصفوف، استخدم موجّهًا شاملًا. وللسياق البصري، راجع [ربط عمود الصور](#ربط-عمود-الصور).
+
+## استخدام موجه شامل
+
+إذا كان يجب أن تستخدم كل الصفوف التعليمة نفسها ولم يكن في مجموعة البيانات عمود موجّه، فعرّف **موجّهًا شاملًا**. عندها توفّر أعمدة السياق أو الصور المحتوى الخاص بكل صف الذي تعمل عليه تلك التعليمة.
+
+في حزمة Python SDK، اضبط `universal_prompt` مباشرةً داخل `column_mapping`. يصنّف هذا المثال المراجعات مع استخدام العمود الموجود `sentiment` بوصفه الإكمال المتوقّع:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "universal_prompt": (
+            "Classify the sentiment of this review as positive, neutral, "
+            "or negative. Respond with one word."
+        ),
+        "context": ["review"],
+        "completion": "sentiment",
+    },
+)
+```
+
+ويمكنك إعداد الربط نفسه في تطبيق الويب:
+
+### 1. اختر "I don't have prompt"
+
+في خطوة الأعمدة، حدّد بطاقة **Prompt column** واختر **I don't have prompt**.
+
+![خطوة الأعمدة في المعالج مع إبراز بطاقة Prompt column ومربّع الاختيار "I don't have prompt" فيها، إلى جانب بطاقتَي Context column وCompletion column.](/universal-prompts/dont-have-prompt.png)
+
+تعرض بطاقة الموجّه خيارين:
+
+- **Let adaption create prompt** يولّد موجّهًا لكل إكمال.
+- **Write universal prompt** يطبّق تعليمة واحدة على كل صف.
+
+### 2. اكتب التعليمة المشتركة
+
+اختر **Write universal prompt**، ثم أدخِل التعليمة في **Enter prompt for all entries...**.
+
+![بطاقة الموجّه الموسّعة مع إبراز رابط "Write universal prompt" وحقل نصّي أسفله يحمل النص النائب "Enter prompt for all entries..."، مع ظهور مفتاح "Let adaption create prompt" أعلاه.](/universal-prompts/universal-prompt.png)
+
+اكتب تعليمة كاملة وقائمة بذاتها تحدّد المهمّة والمخرجات المتوقّعة. على سبيل المثال:
+
+> صنّف مشاعر هذه المراجعة بوصفها إيجابية أو محايدة أو سلبية. أجب بكلمة واحدة.
+
+القيمة `universal_prompt` نفسها متاحة عبر [واجهة برمجة تطبيقات `datasets.run`](/api/python/resources/datasets/methods/run) وحزمة Python SDK، لذا يمكن للتشغيلات من التطبيق والتشغيلات البرمجية استخدام الربط نفسه.
+
+## ربط عمود الصور
+
+تستخدم الصور ربط **`image`** المخصّص بدلًا من قائمة `context`. يستخدم الربط التالي مجموعة البيانات العامّة [MathVision](https://huggingface.co/datasets/MathLLMs/MathVision): يحتوي `question` على الموجّه، ويحتوي `decoded_image` على الشكل، ويحتوي `answer` على الإجابة المتوقّعة.
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "image": "decoded_image",
+    },
+)
+```
+
+![ربط أعمدة MathVision في خطوة اختيار الأعمدة من معالج التكييف: question بوصفه الموجّه، وdecoded_image بوصفه سياق الصورة، وanswer بوصفه الإكمال.](/multimodal-context/column-selection.png)
+
+استخدم أعمدة الصور للإجابة البصرية عن الأسئلة، ووضع التسميات التوضيحية، والتصنيف، والتعرّف الضوئي على الحروف، وغيرها من المهام متعدّدة الوسائط.
+
+### مدخلات الصور المدعومة
+
+تعتمد التمثيلات المدعومة على مصدر مجموعة البيانات.
+
+#### Hugging Face
+
+- **`bytes`** — بايتات الصورة الخام
+- **`hf_struct`** — سمة `Image()` من Hugging Face
+- **`list`** — مصفوفة من بايتات الصور
+- **`url`** — عنوان `http(s)` مطلق
+- **`path`** — مسار نسبي، مثل مدخلة `imagefolder`
+
+#### Kaggle
+
+- مجلّدات صور بلا ملف بيان، مثل `train/<class>/*.png`
+- ملف بيان بصيغة CSV أو Parquet يحتوي على عمود صور
+- ملف جدولي يحتوي على عمود بايتات أو عمود عناوين
+
+#### الرفع المباشر للملفات
+
+للملفات المرفوعة مباشرةً بصيغ CSV وParquet وJSON وJSONL وXLSX وما شابهها:
+
+- **`bytes`** أو **`hf_struct`** أو **`list`**
+- **`url`** — عنوان `http(s)` مطلق
+
+## ربط عمود المحادثة
+
+![ربط عمود المحادثة](/chat-column.png)
+
+يحتوي عمود المحادثة على محادثة متعدّدة الأدوار بالشكل نفسه المستخدم في واجهات المحادثة على نمط OpenAI. وكل خلية مصفوفة JSON من الأدوار:
+
+```json
+[
+  { "role": "system", "content": "You are a helpful assistant." },
+  { "role": "user", "content": "How do I reset my password?" },
+  {
+    "role": "assistant",
+    "content": "Open Settings, select Account, then select Reset password."
+  }
+]
+```
+
+اربط العمود الذي يحتوي على تلك المصفوفات:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"chat": "messages"},
+)
+```
+
+<Callout variant="note">
+  ربط `chat` يتنافى مع عمليات ربط `prompt` و`completion` و
+  `context`.
+</Callout>
+
+عندما تربط `chat`، يستنتج Adaptive Data الموجّه والإكمال من المحادثة. استخدم `chat` للبيانات متعدّدة الأدوار الموجودة أصلًا؛ واستخدم `prompt` و`completion` لأزواج التعليمة والإجابة المفردة.
+
+## النص العادي ومصفوفات أدوار المحادثة
+
+يمكن للخلايا المربوطة بوصفها `prompt` أو `completion` أن تحتوي على أحد أمرين:
+
+- **نص عادي** — سلسلة نصّية في كل خلية.
+- **مصفوفات أدوار محادثة** — مصفوفة JSON من كائنات `{"role": "...", "content": "..."}`.
+
+فمثلًا، يمكن لإكمال مهيكل أن يحفظ تبادلًا كاملًا داخل خلية واحدة:
+
+```json
+[
+  { "role": "user", "content": "Summarize this email." },
+  {
+    "role": "assistant",
+    "content": "The customer accepted the revised delivery date."
+  }
+]
+```
+
+يحلّل Adaptive Data المصفوفات الصالحة إلى أدوار محادثة ويعامل القيم الأخرى بوصفها نصًّا عاديًا. أمّا المحادثة الكاملة متعدّدة الأدوار المخزّنة في عمود واحد، فالأفضل لها ربط `chat` المصمّم لهذا الغرض.
+
+راجع **ColumnMapping** في [مرجع `datasets.run`](/api/python/resources/datasets/methods/run) للاطّلاع على المخطّط الحالي.

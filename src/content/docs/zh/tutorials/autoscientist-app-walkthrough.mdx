@@ -1,0 +1,115 @@
+---
+title: AutoScientist 应用操作指南
+description: 在 Adaption 应用中选择训练数据、审阅 AutoScientist 提出的模型与配方、启动训练并解读结果。
+---
+
+[AutoScientist](/zh/autoscientist/overview) 会对训练数据和模型训练配方进行协同优化。它会替你执行训练与评估循环，产出的是一个适配后的模型，而不只是一个适配后的数据集。
+
+## 开始之前
+
+在 [adaptionlabs.ai/app](https://adaptionlabs.ai/app) 登录，然后打开 **AutoScientist**。
+
+选择一个已完成 Adaptive Data 运行的数据集。你也可以选择多个数据集，把它们合并为一个新的数据集用于训练；合并会改变总行数，并在仪表盘上创建一个新数据集。
+
+![为 AutoScientist 选择数据集](/auto-scientist/ASEX1.png)
+
+如果你需要在应用中用原始数据行而非增强后的数据行进行训练，请在列映射时选择原始列。作为另一条独立的编程方式，[原始数据集处理](/zh/autoscientist/run-on-non-adapted-data)会把可直接训练的提示词列和补全列直接上传给 AutoScientist，跳过 Adaptive Data 流水线。
+
+## 步骤 1 | 选择模型规模范围
+
+告诉 AutoScientist 你的部署环境是否存在[模型规模约束](/zh/autoscientist/running-autoscientist#限制模型规模)。
+
+![选择 AutoScientist 的模型规模范围](/auto-scientist/AS-EX-2.png)
+
+- **All sizes** 允许 AutoScientist 在没有规模限制的前提下优化质量。当你的推理服务基础设施能够支撑更大的模型时，请选择它。
+- **Tiny AutoScientist** 会把训练限制在参数量小于 100 亿的模型上。适用于端侧部署、推理预算有限、目标为单设备运行或需要更低延迟的场景。
+
+模型规模会影响质量、服务成本、延迟和硬件要求。请现在就把已知的部署约束应用上，而不要等到训练之后才发现模型无法在目标环境中运行。
+
+## 步骤 2 | 选择训练列
+
+选择用于训练的 **Prompt** 列和 **Completion** 列。预览界面会对比原始值和增强后的值，两种版本你都可以选择。
+
+![对比并选择 AutoScientist 的训练列](/auto-scientist/AS_col.png)
+
+对于视觉语言模型数据集，应用还会显示 **Image Context** 列。该映射不可编辑。多模态 AutoScientist 任务要求超过 1,000 行数据。
+
+![查看只读的图像上下文映射](/auto-scientist/AS_imagecontext.png)
+
+只有当数据集具备合适的推理列、且你确实需要推理微调时，才启用推理训练。由于只有部分模型支持它，启用后可选模型的范围会缩小。
+
+## 步骤 3 | 配置数据增强
+
+AutoScientist 会评估你选中的数据，并可能提供两项相互独立的可选[数据增强](/zh/autoscientist/data-augmentation)扩展：
+
+- 当数据集少于 20,000 个数据点时，会出现 **Domain dataset expansion**。拖动滑块选择目标规模；应用会同步更新所需额度和最终行数。
+- 当数据多样性不足时，会出现 **Diversity dataset expansion**。它的滑块用于加入通用数据点，同样会实时更新成本与规模。
+
+请把这两项视为独立的决策。例如，一个 12,000 行的法律数据集如果覆盖面较窄但样本本身已经足够多样，那么它可能只需要领域扩展，而不需要通用数据扩展。
+
+## 步骤 4 | 审阅训练配方
+
+AutoScientist 会提出一份[完整的训练配方](/zh/autoscientist/recommended-hyperparameters)。在确认之前，每个字段都仍可编辑：
+
+- **Algorithm：** LoRA 或全参数微调。
+- **Epochs：** 在训练数据集上完整遍历的次数。
+- **LoRA rank (`r`)：** 适配器容量；秩越高，占用的显存和算力越多。
+- **Alpha：** 对 LoRA 适配器在基础模型中的贡献进行缩放。
+- **Model name：** 要微调的基础模型。
+- **Target layers：** 接入 LoRA 适配器的模块，例如 `q_proj`、`v_proj` 或所有线性层。
+- **Optimizer and schedule：** 控制参数更新方式以及学习率的变化方式。线性调度会稳定衰减；余弦调度会在接近结束时放缓衰减。
+- **Warmup ratio：** 用于把学习率从零逐步提升的训练步数占比。
+- **Gradient clipping：** 限制梯度幅度，以减少不稳定的更新。
+
+请先审阅模型和算法，因为它们决定了其他设置的有效取值。除非有充分理由覆盖，否则请保留系统提出的取值。
+
+## 步骤 5 | 确认并启动训练
+
+在 **Confirm your optimization choices** 页面，检查这份配置的原始 JSON 表示。可以用 **Copy** 保存它，或用 **Edit** 返回配置界面。
+
+最终的订单摘要会分别列出以下几项的费用：
+
+- Domain dataset expansion。
+- Diversity dataset expansion。
+- AutoScientist 训练。
+
+确认订单后，即可在仪表盘的 **AutoScientist** 区域[跟踪该次运行及其状态](/zh/autoscientist/running-autoscientist#等待运行完成)。
+
+## 步骤 6 | 解读结果
+
+运行完成后，请在显示训练所得模型 ID 的页面上[解读结果](/zh/autoscientist/interpreting-results)，该页面还包含：
+
+- [**Weights export**](/zh/autoscientist/download-the-model)，用于下载训练好的模型。
+- **AutoScientist Config**，用于回顾产出该模型的配置。
+- **Training Winrates**，用于对比适配后的模型与其基础模型。
+- **Train/Eval Metrics**，用于诊断训练随时间的变化。
+
+### 训练胜率
+
+胜率图表展示的是一对一评估的结果。例如，适配后模型得分为 70，意味着它在评估数据上约 70% 的对比中胜过了原始基础模型。
+
+### 损失
+
+训练损失衡量的是在训练数据上的预测误差；验证损失衡量的是在留出数据上的误差。请结合两者判断模型是在学习可泛化的规律，还是仅仅在过拟合。
+
+### 学习率
+
+学习率图表展示训练步数上的更新步长。它的形状反映了所选的调度方式和预热策略。
+
+### 梯度范数
+
+梯度范数衡量权重更新梯度的幅度。突然的尖峰可能表示不稳定，而平稳或趋于平缓的曲线则可能说明优化已经收敛。
+
+## 常见问题
+
+- **胜率没有提升甚至为负：**请至少使用 7–8B 规模的模型，考虑增加训练轮数，并评估把数据扩充到 20,000 个数据点是否合适。
+- **需要发布到 Hugging Face：**请[下载模型](/zh/autoscientist/download-the-model)，创建一个空白的 Hugging Face 仓库，然后通过其网页界面上传文件。
+- **不确定任务是在排队还是卡住了：**请在 **AutoScientist** 标签页查看状态，在 **Measure** 标签页查看指标。如果远超预期时长后仍无变化，请[联系支持团队](/zh/resources/support)。
+- **需要用原始数据行训练：**请选择原始的提示词列和补全列，而不是增强后的版本。
+
+## 后续步骤
+
+- [自动化一次 AutoScientist 运行](/zh/autoscientist/running-autoscientist)
+- [下载训练好的模型](/zh/autoscientist/download-the-model)
+- [查看推荐的超参数](/zh/autoscientist/recommended-hyperparameters)
+- 在 [API 参考](/api/python)中浏览最新的请求与响应结构。

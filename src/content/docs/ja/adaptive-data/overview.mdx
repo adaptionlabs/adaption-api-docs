@@ -1,0 +1,32 @@
+---
+title: 概要
+description: Adaptive Data が何を生み出すのか、そしてデータが取り込みからアダプト、評価へとどのように流れるのかを理解します。
+---
+
+Adaptive Data はソースデータの構造を分析し、それを AI 学習にすぐ使えるデータセットへとアダプト・最適化します。
+
+## 作成できるもの
+
+- **インストラクションデータセット** — 教師ありファインチューニング向けに、プロンプトと期待されるコンプリーションを対にしたもの
+- **選好ペア** — 選好ベースの学習向けに、2 つのコンプリーションを比較してどちらが優れているかを示したもの
+
+## 仕組み
+
+Adaptive Data は 6 つのステージで実行されます:
+
+1. **[取り込み](/ja/adaptive-data/create-a-dataset)** — ローカルファイル、Hugging Face、Kaggle からデータを取り込みます。
+2. **[列のマッピング](/ja/adaptive-data/select-columns)** — プロンプト、コンプリーション、コンテキスト、画像、チャットのデータを指定します。
+3. **[レシピの適用](/ja/adaptive-data/configure-adaptive-data#レシピを適用する)** — 任意で、プロンプトの重複排除や言い換えを行い、推論トレースを生成します。
+4. **[拡張](/ja/adaptive-data/expand-data)** — 任意で、行を拡張・翻訳・ローカライズして新しいデータセットにします。
+5. **[ブランドコントロールの設定](/ja/adaptive-data/configure-adaptive-data#ブランドコントロールを設定する)** — 任意で、長さ、安全性、根拠づけ、トーン、その他の Blueprint 指示を制御します。
+6. **[実行](/api/python/resources/datasets/methods/run)と[評価](/ja/adaptive-data/evaluate-dataset-quality)** — アダプトを開始し、ソースデータとアダプト済みデータの品質シグナルを比較します。
+
+複数の実行を完了したあと、それらの[データセットを結合](/ja/adaptive-data/combine-datasets)して 1 つの新しい学習データセットにできます。
+
+## サポートされる入力
+
+- **ファイル形式**: CSV、JSON、JSONL、Parquet、PDF、DOCX、PPTX、XLSX、HTML、ZIP、TXT
+- **Hugging Face**: データセットの URL を指定します
+- **Kaggle**: データセットページの URL を指定します
+
+まずは [Adaptive Data クイックスタート](/ja/adaptive-data-quickstart)から始めるか、[API リファレンス](/api/python)の全体を参照してください。

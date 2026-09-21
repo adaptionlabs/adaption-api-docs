@@ -1,0 +1,60 @@
+---
+title: 解读结果
+description: 获取 AutoScientist 运行结果，理解其胜率与训练诊断指标。
+---
+
+## 获取已完成的运行
+
+使用[创建运行](/api/python/resources/autoscientist/methods/create)时返回的运行 ID，然后[获取它当前的结果](/api/python/resources/autoscientist/methods/get)：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+run_id = "autoscientist_run_abc123"
+run = client.autoscientist.get(run_id)
+
+if run.status in {"pending", "running"}:
+    run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(f"Iterations: {run.iterations_completed}/{run.max_iterations}")
+print(f"Training method: {run.training_method}")
+print(f"Best win rate: {run.best_win_rate}")
+print(f"Checkpoint available: {run.download_available}")
+```
+
+应用中的结果页面还会显示训练得到的模型 ID、**Weights export** 和 **AutoScientist Config**。响应字段可能会变化；要确定某个应用中的数值对应哪个 SDK 字段，请以 [`get` API 参考](/api/python/resources/autoscientist/methods/get)为准。
+
+### DPO 阶段切换
+
+以 `training_method="alignment"` 返回的运行会在同一个公开 ID 之下先经历 SFT 阶段，再进入 DPO 阶段。在两个阶段的交接过程中，`status` 仍为 `running`，`best_win_rate` 及其他最佳结果字段可能为 null，`download_available` 为 false。请继续轮询；一旦 DPO 开始，公开的状态、迭代次数、指标和产物可用性描述的就是该阶段了。
+
+## 训练胜率
+
+**Training Winrates** 图表会在由你的数据集衍生出的评估上，对比基础模型与适配后的模型。适配后模型 70% 的胜率意味着它在约 70% 的一对一比较中获胜。
+
+`best_win_rate` 是所有迭代中的最佳结果。状态为 `succeeded` 的运行既可能是提前达到了 `target_win_rate`，也可能只是跑完了 `max_iterations`，因此请对比这两个值，而不要把成功状态当作已达成目标的证明。
+
+## 训练与评估指标
+
+这些图表会绘制训练步数上的标准诊断指标：
+
+- **损失（Loss）**衡量预测误差。训练损失和评估损失同时下降通常表示模型在学习；训练损失下降而评估损失变差则可能意味着过拟合。对于 DPO，损失反映的是相对于参考策略，模型把「已选」回答与「被拒」回答区分开的程度；请结合评估胜率一起看，而不要单独解读它。
+- **学习率（Learning rate）**显示优化器随时间变化的步长，反映所配置的预热策略与调度方式。
+- **梯度范数（Gradient norm）**衡量梯度的整体幅度。突然的尖峰可能表示更新不稳定，而平稳的曲线则说明优化过程已经趋于稳定。
+
+请把这些曲线放在一起解读。如果胜率没有提升，仅有平滑的损失曲线是不够的；反过来，即便胜率不错，训练诊断指标仍可能不稳定，值得进一步排查。
+
+## 常见问题
+
+- **胜率没有提升甚至为负：**请改用容量足够的模型，考虑增加训练轮数，并评估是否应通过[数据增强](/zh/autoscientist/data-augmentation)把领域数据集扩充到 20,000 行左右。
+- **没有可下载的检查点：**在按照[下载模型](/zh/autoscientist/download-the-model)操作或调用 [`download` 方法](/api/python/resources/autoscientist/methods/download)之前，请确认运行已成功且 `download_available` 为 true。
+- **DPO 指标暂时缺失：**如果运行仍为 `running`，它可能正从 SFT 过渡到 DPO。请继续用同一个运行 ID 轮询。
+- **运行状态不明确：**获取该次运行并检查 `status`；`pending` 表示排队中，`running` 表示进行中，`failed` 会在 `error` 中说明原因。
+- **需要原始数据行而非适配后的数据行：**请创建[原始数据集](/zh/autoscientist/run-on-non-adapted-data)，或在配置运行时选择原始列。

@@ -1,0 +1,127 @@
+---
+title: Expanda seus dados
+description: Aumente, traduza ou localize linhas para ampliar o tamanho do conjunto de dados após a importação ou a adaptação.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Depois de [importar um conjunto de dados](/pt/adaptive-data/create-a-dataset) e, opcionalmente, [executar o Adaptive Data](/api/python/resources/datasets/methods/run), você pode aumentar a contagem de linhas sem reexecutar todo o pipeline de adaptação. Cada método abaixo retorna um **novo conjunto de dados** que inclui suas linhas de origem mais as linhas adicionadas.
+
+Os exemplos do SDK pressupõem que você tenha [configurado o SDK Python](/pt/introduction/getting-started) e definido `ADAPTION_DATASET_ID` como um conjunto de dados pronto para ser expandido:
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+```
+
+## Aumento de dados
+
+[`datasets.augment`](/api/python/resources/datasets/methods/augment) recupera linhas adicionais do acervo curado e as retorna como um novo conjunto de dados. Use-o quando quiser mais exemplos na mesma combinação de temas ou uma cobertura mais ampla entre temas:
+
+- As **linhas de domínio** correspondem aos temas presentes no seu conjunto de dados.
+- As **linhas gerais** vêm de outros temas para ampliar a diversidade.
+
+```python
+estimate = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+)
+print(response.dataset_id, response.status)
+```
+
+A resposta traz o id do novo conjunto de dados e seu status atual; ambos são `None` em uma estimativa. Aguarde o novo conjunto de dados antes de baixá-lo ou treinar com ele:
+
+```python
+from adaption import DatasetTimeout
+
+try:
+    final = client.datasets.wait_for_completion(response.dataset_id)
+except DatasetTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+print(final.status, final.row_count)
+```
+
+`wait_for_completion` usa um intervalo crescente de 2 a 30 segundos e tem um tempo limite padrão de uma hora. Um tempo limite interrompe a espera, não o job de expansão. Chame-o novamente com o mesmo ID de conjunto de dados para retomar o acompanhamento. A mesma espera se aplica após [`translate`](#traduzir-linhas) e [`localize`](#localizar-linhas).
+
+Omita qualquer um dos parâmetros de linhas para pular esse tipo de adição. O aumento é cobrado pelas linhas recuperadas. Consulte a [referência de `augment`](/api/python/resources/datasets/methods/augment) para os limites e campos de requisição atuais.
+
+<Callout variant="note">
+  `datasets.augment` funciona com conjuntos de dados de texto cuja combinação de
+  temas possa ser determinada. Ele não é compatível com conjuntos de dados de
+  imagem. Esta é a mesma operação de acervo curado que
+  `augmentation_domain_rows` e `augmentation_general_rows` em
+  [`autoscientist.create`](/pt/autoscientist/data-augmentation). O caminho do
+  AutoScientist aplica essas linhas no momento do treinamento em vez de gravar
+  um novo conjunto de dados.
+</Callout>
+
+## Traduzir linhas
+
+[`datasets.translate`](/api/python/resources/datasets/methods/translate) converte uma amostra das linhas existentes para outros idiomas. O Adaptive Data suporta até 242 idiomas. Forneça [códigos de idioma ISO 639-1](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` é a fração das linhas de origem expandida para cada idioma de destino:
+
+```python
+estimate = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+)
+print(response.dataset_id, response.status)
+```
+
+Com dois idiomas de destino e uma taxa de amostragem de `0.25`, a saída contém aproximadamente `1 + (0.25 × 2) = 1.5` vezes mais linhas do que a entrada.
+
+## Localizar linhas
+
+[`datasets.localize`](/api/python/resources/datasets/methods/localize) adapta as linhas para um idioma e um país, incluindo a terminologia específica da localidade em vez de apenas uma tradução direta. Forneça pares de país/idioma usando [códigos de país ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) e [códigos de idioma ISO 639-1](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+
+```python
+response = client.datasets.localize(
+    dataset_id,
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
+)
+print(response.dataset_id, response.status)
+```
+
+Cada par cria uma variante específica de país e idioma, em vez de apenas traduzir o texto.
+
+<Callout variant="note">
+  A tradução e a localização são cobradas pelas linhas de saída. Defina
+  `estimate=True` em qualquer um desses métodos para precificar uma requisição
+  antes de executá-la. Passe `idempotency_key` em qualquer um deles para que uma
+  requisição repetida retorne o conjunto de dados criado pela primeira
+  requisição em vez de iniciar e cobrar por uma segunda execução. Consulte as
+  referências de [`translate`](/api/python/resources/datasets/methods/translate)
+  e [`localize`](/api/python/resources/datasets/methods/localize) para o esquema
+  atual e os valores compatíveis.
+</Callout>
+
+Para receitas, pares de preferência, limites de linhas e controles de marca em uma execução de adaptação, consulte [Configurar o Adaptive Data](/pt/adaptive-data/configure-adaptive-data).
+
+Cada método desta página grava um novo conjunto de dados e deixa a origem inalterada. `datasets.run` também aceita uma configuração `language_expansion`; esse caminho armazena a configuração no conjunto de dados e expande as linhas dentro da própria execução de adaptação, sem criar um novo conjunto de dados. Consulte a [referência de `run`](/api/python/resources/datasets/methods/run) para esse formato.

@@ -1,0 +1,364 @@
+---
+title: ابتكار مجموعة بيانات
+description: ولّد مجموعة بيانات جاهزة للنموذج من الصفر، دون الحاجة إلى مجموعة بيانات مصدر.
+---
+
+يولّد الابتكار مجموعة بيانات جاهزة للنموذج من الصفر — دون الحاجة إلى مجموعة بيانات مصدر. صِف مجموعة بياناتك بموجّه، وضيّق النطاق اختياريًا بالمجالات والمجالات الفرعية، وتنشئ واجهة برمجة التطبيقات مجموعة بيانات لمهمّتك.
+
+استخدم [`datasets.create`](/ar/adaptive-data/create-a-dataset) بدلًا من ذلك عندما تريد استيراد مجموعة بيانات قائمة وتكييفها.
+
+### ما يمكنك بناؤه
+
+- **مجموعات بيانات التعليمات** تقرن الموجّهات بالإكمالات المولَّدة من أجل الضبط الدقيق الخاضع للإشراف.
+- **أزواج التفضيل** ترتّب إكمالين مقابل بعضهما من أجل التدريب القائم على التفضيل.
+
+### كيف يعمل
+
+1. **صِف مجموعة بياناتك.** استخدم `dataset_prompt` والمعاملين الاختياريين `domains` و`subdomains` لتوجيه عملية ابتكار مجموعة البيانات.
+2. **قدّر التكلفة (اختياري).** سعّر الطلب بالضبط عبر `estimate=True`. لا يُنشأ شيء ولا تُحتسب أي تكلفة.
+3. **ولّد.** استدعِ [`datasets.invent`](/api/python/resources/datasets/methods/invent) لإنشاء مجموعة البيانات وبدء التوليد. يعود الاستدعاء فورًا بالحالة `running`.
+4. **استطلِع ونزّل.** استطلِع [`datasets.get`](/api/python/resources/datasets/methods/get) إلى أن تصبح الحالة `succeeded`، ثم [نزّل الصفوف](#تنزيل-الصفوف).
+
+## توليد مجموعة بيانات
+
+يؤدّي استدعاء واحد لـ `datasets.invent` إلى إنشاء مجموعة البيانات وبدء توليد الصفوف من وصفك ومن اختيارات المجالات الاختيارية. تفترض الأمثلة أنّك [ثبّت حزمة Python SDK وضبطت `ADAPTION_API_KEY`](/ar/introduction/getting-started).
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    rows=1000,
+    name="Clinical Q&A",
+)
+
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+### وصف مجموعة البيانات
+
+لابتكار مجموعة بيانات، وفّر **واحدًا على الأقل** من المعاملات التالية:
+
+| المعامل          | ملاحظات                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_prompt` | وصف البيانات المراد توليدها. إذا أُغفل، يُولَّد وصف من اختيارات مجالاتك. بحد أقصى 10,000 حرف.                                        |
+| `domains`        | رموز المجالات التي يُولَّد منها. راجع [اختيار المجالات والمجالات الفرعية](#اختيار-المجالات-والمجالات-الفرعية).                       |
+| `subdomains`     | رموز مجالات فرعية مؤهَّلة تضيّق نطاق التوليد. راجع [اختيار المجالات والمجالات الفرعية](#اختيار-المجالات-والمجالات-الفرعية).          |
+
+### معاملات الطلب
+
+| المعامل              | مطلوب    | ملاحظات                                                                                                                                              |
+| -------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rows`               | نعم      | عدد الصفوف المراد توليدها. يخضع لحد الصفوف لكل إطلاق في خطّتك.                                                                                        |
+| `name`               | لا       | الاسم المعروض لمجموعة البيانات المبتكَرة.                                                                                                             |
+| `training_type`      | لا       | `instruction_dataset` (الافتراضي) أو `preference_pairs`. راجع [اختيار صيغة المخرجات](#اختيار-صيغة-المخرجات).                                          |
+| `language_expansion` | لا       | يترجم عيّنة من الصفوف المولَّدة أو يوطّنها. راجع [التوسع عبر اللغات والمواقع](#التوسع-عبر-اللغات-والمواقع).                                           |
+| `estimate`           | لا       | يُعيد تقديرًا بالأرصدة دون إنشاء مجموعة بيانات أو إطلاقها. قيمته الافتراضية `False`.                                                                   |
+| `idempotency_key`    | لا       | يجعل إعادة المحاولة آمنة. تكرار طلب بالمفتاح نفسه يُعيد مجموعة البيانات الأصلية بدلًا من بدء التوليد من جديد. بحد أقصى 255 حرفًا.                      |
+
+### تسعير الطلب أولًا
+
+اضبط `estimate=True` لتسعير الطلب بالضبط. لا يُولَّد شيء ولا تُحتسب أي تكلفة:
+
+```python
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+    estimate=True,
+)
+
+print(f"Estimated credits: {estimate.estimated_credits}")
+print(f"Available credits: {estimate.available_credits}")
+```
+
+## اختيار المجالات والمجالات الفرعية
+
+اجلب الرموز الحالية التي تقبلها `datasets.invent` بدلًا من كتابتها بشكل ثابت:
+
+```python
+response = client.datasets.invent_domains()
+
+for domain in response.domains:
+    print(domain.code, domain.title)
+    for subdomain in domain.subdomains:
+        print("  ", subdomain.code, subdomain.title)
+```
+
+### حقول المجال والمجال الفرعي
+
+| الحقل        | الوصف                                                                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`       | القيمة التي تُرسَل في `domains` أو `subdomains`. رموز المجالات قيم مثل `medical`؛ أمّا رموز المجالات الفرعية فقيم مؤهَّلة مثل `medical.symptoms_diagnosis`. |
+| `title`      | اسم مقروء للمجال أو المجال الفرعي.                                                                                                                          |
+| `subdomains` | المجالات الفرعية المتاحة ضمن مجال. القائمة الفارغة تعني أن المجال لا يحتوي على مجالات فرعية.                                                                 |
+
+### التضييق بالمجالات الفرعية
+
+مرّر رموز المجالات الفرعية تمامًا كما تُعيدها `invent_domains`. و`subdomains` قائمة مسطّحة من الرموز المؤهَّلة:
+
+هنا، يُضيَّق الجزء الطبّي إلى المجالات الفرعية المختارة. أمّا الجزء القانوني فيستمدّ من المجال القانوني كاملًا لأنه لم تُقدَّم أي مجالات فرعية قانونية.
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical", "legal"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+)
+```
+
+
+### الجمع بين عدة مجالات
+
+يسهم كل رمز في `domains` في تشغيلة التوليد نفسها. وبالنسبة إلى مجال بلا تقسيمات فرعية، مرّر رمز المجال وأغفِل المجالات الفرعية له.
+
+## ضبط التوليد
+
+اضبط صيغة المخرجات، ووسّع اللغات، واجعل إعادة المحاولة آمنة.
+
+### اختيار صيغة المخرجات
+
+القيمة الافتراضية لـ `training_type` هي `instruction_dataset`. اضبطها على `preference_pairs` للحصول على أزواج إكمال مختارة ومرفوضة:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    training_type="preference_pairs",
+)
+```
+
+استخدم `instruction_dataset` للضبط الدقيق الخاضع للإشراف القياسي. واستخدم `preference_pairs` للتدريب القائم على التفضيل مثل DPO. والصيغتان نفسهما موصوفتان في [ضبط Adaptive Data](/ar/adaptive-data/configure-adaptive-data#توليد-أزواج-التفضيل).
+
+### التوسع عبر اللغات والمواقع
+
+يستخدم `language_expansion` البنية نفسها المستخدمة في [التوسّع اللغوي في Adaptive Data](/ar/adaptive-data/expand-data):
+
+- ‏`translate` تُنتج نسخة صف جديدة لكل لغة هدف.
+- ‏`localize` تُنتج نسخة صف جديدة لكل زوج بلد ولغة، باستخدام صياغة خاصّة بالموقع لا الترجمة المباشرة وحدها.
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "translate",
+        "sample_rate": 0.25,
+        "languages": ["es", "fr"],
+    },
+)
+```
+
+‏`sample_rate` هي نسبة الصفوف المبتكَرة التي تُوسَّع لكل هدف، ويجب أن تكون بين `0.01` و`1`. وتُحتسب الأرصدة على أساس عدد صفوف المخرجات الموسَّعة.
+
+وللتوطين، مرّر أزواج البلد واللغة:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "localize",
+        "sample_rate": 0.25,
+        "pairs": [{"country": "ES", "language": "ca"}],
+    },
+)
+```
+
+رموز اللغات أو البلد/اللغة غير المعروفة تُعيد استجابة `400` مع عيّنة من الرموز المدعومة.
+
+### جعل إعادة المحاولة آمنة
+
+وفّر مفتاح تكرار آمن عندما قد يدفع عطل في الشبكة تطبيقك إلى إعادة إرسال الطلب:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    idempotency_key="clinical-qa-2026-09-02",
+)
+```
+
+تكرار الطلب نفسه بهذا المفتاح يُعيد مجموعة البيانات الأصلية بدلًا من بدء تشغيلة توليد أخرى.
+
+### تجميع كل شيء
+
+```python
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+## التحقق من الحالة والتنزيل
+
+استطلِع `datasets.get` بمعرّف مجموعة البيانات المبتكَرة إلى أن يُبلِّغ التوليد عن `succeeded` أو `failed`.
+
+### الاستطلاع حتى انتهاء التوليد
+
+```python
+import time
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+```
+
+### تنزيل الصفوف
+
+نزّل مجموعة البيانات المكتملة بصيغة JSON Lines أو JSON أو CSV أو Parquet:
+
+```python
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+راجع [`datasets.download`](/api/python/resources/datasets/methods/download) للاطّلاع على جميع خيارات الاستجابة والبثّ.
+
+### مثال كامل
+
+```python
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+
+assert dataset_id is not None
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+وللتدريب على مجموعة البيانات المولَّدة، مرّر معرّفها إلى [`autoscientist.create`](/ar/autoscientist/running-autoscientist):
+
+```python
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)
+```

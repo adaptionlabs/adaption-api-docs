@@ -1,0 +1,74 @@
+---
+title: Processar documentos não estruturados
+description: Faça a ingestão de PDFs, documentos, planilhas e apresentações no aplicativo Adaptive Data sem construir um pipeline de pré-processamento.
+---
+
+A maior parte do conhecimento organizacional está armazenada em formatos projetados para pessoas, e não para processamento tabular: PDFs, documentos com OCR, planilhas, arquivos de processadores de texto, apresentações e threads de e-mail. Layouts, tabelas incorporadas, células mescladas, escrita à mão e notas de rodapé tornam o pré-processamento personalizado lento e frágil.
+
+O aplicativo Adaptive Data aceita esses arquivos em sua forma bruta. Ele extrai e estrutura o conteúdo e depois produz um conjunto de dados que pode usar o mesmo fluxo de mapeamento de colunas, adaptação, avaliação e exportação dos demais conjuntos de dados.
+
+## O que conta como um documento não estruturado?
+
+O aplicativo trata material de origem em formato de documento como dados não estruturados, seja você o envia localmente ou o importa do Hugging Face ou do Kaggle. Exemplos comuns incluem:
+
+- **PDFs**, incluindo arquivos digitalizados e com OCR.
+- **Planilhas** com células mescladas, cabeçalhos de várias linhas ou layouts diferentes entre abas.
+- **Documentos de processadores de texto** com tabelas incorporadas e notas de rodapé.
+- **Apresentações** cuja estrutura é expressa pelo layout em vez de linhas.
+- **Threads de e-mail** e exportações conversacionais semelhantes.
+
+## Processar documentos no aplicativo
+
+Entre em [adaptionlabs.ai/app](https://adaptionlabs.ai/app), [crie um conjunto de dados](/pt/adaptive-data/create-a-dataset) e envie ou importe os arquivos de origem. Quando o aplicativo detecta dados em formato de documento, ele faz duas perguntas que determinam as linhas resultantes.
+
+### Etapa 1 | Habilite a extração
+
+Escolha **Yes** para extrair e dividir os documentos. Escolha **No** apenas quando quiser que os arquivos sejam ingeridos sem o fluxo de processamento de documentos não estruturados.
+
+![O aplicativo detecta dados não estruturados e pergunta se deve extraí-los e dividi-los, com as opções Yes e No.](/unstructured-documents/extract-and-split.png)
+
+### Etapa 2 | Escolha como dividir
+
+Selecione a unidade que deve se tornar uma linha do conjunto de dados:
+
+- **Per document** mantém cada arquivo completo em uma linha. Use essa opção para tarefas de contexto longo ou extração do documento inteiro.
+- **Per page** cria uma linha para cada página. Use essa opção para produzir mais exemplos de treinamento ou trabalhar com conteúdo no nível da página.
+
+O aplicativo mostra uma prévia da contagem de linhas para as duas escolhas antes de você continuar.
+
+![O aplicativo oferece duas formas de dividir: importar cada documento inteiro como uma linha separada ou importar cada página do documento como uma linha separada, com uma prévia da contagem de linhas para cada uma.](/unstructured-documents/split-by-document-or-page.png)
+
+## Mapear o conteúdo extraído
+
+A escolha da divisão frequentemente sugere um padrão de mapeamento de colunas. Esses são pontos de partida, não restrições.
+
+### Por página | Use o conteúdo como completion
+
+Cada linha contém o conteúdo extraído de uma página. Mapeie esse conteúdo como **Completion** e deixe o Adaptive Data gerar um prompt correspondente.
+
+Por exemplo, uma página que contém uma política de devolução de produtos pode se tornar a completion enquanto o Adaptive Data gera um prompt como:
+
+> Explique as condições sob as quais um cliente pode devolver este produto.
+
+Esse é o caminho mais rápido de páginas brutas até um conjunto de dados no estilo de instrução.
+
+### Por documento | Use o conteúdo como contexto
+
+Cada linha contém um documento completo. Mapeie o documento extraído como **Context**, selecione **I don't have prompt** e escolha **Write universal prompt**.
+
+Use uma instrução completa que especifique a saída desejada. Por exemplo:
+
+> Extraia deste documento o nome do cliente, a data de vigência, a data de renovação e o valor total do contrato. Retorne um JSON válido com as chaves `customer_name`, `effective_date`, `renewal_date` e `contract_value`. Use `null` quando um valor não estiver presente.
+
+O aplicativo aplica o mesmo prompt a todas as linhas, fornecendo o documento de cada linha como contexto.
+
+## Continuar com o Adaptive Data
+
+Depois que as duas perguntas forem respondidas, a extração é executada e produz um conjunto de dados normal do Adaptive Data. Continue com:
+
+1. [Mapeamento de colunas com um prompt universal](/pt/adaptive-data/select-columns#usar-um-prompt-universal).
+2. [Receitas e controles de marca](/pt/adaptive-data/configure-adaptive-data).
+3. [Avaliação de qualidade](/pt/adaptive-data/evaluate-dataset-quality).
+4. Revisão e exportação das linhas adaptadas.
+
+Para o fluxo completo da interface, prossiga para o [passo a passo do aplicativo Adaptive Data](/pt/tutorials/adaptive-data-app-walkthrough). Para automatizar os fluxos de conjunto de dados compatíveis, use a [referência da API](/api/python) atual; as opções de extração de documentos descritas aqui são configuradas no aplicativo.

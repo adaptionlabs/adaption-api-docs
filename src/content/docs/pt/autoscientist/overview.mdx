@@ -1,0 +1,37 @@
+---
+title: Visão geral
+description: Entenda o que o AutoScientist constrói e como funciona seu ciclo iterativo de treinamento.
+---
+
+O AutoScientist automatiza o ciclo de pesquisa por trás do treinamento e do alinhamento de modelos. Você escolhe o resultado desejado; o AutoScientist otimiza os dados e a [receita de treinamento](/pt/autoscientist/recommended-hyperparameters), treina um modelo, avalia-o e repete o processo até que a execução atinja sua meta ou esgote as iterações.
+
+Comece com um conjunto de dados que tenha concluído uma execução do [Adaptive Data](/pt/adaptive-data/overview). Se a sua origem já for um conjunto de dados de prompt/completion pronto para treinamento, você pode, em vez disso, [executar com dados não adaptados](/pt/autoscientist/run-on-non-adapted-data).
+
+![Selecionar um conjunto de dados para o AutoScientist](/auto-scientist/ASEX1.png)
+
+## O que você pode construir
+
+- **Conjuntos de dados de instrução** associam prompts às completions esperadas para ajuste fino supervisionado.
+- **Conjuntos de dados de pares de preferência** comparam completions escolhidas e rejeitadas para Direct Preference Optimization (DPO).
+
+Defina `training_method="instruction"` para ajuste fino supervisionado ou `training_method="alignment"` para o pipeline SFT → DPO ao [criar uma execução](/pt/autoscientist/running-autoscientist). O alinhamento exige um conjunto de dados preparado como `preference_pairs`; passe o método explicitamente em vez de depender das configurações salvas no aplicativo.
+
+## Como o ciclo funciona
+
+Cada execução percorre quatro estágios:
+
+1. A **[otimização de dados](/pt/autoscientist/data-augmentation)** adiciona linhas opcionais direcionadas ao domínio e de uso geral para melhorar a diversidade e reduzir o overfitting.
+2. O **[treinamento](/pt/autoscientist/running-autoscientist)** executa SFT ou DPO com o modelo selecionado, com LoRA ou ajuste fino completo, e com a receita de hiperparâmetros atual.
+3. A **[avaliação](/pt/autoscientist/interpreting-results)** mede a iteração em relação a `target_win_rate` e captura diagnósticos de treinamento como perda, taxa de aprendizado e norma do gradiente.
+4. O **ajuste de hiperparâmetros** analisa a avaliação e revisa a receita para a próxima iteração.
+
+O ciclo para quando atinge `target_win_rate` ou completa `max_iterations`. Um status `succeeded` pode significar qualquer uma dessas condições, portanto inspecione `best_win_rate` após a conclusão.
+
+## Próximas etapas
+
+- [Configurar o aumento de dados](/pt/autoscientist/data-augmentation)
+- [Criar e monitorar uma execução](/pt/autoscientist/running-autoscientist)
+- [Interpretar os resultados](/pt/autoscientist/interpreting-results)
+- [Baixar o melhor checkpoint](/pt/autoscientist/download-the-model)
+- [Consultar os modelos compatíveis e os limites de treinamento](/pt/autoscientist/supported-models)
+- Explorar todos os campos de requisição e resposta na [referência da API de `create`](/api/python/resources/autoscientist/methods/create)

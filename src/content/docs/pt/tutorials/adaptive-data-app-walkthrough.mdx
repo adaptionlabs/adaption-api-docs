@@ -1,0 +1,143 @@
+---
+title: Passo a passo do aplicativo Adaptive Data
+description: Importe um conjunto de dados, mapeie suas colunas, configure a adaptação, lance uma execução e revise os resultados no aplicativo da Adaption.
+---
+
+## Antes de começar
+
+Entre em [adaptionlabs.ai/app](https://adaptionlabs.ai/app). Você não precisa de uma chave de API para este passo a passo no aplicativo.
+
+O Adaptive Data pode construir:
+
+- **Conjuntos de dados de instrução**, que associam prompts às completions esperadas para ajuste fino supervisionado.
+- **Pares de preferência**, que comparam duas completions e identificam a preferida.
+
+## Etapa 1 | Traga seus dados
+
+[Crie um conjunto de dados](/pt/adaptive-data/create-a-dataset) no aplicativo a partir de uma destas origens:
+
+- **Arquivo local:** CSV, JSON, JSONL, Parquet, PDF, DOCX, PPTX, XLSX, HTML, ZIP ou TXT.
+- **Hugging Face:** informe a URL de um conjunto de dados e selecione os arquivos a importar. Se o conjunto de dados for restrito, solicite acesso no Hugging Face antes de importá-lo.
+- **Kaggle:** informe a URL da página do conjunto de dados.
+
+Origens em formato de documento, como PDFs, digitalizações, apresentações e threads de e-mail, acionam um fluxo adicional de extração e divisão. Consulte [Processar documentos não estruturados](/pt/tutorials/processing-unstructured-documents).
+
+Atualmente, o Adaptive Data não é compatível com dados tabulares não textuais, como séries temporais financeiras.
+
+## Etapa 2 | Mapeie suas colunas
+
+[Atribua um papel a cada coluna de origem](/pt/adaptive-data/select-columns):
+
+- **Prompt:** a pergunta, a instrução ou a tarefa de cada linha.
+- **Context:** o material de apoio necessário para responder ao prompt. Você pode selecionar várias colunas de contexto, inclusive imagens.
+- **Completion:** a resposta esperada.
+- **Chat:** uma conversa de vários turnos ou um histórico de diálogo.
+
+Toda execução precisa de pelo menos um prompt ou uma completion. O Adaptive Data pode gerar o papel ausente.
+
+- Sem coluna de prompt: selecione **I don't have prompt** e depois deixe a Adaption criar um por linha ou selecione **Write universal prompt**.
+- Sem coluna de completion: selecione **I don't have a completion column** para gerar uma.
+
+Por exemplo, um conjunto de dados de extração de documentos poderia usar `document_body` como contexto e este prompt universal:
+
+> Extraia o nome do cliente, a data de início do contrato, a data de renovação e o valor total do contrato. Retorne um JSON válido com as chaves `customer_name`, `start_date`, `renewal_date` e `contract_value`.
+
+Garanta que toda coluna necessária para responder ao prompt esteja mapeada como contexto. O guia de seleção de colunas inclui padrões detalhados de mapeamento para [colunas de imagem](/pt/adaptive-data/select-columns#mapear-uma-coluna-de-imagem).
+
+## Etapa 3 | Avalie a qualidade dos dados
+
+A [etapa **Data Evaluation**](/pt/adaptive-data/evaluate-dataset-quality) informa:
+
+- Uma nota por letra e uma pontuação de qualidade de 0 a 10.
+- Um percentil em relação a outros conjuntos de dados no domínio detectado.
+- O domínio, o idioma e o tom detectados.
+
+Use essa base de comparação para confrontar o conjunto de dados de origem com o resultado adaptado após a execução.
+
+## Etapa 4 | Escolha as receitas
+
+[Selecione apenas as receitas](/pt/adaptive-data/configure-adaptive-data#aplicar-receitas) que se encaixam no seu objetivo:
+
+- **Prompt Deduplication** remove prompts duplicados para que exemplos repetidos não dominem o conjunto de dados.
+- **Prompt Rephrasing** reescreve os prompts em busca de clareza e alinhamento com a tarefa.
+- **Reasoning Traces** adiciona raciocínio passo a passo junto das saídas finais, para fluxos compatíveis.
+- **Hallucination Mitigation** aplica embasamento e verificação para reduzir completions sem respaldo.
+- **Freeform Brand Voice** direciona os dados gerados para uma personalidade, um tom e um estilo específicos.
+
+Se os prompts precisarem permanecer byte a byte inalterados, desative **Prompt Rephrasing** e **Metadata Injection**.
+
+## Etapa 5 | Configure o Blueprint
+
+Se você responder **Yes** a **Do you want to add brand guidelines or global constraints?**, o aplicativo abre o [Blueprint e seus controles de marca](/pt/adaptive-data/configure-adaptive-data#configurar-controles-de-marca).
+
+Digite uma instrução em nível de sistema diretamente ou envie diretrizes de marca, um prompt de sistema ou políticas de segurança, tom e extensão. Por exemplo:
+
+> Escreva respostas concisas de suporte ao cliente em inglês britânico. Use um tom acolhedor e direto. Nunca recomende produtos de terceiros e não faça afirmações que não tenham respaldo no contexto fornecido.
+
+O Blueprint também oferece controles estruturados:
+
+- **Length:** Detailed, Extensive, Minimal ou Concise.
+- **Safety Classification:** Sexual, Self-harm, Hate, Harassment e Violence.
+- **Hallucination mitigation:** reduz conteúdo sem respaldo nas completions geradas.
+
+Esses controles se aplicam a todas as linhas adaptadas, portanto use-os para requisitos realmente globais, e não para orientações específicas de cada linha.
+
+## Etapa 6 | Revise e lance
+
+A tela **Summary** mostra:
+
+- Um [controle deslizante **Reduce Rows**](/pt/adaptive-data/configure-adaptive-data#limitar-linhas-e-estimar-uma-execução) para processar menos linhas.
+- Seus créditos disponíveis.
+- O custo exato em créditos do job configurado.
+
+Revise a estimativa e depois lance a execução. O painel pode exibir estes estados:
+
+- **Job launched:** enviado ou na fila.
+- **Running:** em processamento.
+- **Job completed:** os resultados e uma pontuação de qualidade estão disponíveis.
+- **Job failed:** o processamento parou antes da conclusão.
+
+Importações grandes podem passar várias horas na fila. Se um job parecer travado:
+
+1. Compare o tempo decorrido com a estimativa exibida e considere o tempo de fila.
+2. Confirme que o conjunto de dados usa colunas de prompt/completion compatíveis ou dados de chat no estilo OpenAI.
+3. Tente reexecutar um job com falha uma vez, especialmente se ele chegou a 100% antes de falhar.
+4. Se continuar travado ou falhar novamente, [entre em contato com o suporte](/pt/resources/support) e informe o ID do conjunto de dados.
+
+## Etapa 7 | Revise os resultados
+
+Quando o processamento terminar, abra o conjunto de dados e selecione a aba **View**. Cada linha mostra os dados de origem e os adaptados lado a lado, incluindo prompts originais e aprimorados, completions originais e aprimoradas e o contexto embutido.
+
+Compare o antes e o depois:
+
+- Pontuação de qualidade, de 0 a 10.
+- Nota por letra.
+- Percentil no domínio, de 0 a 100.
+- Linhas individuais de origem e adaptadas.
+
+A contagem de linhas pode diminuir porque a remoção de prompts duplicados elimina exemplos repetidos.
+
+## Etapa 8 | Expanda o conjunto de dados
+
+Depois que a execução do Adaptive Data terminar, você pode opcionalmente [expandir o conjunto de dados](/pt/adaptive-data/expand-data) em uma nova versão com mais linhas:
+
+- **Augment** recupera linhas adicionais do acervo curado, correspondentes ao domínio ou de uso geral.
+- **Translate** cria versões traduzidas das linhas existentes. O aplicativo suporta até 242 idiomas; consulte a [lista de idiomas compatíveis](https://docs.google.com/spreadsheets/d/17NTJw8MF04B_zpNLT72V1bXbQk-VJOxuYOah1w7YboY/edit?usp=sharing).
+- **Localize** adapta as linhas para um idioma e um país, incluindo terminologia específica da localidade em vez de apenas uma tradução direta.
+
+Pule a expansão quando o conjunto de dados adaptado já tiver o tamanho e a cobertura de que você precisa.
+
+## Problemas comuns
+
+- **Job launched por horas:** o tempo de fila pode não estar incluído na estimativa. Aguarde além da estimativa exibida antes de escalar o caso.
+- **Importação de imagens do Hugging Face ou do Kaggle pendente:** se uma importação multimodal não avançar, [entre em contato com o suporte](/pt/resources/support) informando o ID do conjunto de dados.
+- **Falha no processamento de um arquivo JSONL grande:** tente novamente uma vez; se falhar de novo, entre em contato com o suporte informando o ID do conjunto de dados.
+- **Conjunto de dados rejeitado por formato:** reorganize-o em colunas de prompt/completion ou em uma coluna de chat no estilo OpenAI e repita o [mapeamento de colunas](#etapa-2--mapeie-suas-colunas).
+- **Prompts alterados inesperadamente:** desative **Prompt Rephrasing** e **Metadata Injection** para fidelidade estrita dos prompts.
+
+## Próximas etapas
+
+- [Trabalhar com colunas de imagem](/pt/adaptive-data/select-columns#mapear-uma-coluna-de-imagem)
+- [Configurar o Adaptive Data em detalhes](/pt/adaptive-data/configure-adaptive-data)
+- [Processar documentos não estruturados](/pt/tutorials/processing-unstructured-documents)
+- Use a [referência da API](/api/python) quando estiver pronto para automatizar o mesmo fluxo de trabalho.

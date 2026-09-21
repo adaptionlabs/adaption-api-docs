@@ -1,0 +1,198 @@
+---
+title: ضبط Adaptive Data
+description: ولّد بيانات تعليمات أو تفضيل، وطبّق الوصفات، وحدّد عدد الصفوف، وتحكّم في المخرجات المكيّفة.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+بعد أن [تربط أعمدتك](/ar/adaptive-data/select-columns)، اضبط الطريقة التي يحوّلها بها Adaptive Data. يمكنك اختيار صيغة التدريب، وتطبيق الوصفات، وتحديد حجم التشغيلة، وتعريف متطلّبات المخرجات.
+
+تفترض أمثلة حزمة SDK أدناه أنّك [أعددت حزمة Python SDK](/ar/introduction/getting-started) وضبطت `ADAPTION_DATASET_ID` على [مجموعة بيانات مستوردة](/ar/adaptive-data/create-a-dataset):
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+```
+## تطبيق الوصفات
+
+الوصفات تحويلات اختيارية تعمل على البيانات المربوطة:
+
+- **إزالة تكرار الموجّهات** تزيل الموجّهات المكرّرة للحفاظ على تنوّع الأمثلة.
+- **إعادة صياغة الموجّهات** تعيد كتابة الموجّهات لتحسين الوضوح والاتّساق مع المهمّة.
+- **آثار الاستدلال** توفّر استدلالًا مرافقًا للإكمالات المكيّفة.
+
+في حزمة SDK، تندرج الوصفات تحت `recipe_specification.recipes`. ويمكنك تفعيل أكثر من وصفة في التشغيلة نفسها:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    recipe_specification={
+        "recipes": {
+            "deduplication": True,
+            "prompt_rephrase": True,
+            "reasoning_traces": True,
+        },
+    },
+)
+print(f"Run started: {run.run_id}")
+```
+
+<Callout variant="note">
+  يعتمد الشكل الدقيق لمخرجات آثار الاستدلال على إصدار واجهة برمجة التطبيقات
+  وإصدار الوصفة. افحص مجموعة البيانات المنزَّلة وراجع `RecipeSpecification` في
+  [مرجع `datasets.run`](/api/python/resources/datasets/methods/run).
+</Callout>
+
+استخدم آثار الاستدلال إذا أردت الضبط الدقيق لنموذج يدعم الاستدلال بسلسلة التفكير.
+
+## توليد أزواج التفضيل
+
+يُنتج Adaptive Data افتراضيًا مجموعة بيانات تعليمات للضبط الدقيق الخاضع للإشراف. اضبط `training_type` على `preference_pairs` عندما تحتاج بدلًا من ذلك إلى استجابات مختارة ومرفوضة لتدريب قائم على التفضيل مثل DPO.
+
+يبقى ربط المصدر كما هو: وفّر عمود `prompt`، وعمود `completion` موجودًا مسبقًا إن أردت. ويولّد Adaptive Data حقول أزواج التفضيل في المخرجات.
+
+```python
+preference_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+)
+print(f"Run started: {run.run_id}")
+```
+
+استخدم `training_type="instruction_dataset"` — أو أغفِل `training_type` — لإنتاج أزواج موجّه/إكمال محسّنة بدلًا من ذلك. ويمكن تضمين التوسّع اللغوي والوصفات وحدود المهمّة وضوابط العلامة في تشغيلة أزواج التفضيل نفسها. راجع `training_type` في [مرجع `datasets.run`](/api/python/resources/datasets/methods/run) للاطّلاع على المخطّط الحالي.
+
+## تحديد الصفوف وتقدير التشغيلة
+
+استخدم `job_specification.max_rows` لاختبار عمليات الربط والضوابط على مجموعة فرعية قبل معالجة مجموعة بيانات كبيرة. [اطلب تقديرًا عبر `datasets.run`](/api/python/resources/datasets/methods/run) أوّلًا للتحقّق من الإعداد نفسه والحصول على عرض سعر بالأرصدة دون بدء التكييف:
+
+```python
+job_specification = {"max_rows": 500}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+أغفِل `max_rows` عندما تريد معالجة مجموعة البيانات كاملة. راجع `JobSpecification` في [مرجع `datasets.run`](/api/python/resources/datasets/methods/run) للاطّلاع على جميع الخيارات على مستوى المهمّة.
+
+## ضبط ضوابط العلامة
+
+‏`brand_controls` تجعل متطلّبات المخرجات جزءًا من تشغيلة التكييف:
+
+- ‏**`length`** يتحكّم في الإسهاب المستهدف: `minimal` أو `concise` أو `detailed` أو `extensive`.
+- ‏**`safety_categories`** تحدّد فئات سلامة المحتوى الواجب فرضها.
+- ‏**`hallucination_mitigation`** يؤسّس التوليد على معلومات موثّقة عبر البحث على الويب حيثما ينطبق ذلك.
+- ‏**`blueprint`** يوفّر تعليمات حرّة الصياغة للنبرة أو الشخصية أو الجمهور أو اللغة أو الصياغة الخاصّة بالمنتج.
+
+### تقليل الهلوسة
+
+يوجّه تخفيف الهلوسة الإكمالات المولَّدة نحو معلومات قابلة للتحقّق. فعّله للبيانات الحسّاسة للحقائق مثل دعم العملاء أو الإجابة عن الأسئلة المؤسَّسة على مصادر أو مسارات الامتثال:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={"hallucination_mitigation": True},
+)
+```
+
+قد يؤثّر التأسيس على المصادر في زمن الاستجابة واستهلاك الأرصدة. استخدم `estimate=True` لمقارنة التشغيلة قبل توسيع نطاقها.
+
+### التحكم في الطول والسلامة
+
+تتركّب قيود الطول والسلامة داخل كائن `brand_controls` نفسه. اعتمد [مرجع `datasets.run`](/api/python/resources/datasets/methods/run) مصدرًا موثوقًا لأسماء فئات السلامة المدعومة:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "length": "concise",
+        "safety_categories": ["harassment", "hate"],
+    },
+)
+```
+
+### تعيين Blueprint
+
+استخدم `blueprint` للمتطلّبات النوعية التي لا تناسب حقلًا مهيكلًا. فهو يعمل بوصفه تعليمة نظام للإكمالات المولَّدة ويُطبَّق باتّساق عبر التشغيلة كلّها:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "blueprint": (
+            "You are a customer-success assistant for Acme. "
+            "Answer in British English with a warm, direct tone. "
+            "Do not recommend third-party tools."
+        ),
+    },
+)
+```
+
+### الجمع بين ضوابط العلامة
+
+يمكن استخدام الضوابط المهيكلة وتعليمات Blueprint معًا:
+
+```python
+brand_controls = {
+    "length": "concise",
+    "safety_categories": ["harassment", "hate"],
+    "hallucination_mitigation": True,
+    "blueprint": "Answer in British English with a warm, direct tone.",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+)
+print(f"Run started: {run.run_id}")
+```
+
+بعد اكتمال التشغيلة، [قيّم جودة مجموعة البيانات](/ar/adaptive-data/evaluate-dataset-quality) و[نزّل الصفوف المكيّفة](/api/python/resources/datasets/methods/download).

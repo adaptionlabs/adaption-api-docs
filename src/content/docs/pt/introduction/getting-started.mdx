@@ -1,0 +1,66 @@
+---
+title: Primeiros passos
+description: Instale o SDK Python da Adaption e autentique-se com uma chave de API.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+A Adaption leva a equipes do dia a dia as técnicas de otimização de dados e de treinamento de modelos normalmente restritas aos laboratórios de fronteira.
+
+- O **[Adaptive Data](/pt/adaptive-data/overview)** analisa e melhora dados de treinamento para que você possa exportar um conjunto de dados pronto para modelos.
+- O **[AutoScientist](/pt/autoscientist/overview)** automatiza o ciclo de pesquisa por trás do treinamento e do alinhamento de modelos para produzir um modelo adaptado ao seu objetivo.
+
+Ambos os produtos estão disponíveis pela API da Adaption e pelo SDK Python.
+
+## Instalar o SDK
+
+```shell
+pip install adaption
+```
+
+## Criar uma chave de API
+
+<Steps>
+  <Step>[Entre](https://adaptionlabs.ai/app/auth) na Adaption.</Step>
+  <Step>
+    Abra [**Settings**](https://adaptionlabs.ai/app/settings) e, em seguida, [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    Crie a chave e copie-a. Não será possível visualizá-la novamente.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  Armazene as chaves de API em variáveis de ambiente ou em um gerenciador de
+  segredos. Não as versione no controle de código.
+</Callout>
+
+## Usar a chave em Python
+
+Para testes locais, você pode passar a chave diretamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+Para aplicações e CI, defina `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+O SDK lê a variável de ambiente automaticamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## Escolher um início rápido
+
+- [Início rápido do Adaptive Data](/pt/adaptive-data-quickstart) — importe, adapte e exporte um conjunto de dados.
+- [Início rápido do AutoScientist](/pt/autoscientist-quickstart) — treine e baixe um modelo.

@@ -1,0 +1,109 @@
+---
+title: データセット品質を評価する
+description: Python SDK で評価のステータスをポーリングし、アダプト済みデータセットの品質指標を確認します。
+---
+
+[アダプト実行](/ja/adaptive-data/configure-adaptive-data)が成功すると、評価によってソースデータとアダプト済みデータが、プラットフォームが測定する品質の観点で比較されます。評価は独自のスケジュールで実行されるため、品質結果が揃う前にアダプトが終了することがあります。
+
+Python SDK は結果を 2 つの形で公開します:
+
+- **[`datasets.get_evaluation(dataset_id)`](/api/python/resources/datasets/methods/get_evaluation)** は、評価のステータスと完全な `quality` の結果を返します。
+- **[`datasets.get(dataset_id)`](/api/python/resources/datasets/methods/get)** は、データセットのレコードとその簡潔な `evaluation_summary` を返します。
+
+## 評価結果を取得する
+
+アダプト実行で使ったものと同じ `dataset_id` を指定して `get_evaluation` を呼び出します:
+
+```python
+evaluation = client.datasets.get_evaluation(dataset_id)
+
+print(evaluation.status)
+if evaluation.quality:
+    print(f"Score before: {evaluation.quality.score_before}")
+    print(f"Score after:  {evaluation.quality.score_after}")
+    print(f"Improvement:  {evaluation.quality.improvement_percent}%")
+```
+
+評価が成功すると、`quality` には 0〜10 のスケールでの前後のスコア、レターグレード、改善率、アダプト後のパーセンタイルが含まれることがあります。ステータスが `pending` または `running` の間は、`quality` が存在しない場合があります。
+
+## 評価が終わるまでポーリングする
+
+ノートブックや CI ジョブが無限に待ち続けないよう、期限を設けて評価ステータスをポーリングします:
+
+```python
+import time
+
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped")
+elif evaluation.quality:
+    print(evaluation.quality.model_dump(exclude_none=True))
+```
+
+非同期クライアントでは、`await client.datasets.get_evaluation(dataset_id)` で同じ形のレスポンスが返ります。
+
+## データセットからサマリーを読む
+
+アプリケーションがすでに[データセットを取得している](/api/python/resources/datasets/methods/get)場合は、別途評価リクエストを送らずに `evaluation_summary` から主要な指標を取得できます:
+
+```python
+dataset = client.datasets.get(dataset_id)
+
+if dataset.evaluation_summary:
+    summary = dataset.evaluation_summary
+    print(f"Score after: {summary.score_after}")
+    print(f"Improvement: {summary.improvement_percent}%")
+```
+
+[`datasets.get_status`](/api/python/resources/datasets/methods/get_status) は取り込みとアダプトの進捗を報告するもので、評価結果は含みません。
+
+## 完全な例
+
+次のスクリプトは、完了したアダプトのデータセット ID を環境変数から読み取り、評価を待ち、詳細な結果と簡潔なサマリーの両方を出力します:
+
+```python
+import os
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    print(f"Evaluation status: {evaluation.status}")
+
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped for this dataset")
+elif not evaluation.quality:
+    raise RuntimeError("Evaluation succeeded without quality metrics")
+else:
+    print(evaluation.quality.model_dump(exclude_none=True))
+
+dataset = client.datasets.get(dataset_id)
+if dataset.evaluation_summary:
+    print(dataset.evaluation_summary.model_dump(exclude_none=True))
+```
+
+明示的なパイプラインのステータスや完全な品質の詳細が必要な場合は `get_evaluation` を使います。データセットのレコード上の簡潔な結果で十分な場合は `evaluation_summary` を使います。品質を経済的に反復改善するには、スケールさせる前に[行数を制限して実行を見積もって](/ja/adaptive-data/configure-adaptive-data#行数を制限して実行を見積もる)ください。

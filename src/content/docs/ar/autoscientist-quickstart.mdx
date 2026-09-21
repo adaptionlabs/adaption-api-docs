@@ -1,0 +1,171 @@
+---
+title: البداية السريعة مع AutoScientist
+description: أنشئ مجموعة بيانات جاهزة للتدريب، وشغّل AutoScientist، ونزّل أفضل نقطة تحقّق للنموذج.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **جرّبه في Google Colab**
+
+اتبع [دفتر Colab الخاص بواجهة برمجة تطبيقات AutoScientist](https://colab.research.google.com/drive/16Zly8_sDqQSP86MvdgTJ1I1T6Vjq6bkJ?usp=sharing) للحصول على شرح تفاعلي.
+
+</Callout>
+
+يتطلّب هذا الدليل `adaption >= 0.7.0`. وهو يستخدم [المعالجة الخام](/ar/autoscientist/run-on-non-adapted-data) لتقديم مثال قصير قائم بذاته. وللحصول على أفضل النتائج، حسّن مجموعة بياناتك أوّلًا باستخدام [Adaptive Data](/ar/adaptive-data-quickstart)، ثم مرّر معرّف مجموعة البيانات المكيّفة تلك إلى AutoScientist. راجع [نظرة عامة على AutoScientist](/ar/autoscientist/overview) لمعرفة كيفية عمل حلقة البحث وكيفية تفسير نتائجها.
+
+## تثبيت حزمة SDK
+
+```shell
+pip install "adaption>=0.7.0"
+```
+
+## إنشاء مفتاح واجهة برمجة التطبيقات
+
+<Steps>
+  <Step>[سجّل الدخول](https://adaptionlabs.ai/app/auth) إلى Adaption.</Step>
+  <Step>
+    افتح [**Settings**](https://adaptionlabs.ai/app/settings)، ثم افتح [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    أنشئ مفتاحًا وانسخه. لن تتمكّن من عرض المفتاح مرّة أخرى.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  احفظ مفاتيح واجهة برمجة التطبيقات في متغيّرات البيئة أو في مدير أسرار. لا
+  تُضِفها إلى نظام إدارة الشيفرة.
+</Callout>
+
+## استخدام المفتاح في Python
+
+للاختبار المحلّي، يمكنك تمرير المفتاح مباشرةً:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+أمّا في التطبيقات وأنظمة التكامل المستمر، فاضبط `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+تقرأ حزمة SDK متغيّر البيئة تلقائيًا:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## إنشاء مجموعة بيانات جاهزة للتدريب
+
+لا يصلح [إنشاء مجموعة بيانات خام](/ar/autoscientist/run-on-non-adapted-data) إلا عندما يحتوي ملف محلّي بالفعل على عمودَي الموجّه والإكمال. يستخدم هذا المثال الملف `training_data.csv` بعموديه `instruction` و`response`:
+
+```python
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+تُعالَج عملية الرفع بشكل غير متزامن بعد اكتمالها. استطلِع [حالة مجموعة البيانات](/api/python/resources/datasets/methods/get_status) إلى أن يتوفّر عدد الصفوف قبل استخدام مجموعة البيانات:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## تعزيز مجموعة البيانات بصفوف إضافية
+
+‏[التعزيز](/ar/autoscientist/data-augmentation) اختياري، لكنّنا نوصي به بشدّة. تتطلّب كثير من نماذجنا حدًّا أدنى من حجم مجموعة البيانات لضمان أداء معقول. راجع [النماذج المدعومة](/ar/autoscientist/supported-models) للاطّلاع على المتطلّبات المحدّدة.
+
+يستهدف هذا المثال 20,000 صف مجال على الأقل، ثم يضيف من الصفوف العامّة ما يكفي لتشكّل 40% من مجموعة البيانات المعزَّزة.
+
+<Callout variant="note">
+  **لماذا نضيف صفوفًا عامّة؟** قد يؤدّي الضبط الدقيق على بيانات المجال وحدها
+  إلى **النسيان الكارثي**؛ إذ يفقد النموذج القدرات العامّة التي اكتسبها أثناء
+  التدريب المسبق. ومزج بيانات عامّة يحافظ على نقاط القوّة القائمة بينما يتعلّم
+  النموذج مجالك، ممّا يؤدّي إلى ضبط دقيق أكثر متانة وشمولًا.
+</Callout>
+
+```python
+import math
+
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+total_domain_rows = (dataset.row_count or 0) + domain_rows_to_add
+
+target_general_ratio = 0.4
+general_rows_to_add = math.ceil(
+    target_general_ratio
+    * total_domain_rows
+    / (1 - target_general_ratio)
+)
+
+print(f"Domain rows to add: {domain_rows_to_add}")
+print(f"General rows to add: {general_rows_to_add}")
+```
+
+## تشغيل AutoScientist
+
+أنشئ [تشغيلة AutoScientist](/api/python/resources/autoscientist/methods/create) من مجموعة البيانات المُعدَّة:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=general_rows_to_add,
+)
+print(run.id, run.status)  # "pending"
+```
+
+لتحديد نموذج لتشغيلتك، مرّر المعامل `model` إلى `client.autoscientist.create()`. وإذا أُغفل، يختار AutoScientist تلقائيًا أفضل نموذج لمجموعة بياناتك. وللاطّلاع على تفاصيل شاملة حول حدود السياق وأنواع التدريب (LoRA مقابل الكامل) والقدرات متعدّدة الوسائط، راجع وثائق [النماذج المدعومة](/ar/autoscientist/supported-models).
+
+## انتظار اكتمال التشغيلة
+
+انتظر انتهاء التشغيلة، ثم افحص [حالتها ونتائجها](/api/python/resources/autoscientist/methods/get):
+
+```python
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status != "succeeded":
+    raise RuntimeError(f"{run.status}: {run.error}")
+
+print(f"Best win rate: {run.best_win_rate}")
+```
+
+## تنزيل النموذج
+
+‏`download_available` تؤكّد أن AutoScientist أنتج نقطة تحقّق. تبثّ [نقطة نهاية التنزيل](/api/python/resources/autoscientist/methods/download) الأرشيف دون تحميله في الذاكرة:
+
+```python
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+يحتوي الأرشيف على نقطة التحقّق من أفضل تكرار، وليس بالضرورة من التكرار الأخير. راجع [مرجع `create`](/api/python/resources/autoscientist/methods/create) للاطّلاع على جميع معاملات التشغيلة، و[مرجع `get`](/api/python/resources/autoscientist/methods/get) للاطّلاع على حقول الاستجابة.

@@ -1,0 +1,59 @@
+---
+title: Executar com dados não adaptados
+description: Envie dados de prompt/completion prontos para treinamento para ajuste fino supervisionado.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Use o [processamento bruto de conjunto de dados](/api/python/resources/datasets/methods/create) quando um arquivo tabular já contiver colunas de prompt e completion prontas para treinamento e você quiser que o AutoScientist treine com essas linhas como estão, usando SFT. Isso pula o pipeline de adaptação do Adaptive Data.
+
+<Callout variant="warning">
+  Para obter os melhores resultados, [adapte seus dados
+  primeiro](/pt/adaptive-data/overview). Use o processamento bruto apenas
+  quando treinar com as linhas originais for intencional.
+</Callout>
+
+<Callout variant="note">
+  O processamento bruto não marca um conjunto de dados como `preference_pairs`.
+  Para DPO, conclua primeiro uma [execução de pares de preferência do Adaptive
+  Data](/pt/adaptive-data/configure-adaptive-data#gerar-pares-de-preferência) e
+  depois [crie uma execução de
+  DPO](/pt/autoscientist/running-autoscientist#treinar-com-pares-de-preferência).
+</Callout>
+
+O processamento bruto é compatível com arquivos CSV, JSON, JSONL e Parquet. Defina `processing_mode` como `raw` e [mapeie as duas colunas de origem obrigatórias](/pt/adaptive-data/select-columns) ao criar o conjunto de dados.
+
+## Enviar e treinar
+
+Este exemplo envia um CSV cujas colunas `instruction` e `response` contêm os pares de treinamento:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+
+client.datasets.wait_for_completion(dataset.dataset_id)
+
+run = client.autoscientist.create(dataset_id=dataset.dataset_id)
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.id, run.best_win_rate)
+```
+
+Não chame `client.datasets.run` para este fluxo: o processamento bruto deixa o conjunto de dados enviado pronto para o AutoScientist diretamente. O `column_mapping` acima se refere aos cabeçalhos do arquivo original; um `column_mapping` do AutoScientist, se fornecido mais tarde, se refere ao esquema do conjunto de dados processado.
+
+Consulte [Executar o AutoScientist](/pt/autoscientist/running-autoscientist) para detalhes de consulta de status, cancelamento e estados. Para detalhes dos endpoints, consulte as referências de [`datasets.create`](/api/python/resources/datasets/methods/create) e [`autoscientist.create`](/api/python/resources/autoscientist/methods/create).

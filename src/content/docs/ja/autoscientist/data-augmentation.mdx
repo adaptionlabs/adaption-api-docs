@@ -1,0 +1,54 @@
+---
+title: データ拡張
+description: AutoScientist の学習が始まる前に、ドメイン固有の行と汎用の行を追加します。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+[拡張](/api/python/resources/autoscientist/methods/create)は任意ですが、データセットが小さい場合や多様性に欠ける場合に推奨されます。AutoScientist は、学習のイテレーションを開始する前に、独立した 2 種類の行を追加できます:
+
+- **ドメイン行**は、データセットのドメインに固有の例を追加します。既存の行も、推奨される 20,000 ドメイン行の目標にカウントされます。
+- **汎用行**は、モデルが広範な能力を保つのに役立つ多様な例を追加します。
+
+<Callout variant="note">
+  これは [`datasets.augment`](/ja/adaptive-data/expand-data) と同じ、キュレーション済みプールを使う操作です。学習前に新しいデータセットが欲しい場合はそちらのヘルパーを使用してください。行を学習実行の一部として適用したい場合は、`create` の `augmentation_domain_rows` と `augmentation_general_rows` を使用してください。
+</Callout>
+
+## 追加分を計算する
+
+次のリクエストは、ドメイン行を少なくとも 20,000 行にし、汎用行を 8,000 行追加します:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+print(run.id, run.status)
+```
+
+これにより、学習行は最大 28,000 行になります。既存のデータセットに、20,000 行に届くだけのドメイン行を加え、さらに汎用行を 8,000 行加えたものです。データセットがすでに 20,000 行以上を含んでいる場合、`domain_rows_to_add` はゼロになります。
+
+いずれかの拡張パラメーターを省略すると、その種類の追加をスキップできます。AutoScientist は、学習前にリクエストされた各拡張の価格とサイズを算出します。現在の制限とリクエストフィールドについては、[`create` API リファレンス](/api/python/resources/autoscientist/methods/create)を参照してください。
+
+## 選好データを拡張する
+
+テキストの DPO 実行では、同じリクエストで `training_method="alignment"` を設定します。AutoScientist は選好の形式に沿った追加行を生成し、その追加分は有効な選好ペア 12,000 件という最小要件にカウントされます:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+```

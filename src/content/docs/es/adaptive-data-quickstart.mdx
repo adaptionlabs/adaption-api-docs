@@ -1,0 +1,221 @@
+---
+title: Guía rápida de Adaptive Data
+description: Instala el SDK de Python de Adaption, importa datos, ejecuta Adaptive Data y descarga el conjunto de datos adaptado.
+---
+
+import {
+  Accordion,
+  Callout,
+  Steps,
+  Step,
+} from "@stainless-api/docs/components";
+
+## Instalar el SDK
+
+```shell
+pip install adaption
+```
+
+## Crear una clave de API
+
+<Steps>
+  <Step>[Inicia sesión](https://adaptionlabs.ai/app/auth) en Adaption.</Step>
+  <Step>
+    Abre [**Settings**](https://adaptionlabs.ai/app/settings) y después [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    Crea una clave y cópiala. No podrás volver a verla.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  Guarda las claves de API en variables de entorno o en un gestor de secretos.
+  No las subas al control de versiones.
+</Callout>
+
+## Usar la clave en Python
+
+Para pruebas locales, puedes pasar la clave directamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+Para aplicaciones y CI, define `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+El SDK lee la variable de entorno automáticamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## Crear un conjunto de datos
+
+Esta guía rápida [importa el conjunto de datos Alpaca desde Hugging Face](/es/adaptive-data/create-a-dataset):
+
+```python
+dataset = client.datasets.create(
+    source={
+        "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+        "files": [
+            "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+        ],
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+También puedes subir un archivo local o importar desde Kaggle. Todos los orígenes usan el mismo endpoint [`datasets.create`](/api/python/resources/datasets/methods/create) y devuelven el `dataset_id` que emplea el resto de esta guía.
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>Subir un archivo local</Accordion.Summary>
+
+    El método auxiliar del SDK crea el conjunto de datos, sube el archivo y confirma la subida.
+
+    Extensiones admitidas: **`.csv`**, **`.json`**, **`.jsonl`** y **`.parquet`**.
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>Importar desde Kaggle</Accordion.Summary>
+
+    Usa la URL de la página del conjunto de datos de Kaggle y los archivos que quieras extraer.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    Las **credenciales de Kaggle** deben estar registradas en Adaption: abre la **[configuración de API keys](https://adaptionlabs.ai/app/settings?tab=api_keys)** (inicia sesión si se te pide) y añade allí tus credenciales de la API de Kaggle antes de importar.
+
+  </Accordion>
+</Accordion.Group>
+
+[Las importaciones se ejecutan de forma asíncrona](/es/adaptive-data/create-a-dataset#esperar-a-la-importación). Espera a que la incorporación haya poblado el conjunto de datos antes de iniciar Adaptive Data.
+
+## Esperar a que se importe el conjunto de datos
+
+Sondea el [estado del conjunto de datos](/api/python/resources/datasets/methods/get_status) hasta que el número de filas importadas esté disponible:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## Adaptar el conjunto de datos
+
+La **adaptación** aplica las recetas y optimizaciones de la plataforma. [Mapea las columnas de origen](/es/adaptive-data/select-columns) a los roles que espera Adaptive Data. En Alpaca, `instruction` es el prompt, `output` es la completion e `input` es el contexto.
+
+[Solicita antes una estimación](/es/adaptive-data/configure-adaptive-data#limitar-filas-y-estimar-una-ejecución). Así se valida la configuración y se devuelve un presupuesto sin iniciar la ejecución:
+
+```python
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "output",
+    "context": ["input"],
+}
+job_specification = {"max_rows": 5_000}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+```
+
+Cuando quieras continuar, envía la misma configuración sin `estimate=True`:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+## Esperar a que Adaptive Data termine
+
+El método auxiliar del SDK sondea el [estado del conjunto de datos](/api/python/resources/datasets/methods/get_status) hasta que la ejecución de adaptación termina:
+
+```python
+status = client.datasets.wait_for_completion(dataset_id, timeout=3600)
+if status.status == "failed":
+    raise RuntimeError(f"Adaptive Data failed: {status.error_data}")
+
+print(status.status)
+```
+
+## Descargar el conjunto de datos adaptado
+
+**Exporta** los datos aumentados para canalizaciones de entrenamiento, bancos de evaluación o almacenamiento posterior. [`download`](/api/python/resources/datasets/methods/download) transmite las filas procesadas en el formato de archivo solicitado. Acepta un argumento `file_format` con los valores `csv`, `json`, `jsonl` o `parquet`, y el valor predeterminado es `csv`.
+
+```python
+client.datasets.download(dataset_id, file_format="parquet").write_to_file(
+    "adapted-alpaca.tar.gz"
+)
+```
+
+`download` devuelve el archivo en sí, no un enlace a él. Lee los bytes con `.read()`, escríbelos directamente en disco con `.write_to_file(path)` o descodifica un formato de texto con `.text()`, que es un método y no una propiedad. Esta forma requiere `adaption >= 0.9.0`; las versiones anteriores devolvían una cadena y corrompían todos los formatos binarios.
+
+Para exportaciones grandes, transmite en lugar de mantener el cuerpo en memoria:
+
+```python
+with client.datasets.with_streaming_response.download(
+    dataset_id, file_format="parquet"
+) as export:
+    export.stream_to_file("adapted-alpaca.tar.gz")
+```
+
+`file_format="parquet"` devuelve un **archivo tar comprimido con gzip que contiene fragmentos Parquet**, no un único archivo `.parquet`; extráelo antes de leerlo:
+
+```python
+import tarfile
+
+with tarfile.open("adapted-alpaca.tar.gz") as archive:
+    archive.extractall("adapted-alpaca/")
+```
+
+Un conjunto de datos con estado **`succeeded`** contiene la salida completa. En un conjunto de datos **`failed`**, la descarga contiene las filas procesadas antes de que se detuviera la ejecución; la API devuelve `422` solo si no se ha iniciado ninguna ejecución.
+
+## Ir más allá
+
+- [Guía rápida de AutoScientist](/es/autoscientist-quickstart): entrena un modelo a partir de tu conjunto de datos adaptado.
+- [Configurar Adaptive Data](/es/adaptive-data/configure-adaptive-data): limita filas, reduce las alucinaciones, genera trazas de razonamiento y aplica controles de marca.
+- [Evaluar la calidad del conjunto de datos](/es/adaptive-data/evaluate-dataset-quality): inspecciona el estado y las métricas de la evaluación.
+- [Procesar documentos no estructurados](/es/tutorials/processing-unstructured-documents): prepara datos con formato de documento.
+- Consulta la [referencia de API](/api/python) para ver todas las firmas de métodos y los esquemas de respuesta.

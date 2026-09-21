@@ -1,0 +1,100 @@
+---
+title: Criar um conjunto de dados
+description: Envie um arquivo local ou importe um conjunto de dados do Hugging Face ou do Kaggle com o SDK Python.
+---
+
+import { Accordion, Callout } from "@stainless-api/docs/components";
+
+Importe dados de um arquivo local, do Hugging Face ou do Kaggle sem escrever um script de conversão. Cada método retorna um `dataset_id` que você passa para [`datasets.run`](/api/python/resources/datasets/methods/run).
+
+Os exemplos pressupõem que você tenha [instalado o SDK Python e definido `ADAPTION_API_KEY`](/pt/introduction/getting-started):
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>1. Enviar um arquivo local</Accordion.Summary>
+
+    O auxiliar do SDK cria o conjunto de dados, envia o arquivo e confirma o envio.
+
+    Extensões compatíveis: **`.csv`**, **`.json`**, **`.jsonl`** e **`.parquet`**.
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>2. Importar do Hugging Face</Accordion.Summary>
+
+    Aponte para a URL de um conjunto de dados do Hugging Face e para o(s) arquivo(s) a importar.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+            "files": [
+                "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+            ],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>3. Importar do Kaggle</Accordion.Summary>
+
+    Use a URL da página do conjunto de dados no Kaggle e os arquivos a serem obtidos.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    As **credenciais do Kaggle** precisam estar registradas na Adaption: abra as **[configurações de API keys](https://adaptionlabs.ai/app/settings?tab=api_keys)** (entre na conta, se solicitado) e adicione ali suas credenciais da API do Kaggle antes de importar.
+
+  </Accordion>
+</Accordion.Group>
+
+<Callout variant="note">
+  O processamento bruto (passthrough) atualmente só é compatível com envios de
+  arquivos locais. Não combine `processing_mode="raw"` com uma URL do Hugging
+  Face ou do Kaggle. Consulte [Executar com dados não
+  adaptados](/pt/autoscientist/run-on-non-adapted-data) para ver um exemplo com
+  arquivo local.
+</Callout>
+
+## Aguardar a importação
+
+As importações são executadas de forma assíncrona. Consulte o [status do conjunto de dados](/api/python/resources/datasets/methods/get_status) até que a ingestão tenha preenchido o conjunto de dados antes de iniciar uma execução de adaptação:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        error = status.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset import failed: {message}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+Em seguida, [mapeie as colunas importadas](/pt/adaptive-data/select-columns) e depois [configure a execução de adaptação](/pt/adaptive-data/configure-adaptive-data). Para detalhes dos endpoints, consulte as referências de [`create`](/api/python/resources/datasets/methods/create) e [`get_status`](/api/python/resources/datasets/methods/get_status). O auxiliar `datasets.upload_file` cuida das etapas de criação, envio e conclusão para arquivos locais.
