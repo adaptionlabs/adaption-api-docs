@@ -21,6 +21,31 @@ column_mapping = {
     "completion": "response",
 }
 ```
+
+## How a run is processed
+
+A run always applies your settings in the same order. This means the order you pass your arguments to `datasets.run` has no effect.
+
+1. **Map columns.** `column_mapping` selects which source columns are read as the prompt, completion, chat, and context.
+2. **Limit rows.** If `job_specification.max_rows` is set, a sample of that many rows is selected: a random sample for text datasets, the first rows for image datasets. Later steps see only those rows.
+3. **Deduplicate.** Exact duplicate rows are removed. This happens after sampling, so a run with `max_rows=500` can return fewer than 500 rows.
+4. **Expand languages.** If `language_expansion` is set, a share of the remaining rows is copied into each target language and added as new rows. Expansion comes before rephrasing and generation, so translated rows are rephrased and completed in their target language. The completions are written in that language, not translated afterwards.
+5. **Rephrase prompts.** If `prompt_rephrase` is on, each prompt is rewritten, including the prompts on rows added in step 4. Datasets mapped through a `chat` column are not rephrased. `length` is applied here as guidance attached to the rewritten prompt, so it takes effect only when `prompt_rephrase` is on.
+6. **Generate completions.** Each row receives its adapted completion. `training_type` decides what this step produces: one completion for `instruction_dataset`, or a chosen and rejected pair for `preference_pairs`. Two brand controls apply here:
+   - `blueprint` is given to the model as a system instruction.
+   - `hallucination_mitigation` runs a web search first, for prompts that need current information, and passes the results to the model. It applies to text datasets only.
+7. **Capture reasoning traces.** If `reasoning_traces` is on, every row is completed by reasoning models and the reasoning behind each completion is saved as it is generated. It is not a separate pass over the data.
+8. **Review safety.** If `safety_categories` is set, each finished completion is reviewed after generation.
+
+<Callout variant="note">
+  Credits are estimated from your row limit plus the rows language expansion
+  will add, so language expansion raises the estimate even when `max_rows`
+  stays the same. Duplicates are not known in advance, so the final row count
+  can be lower than the estimate. Use `estimate=True` to see the figure before
+  you start the run.
+</Callout>
+
+
 ## Apply recipes
 
 Recipes are optional transformations that operate on the mapped data:
