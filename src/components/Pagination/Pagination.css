@@ -131,7 +131,9 @@
   .pagination-links__page-description {
     padding-inline-start: 2px;
     padding-inline-end: 8px;
-    text-align: right;
+    /* Logical, like the padding above it: this card is end-aligned, which is
+       the right edge in English and the left edge in Arabic. */
+    text-align: end;
   }
 }
 
