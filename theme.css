@@ -305,7 +305,7 @@ a.sl-social-link[data-social="blog"] {
   content: "Copied";
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 0.35rem);
+  top: calc(100% + 0.35rem);
   transform: translateX(-50%);
   padding: 0.15rem 0.5rem;
   border-radius: 0.25rem;
