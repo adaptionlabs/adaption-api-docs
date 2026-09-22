@@ -1318,7 +1318,7 @@
     },
     "/api/v1/leaderboard": {
       "get": {
-        "description": "Public endpoint; no authentication required. Returns one row per user — that user's best-scoring run in the domain — ordered by domain win rate descending, one page at a time. Page with `limit`/`offset`: a \"show more\" click is the same request with `offset` advanced by the rows already on screen, and `pagination.has_more` says whether to show the control at all. Ranks are absolute over the whole ranking, so page two starts at rank 11 and ranks 1–3 identify the top three without a separate response section. `pagination.total` is the eligible population, not the rows in this page.",
+        "description": "Public endpoint; no authentication required. Returns one row per user — that user's best-scoring run in the domain — ordered by domain win rate descending, one page at a time. Page with `limit`/`offset`: a \"show more\" click is the same request with `offset` advanced by the rows already on screen, and `pagination.has_more` says whether to show the control at all. Ranks are absolute over the whole ranking, so page two starts at rank 11 and ranks 1–3 identify the top three without a separate response section. `pagination.total` is the eligible population, not the rows in this page. Pass `q` to search every domain by member, run or dataset name — the same page shape, cut from the matches instead of from a single ranking, with `domain` ignored and each row naming the domain it is ranked in.",
         "operationId": "LeaderboardController_getLeaderboard",
         "parameters": [
           {
@@ -1328,6 +1328,16 @@
             "description": "Domain to rank. Accepts the classifier slug (`medical`) or the code form (`domain_medical`), plus `general` for runs scored against the general prompt set. Omit it and the domain with the most ranked entries is used, echoed back in the response. An unrecognised value is rejected with 400.",
             "schema": {
               "example": "medical",
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Free-text search over the whole leaderboard — every domain, not the one `domain` selects, which is ignored while `q` is set: a member is looked up by name and the domains they placed in are the answer. Each hit is the entry as its own domain ranks it, so read `data[].domain` rather than the top-level `domain`, which is null for a search. Matches the member name, the run name and the dataset name, case-insensitively, on any part of the value. Split on spaces: every term has to match, in any order and in any of those fields, so `hooker sara` finds the same rows as `sara hooker`. Hits are ordered best score first (a rank only orders its own domain), and each carries the rank it holds there. Pages exactly like an unfiltered ranking: `pagination.total` is the number of matches.",
+            "schema": {
+              "example": "sara hooker",
               "type": "string"
             }
           },
@@ -1377,7 +1387,7 @@
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.4.50",
+    "version": "0.4.51",
     "contact": {}
   },
   "tags": [],
@@ -4148,7 +4158,7 @@
           },
           "total": {
             "type": "integer",
-            "description": "Ranked users in this domain, all of them — not the rows in this page. Drives \"showing 10 of 137\"."
+            "description": "Ranked users in this domain, all of them — not the rows in this page. Drives \"showing 10 of 137\". Under `q` it is the number of matches across every domain instead."
           },
           "has_more": {
             "type": "boolean",
@@ -4446,7 +4456,7 @@
             "nullable": true
           },
           "domain": {
-            "description": "The domain this run is ranked in. Redundant with the top-level `domain` on a single-domain view, but essential for the \"All Domains\" aggregate, where a user can appear once per domain — this is what tells those rows apart.",
+            "description": "The domain this run is ranked in. Redundant with the top-level `domain` on a single-domain view, but essential for the \"All Domains\" aggregate and for a `q` search, where a user can appear once per domain — this is what tells those rows apart.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/LeaderboardDomainDto"
@@ -4472,7 +4482,7 @@
         "properties": {
           "domain": {
             "nullable": true,
-            "description": "The domain actually ranked — echoed so a caller that omitted `domain` knows which one was chosen. Null only when nothing anywhere is ranked.",
+            "description": "The domain actually ranked — echoed so a caller that omitted `domain` knows which one was chosen. Null when nothing anywhere is ranked, and null for a `q` search, which spans every domain: there each row carries its own `domain` instead.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/LeaderboardDomainDto"
