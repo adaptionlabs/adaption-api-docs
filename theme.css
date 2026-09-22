@@ -294,3 +294,27 @@ a.sl-social-link[data-social="blog"] {
 @utility hairline {
   box-shadow: inset 0 0 0 0.5px var(--hairline-color, var(--color-stroke-secondary));
 }
+
+/* ─── Heading anchor links: "Copied" tooltip after click ─────────────────── */
+
+.sl-markdown-content .sl-anchor-link[data-copied] {
+  opacity: 1;
+}
+
+.sl-markdown-content .sl-anchor-link[data-copied]::before {
+  content: "Copied";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.35rem);
+  transform: translateX(-50%);
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--docs-background-primary-inverse);
+  color: var(--docs-typography-inverse);
+  font-family: var(--stl-typography-font-body, system-ui, sans-serif);
+  font-size: 0.75rem;
+  font-weight: var(--docs-font-weight-chrome);
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+}

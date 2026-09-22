@@ -96,6 +96,25 @@ export default defineConfig({
             });
           `,
         },
+        {
+          // Heading anchor icons: clicking one also copies the heading's URL
+          // to the clipboard, and briefly shows a "Copied" tooltip.
+          tag: "script",
+          content: `
+            document.addEventListener("click", function (event) {
+              var link = event.target.closest("a.sl-anchor-link");
+              if (!link || !navigator.clipboard) return;
+              var url = new URL(link.getAttribute("href"), window.location.href).href;
+              navigator.clipboard.writeText(url).then(function () {
+                link.setAttribute("data-copied", "");
+                clearTimeout(link._copiedTimer);
+                link._copiedTimer = setTimeout(function () {
+                  link.removeAttribute("data-copied");
+                }, 1500);
+              });
+            });
+          `,
+        },
       ],
       header: {
         layout: "stacked",
