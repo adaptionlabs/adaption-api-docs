@@ -5,7 +5,7 @@ description: Map dataset columns to prompt, completion, context, image, or chat 
 
 import { Callout } from "@stainless-api/docs/components";
 
-A dataset is made of rows and named columns. Adaptive Data needs to know which column contains the instruction, which contains the answer, and which columns provide supporting material. In the Python SDK, you define these roles with **`column_mapping`** on [`datasets.run`](/api/python/resources/datasets/methods/run).
+A dataset is made of rows and named columns. Adaptive Data needs to know which column contains the instruction, which contains the answer, and which columns provide supporting material. In the Python SDK, you define these roles with **`column_mapping`** on [`datasets.adapt`](/api/python/resources/datasets/methods/adapt).
 
 Column mapping is the foundation for later steps such as [recipes and brand controls](/adaptive-data/configure-adaptive-data), [evaluation](/adaptive-data/evaluate-dataset-quality), and [export](/api/python/resources/datasets/methods/download).
 
@@ -27,7 +27,7 @@ If the dataset contains prompts but no completions, map only the prompt column. 
 For example, a CSV with an `instruction` column might contain real tasks such as “Explain why leaves appear green” and “Convert 15 miles to kilometres”:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping={"prompt": "instruction"},
 )
@@ -40,7 +40,7 @@ If the dataset contains high-quality answers but no prompts, map only the comple
 For example, a CSV with a `response` column might contain reference answers such as “Leaves appear green because chlorophyll reflects green wavelengths of light”:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping={"completion": "response"},
 )
@@ -51,7 +51,7 @@ run = client.datasets.run(
 Most instruction datasets already contain both roles:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping={
         "prompt": "instruction",
@@ -67,7 +67,7 @@ Context columns hold per-row background information, reference data, or metadata
 This example maps a document question-answering dataset with a title and passage for each question:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping={
         "prompt": "question",
@@ -92,7 +92,7 @@ If every row should use the same instruction and the dataset does not have a pro
 In the Python SDK, set `universal_prompt` directly in `column_mapping`. This example classifies reviews while using the existing `sentiment` column as the expected completion:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping={
         "universal_prompt": (
@@ -128,14 +128,14 @@ Write a complete, self-contained instruction that identifies the task and expect
 
 > Classify the sentiment of this review as positive, neutral, or negative. Respond with one word.
 
-The same `universal_prompt` value is available through the [`datasets.run` API](/api/python/resources/datasets/methods/run) and Python SDK, so app and programmatic runs can use the same mapping.
+The same `universal_prompt` value is available through the [`datasets.adapt` API](/api/python/resources/datasets/methods/adapt) and Python SDK, so app and programmatic runs can use the same mapping.
 
 ## Map an image column
 
 Images use the dedicated **`image`** mapping rather than the `context` list. The following mapping uses the public [MathVision dataset](https://huggingface.co/datasets/MathLLMs/MathVision): `question` contains the prompt, `decoded_image` contains the figure, and `answer` contains the expected answer.
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping={
         "prompt": "question",
@@ -194,7 +194,7 @@ A chat column contains a multi-turn conversation in the same shape used by OpenA
 Map the column containing those arrays:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping={"chat": "messages"},
 )
@@ -228,4 +228,4 @@ For example, a structured completion can preserve an exchange within one cell:
 
 Adaptive Data parses valid arrays into chat turns and treats other values as plain text. For a full multi-turn conversation stored in one column, prefer the purpose-built `chat` mapping.
 
-See **ColumnMapping** on the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for the current schema.
+See **ColumnMapping** on the [`datasets.adapt` reference](/api/python/resources/datasets/methods/adapt) for the current schema.
