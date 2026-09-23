@@ -653,9 +653,61 @@
         ]
       }
     },
-    "/api/v1/datasets/{dataset_id}/run": {
+    "/api/v1/datasets/{dataset_id}/adapt": {
       "post": {
         "description": "Validates column mapping and recipe configuration, reserves credits, and starts the adaptation pipeline, which improves the rows already in the dataset without changing how many there are. To add rows instead, use POST /datasets/{dataset_id}/augment. Set estimate=true to validate and get a cost quote without starting a run. When the mapped image column is also in context_columns, output rows are billed at 10 credits per 100 rows (1–100 rows cost 10 credits; see multimodalPricingApplied and creditMultiplier on the response). Once the run succeeds, train on the result with [POST /autoscientist](/api/python/resources/autoscientist/methods/create).",
+        "operationId": "DatasetController_adaptPipeline",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLaunchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLaunchResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: column_mapping shape error, or language_expansion validation failure (shape mismatch, unknown ISO 639-1 code, or unsupported country/language pair)."
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "409": {
+            "description": "Conflict — dataset is already launching, still importing, or row_count not yet available. Poll GET /datasets/{dataset_id}/status until row_count is populated."
+          }
+        },
+        "summary": "Adapt a dataset (or estimate cost)",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/run": {
+      "post": {
+        "deprecated": true,
+        "description": "Deprecated alias of `POST /datasets/{dataset_id}/adapt`, kept for existing clients. Use `POST /datasets/{dataset_id}/adapt` in new code.",
         "operationId": "DatasetController_runPipeline",
         "parameters": [
           {
@@ -698,7 +750,7 @@
             "description": "Conflict — dataset is already launching, still importing, or row_count not yet available. Poll GET /datasets/{dataset_id}/status until row_count is populated."
           }
         },
-        "summary": "Start an adaptation run (or estimate cost)",
+        "summary": "Adapt a dataset (deprecated)",
         "tags": [
           "Dataset"
         ]
@@ -761,7 +813,7 @@
             "description": "Unsupported `fileFormat`."
           },
           "422": {
-            "description": "No run has started on this dataset yet. Launch a run via POST /datasets/{dataset_id}/run first."
+            "description": "No run has started on this dataset yet. Adapt it via POST /datasets/{dataset_id}/adapt first."
           }
         },
         "summary": "Download the processed dataset",
@@ -2010,7 +2062,7 @@
               "succeeded",
               "failed"
             ],
-            "description": "Current processing status. `awaiting_input` means the dataset is uploaded but waiting for you to start adaptation via datasets.run(column_mapping=...) — it will not progress on its own."
+            "description": "Current processing status. `awaiting_input` means the dataset is uploaded but waiting for you to start adaptation via datasets.adapt(column_mapping=...) — it will not progress on its own."
           },
           "row_count": {
             "type": "integer",
@@ -2949,7 +3001,7 @@
             "default": false
           },
           "language_expansion": {
-            "description": "Translation/localization expansion. When set, the pipeline produces additional rows in the requested languages or country/language variants. Output row count ≈ input × (1 + sample_rate × target_count); credits are billed on output rows.\n\nThree-state field:\n- **omitted** — leaves any prior expansion config on the dataset unchanged (no-op). A wizard-saved expansion is preserved across SDK-driven /run calls that do not pass `language_expansion`.\n- **`language_expansion: null`** — explicitly clears any prior expansion config on this dataset (overrides wizard state).\n- **object** — overwrites the prior expansion config with the given spec.",
+            "description": "Translation/localization expansion. When set, the pipeline produces additional rows in the requested languages or country/language variants. Output row count ≈ input × (1 + sample_rate × target_count); credits are billed on output rows.\n\nThree-state field:\n- **omitted** — leaves any prior expansion config on the dataset unchanged (no-op). A wizard-saved expansion is preserved across SDK-driven /adapt calls that do not pass `language_expansion`.\n- **`language_expansion: null`** — explicitly clears any prior expansion config on this dataset (overrides wizard state).\n- **object** — overwrites the prior expansion config with the given spec.",
             "nullable": true,
             "allOf": [
               {
@@ -3862,7 +3914,7 @@
           },
           "training_type": {
             "type": "string",
-            "description": "Shape of the generated data — the same field and values as `datasets.run`. `instruction_dataset` produces prompt/completion rows; `preference_pairs` produces ranked completion pairs. Note this is the shape of the DATA, not the training method (elsewhere `training_type` means LoRA vs full fine-tuning). Defaults to `instruction_dataset`. The download carries the generated text in `enhanced_prompt` / `enhanced_completion`; `original_*` are null, since invented data has no source rows it was derived from.",
+            "description": "Shape of the generated data — the same field and values as `datasets.adapt`. `instruction_dataset` produces prompt/completion rows; `preference_pairs` produces ranked completion pairs. Note this is the shape of the DATA, not the training method (elsewhere `training_type` means LoRA vs full fine-tuning). Defaults to `instruction_dataset`. The download carries the generated text in `enhanced_prompt` / `enhanced_completion`; `original_*` are null, since invented data has no source rows it was derived from.",
             "enum": [
               "instruction_dataset",
               "preference_pairs"
@@ -3920,7 +3972,7 @@
           },
           "estimate": {
             "type": "boolean",
-            "description": "Price the request without creating or charging anything. Mirrors `datasets.run` — the response carries the same fields either way, with the dataset fields null when this is set.",
+            "description": "Price the request without creating or charging anything. Mirrors `datasets.adapt` — the response carries the same fields either way, with the dataset fields null when this is set.",
             "default": false
           },
           "idempotency_key": {
