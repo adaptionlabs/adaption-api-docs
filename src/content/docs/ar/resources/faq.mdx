@@ -1,0 +1,75 @@
+---
+title: الأسئلة الشائعة
+description: أسئلة متكرّرة حول Adaptive Data وواجهة برمجة تطبيقات Adaption وحزمة Python SDK.
+---
+
+## ما هو Blueprint؟
+
+‏[Blueprint](https://www.adaptionlabs.ai/blog/blueprint) هو **طبقة المواصفات** الخاصّة بـ Adaption من أجل Adaptive Data: تحدّد أهدافًا — الطول، والسلامة، والسياسات المخصّصة — وتوجّه المنصّة البيانات المكيّفة نحو تلك الأهداف بحيث تكون المتطلّبات **صريحة ودائمة**، لا تعديلات موجّهات عابرة.
+
+وفي حزمة SDK، يمثّل الحقل **`brand_controls.blueprint`** في `datasets.run` الواجهة النثرية الحرّة لتلك الطبقة: موجّه نظام يُحقن في كل إكمال مولَّد من أجل النبرة أو الشخصية أو اللغة أو أي إرشاد لا يناسب حقول الطول أو السلامة أو التأسيس على المصادر المهيكلة. راجع [ضبط Adaptive Data](/ar/adaptive-data/configure-adaptive-data).
+
+## كيف أصادِق؟
+
+أنشئ مفتاح واجهة برمجة تطبيقات في [تطبيق Adaption](https://adaptionlabs.ai/app/auth) ثم مرّره إلى `Adaption(api_key=...)` أو اضبط **`ADAPTION_API_KEY`**. راجع [إنشاء مفاتيح واجهة برمجة التطبيقات](/ar/introduction/create-api-keys).
+
+## ما طرق إنشاء مجموعة بيانات؟
+
+تبدأ مسارات الاستيعاب الثلاثة جميعها بـ[`datasets.create(source=...)`](/api/python/resources/datasets/methods/create):
+
+1. **ملف محلّي** — مرّر اسمه وصيغته، وأرسِل البايتات بطلب PUT إلى `upload_instructions.url`، ثم استدعِ `datasets.upload.complete_by_id(...)`. وتشمل الصيغ المدعومة البيانات الجدولية والمستندات وجداول البيانات والعروض التقديمية وHTML وZIP والنصوص.
+2. **Hugging Face** — مرّر عنوان مجموعة البيانات الكامل والملفات المختارة؛ والاستيراد على الخادم غير متزامن — فانتظر قبل أن تكيّف.
+3. **Kaggle** — مرّر عنوان مجموعة البيانات الكامل والملفات المختارة؛ وأضِف بيانات اعتماد Kaggle في [إعدادات API keys](https://adaptionlabs.ai/app/settings?tab=api_keys).
+
+التفاصيل: [البداية](/ar/introduction/getting-started).
+
+## متى أستخدم رفع الملفات مقابل Hugging Face مقابل Kaggle؟
+
+- **الرفع** عندما تكون الملفات محلّية أصلًا أو مصدَّرة من نظام آخر.
+- **Hugging Face** عندما تكون مجموعة البيانات المرجعية موجودة هناك وتريد ملفات بعينها دون تنزيل يدوي.
+- **Kaggle** عندما يكون مصدر الحقيقة مجموعة بيانات على Kaggle وتكون بيانات الاعتماد مسجّلة في [إعدادات API keys](https://adaptionlabs.ai/app/settings?tab=api_keys).
+
+## هل يمكنني استخدام ملفات PDF وغيرها من المستندات غير المهيكلة كمدخلات؟
+
+نعم. يقبل Adaptive Data المدخلات الخام ذات الطابع المستندي — ملفات PDF، والمسوحات الضوئية المعالَجة بالتعرّف الضوئي على الحروف، وجداول البيانات، والعروض التقديمية، وسلاسل البريد الإلكتروني، وما شابهها — عبر أي من مسارات الاستيعاب (الرفع المحلّي أو Hugging Face أو Kaggle). وعند وصول بيانات ذات طابع مستندي، يكتشف التطبيق أنها غير مهيكلة ويرشدك عبر مسار قصير يحوّلها إلى مجموعة بيانات دون مسارات معالجة مسبقة مخصّصة. وتعتمد هذه القدرة على ميزة **Forge** في Adaptive Data. راجع [معالجة المستندات غير المهيكلة](/ar/tutorials/processing-unstructured-documents).
+
+## ما الفرق بين البيانات المهيكلة وغير المهيكلة؟
+
+هذا التمييز مستقلّ عن طريقة إدخال البيانات إلى Adaption. فـ**البيانات المهيكلة** — CSV أو JSON أو JSONL أو Parquet أو مجموعات بيانات Hugging Face / Kaggle بتلك الصيغ — تمرّ عبر الاستيعاب كما هي وتربط أعمدتها مباشرةً. أمّا **البيانات غير المهيكلة** — ملفات PDF، والمسوحات الضوئية، والعروض التقديمية، وجداول البيانات كثيفة التخطيط، وما شابهها من الملفات ذات الطابع المستندي — فتستدعي مسارًا إضافيًا يستخرج المحتوى ويتيح لك اختيار كيفية تقسيمه إلى صفوف قبل ربط الأعمدة. ويمكن لأي من النوعين أن يصل عبر الرفع المحلّي أو Hugging Face أو Kaggle. راجع [معالجة المستندات غير المهيكلة](/ar/tutorials/processing-unstructured-documents).
+
+## ما هو ربط الأعمدة؟
+
+‏`column_mapping` يخبر Adaptive Data بالأعمدة التي تحمل **الموجّه**، و**الإكمال** الاختياري، و**المحادثة**، أو **السياق**. والحقل `prompt` مطلوب لتشغيلة حقيقية. أمثلة: [البداية](/ar/introduction/getting-started).
+
+## كيف تعمل الأرصدة والتقديرات؟
+
+استدعِ `datasets.run(..., estimate=True)` للتحقّق من الطلب وقراءة **الأرصدة المقدَّرة** والمدّة **دون** بدء تشغيلة كاملة — بحيث يمكنك وضع ميزانية للمهام وضبط بوّابات التكامل المستمر. وقد يظلّ الاستهلاك الفعلي متفاوتًا بحسب حجم البيانات والخيارات.
+
+## كيف أنتظر انتهاء مجموعة بيانات أو تشغيلة؟
+
+استخدم `datasets.wait_for_completion(dataset_id, timeout=...)` (بتراجع أسّي) أو عالِج `DatasetTimeout` في المهام الطويلة. ويمكنك أيضًا استطلاع `get_status` / `get` يدويًا.
+
+## ما هو تخفيف الهلوسة؟
+
+مع `brand_controls={"hallucination_mitigation": True}`، تطبّق المنصّة **التأسيس على المصادر** (بما في ذلك البحث على الويب حيثما ينطبق) لتقليل المحتوى الملفَّق. راجع [ضبط Adaptive Data](/ar/adaptive-data/configure-adaptive-data).
+
+## ما هي آثار الاستدلال؟
+
+‏`recipe_specification={"recipes": {"reasoning_traces": True}}` يطلب إكمالات مكيّفة تتضمّن استدلالًا صريحًا — وهو مفيد للتدقيق ولبعض إعدادات التدريب. راجع [ضبط Adaptive Data](/ar/adaptive-data/configure-adaptive-data).
+
+## ما علاقة الطول والسلامة بـ Blueprint؟
+
+يعرض `brand_controls` الحقول **`length`** (`minimal` | `concise` | `detailed` | `extensive`) و**`safety_categories`** و**`blueprint`** (موجّه نظام حرّ الصياغة للنبرة أو الشخصية أو صوت العلامة) بوصفها جزءًا من **المواصفات** على مستوى التشغيلة — وهي الفلسفة نفسها الموصوفة في [Blueprint](https://www.adaptionlabs.ai/blog/blueprint). راجع [ضبط Adaptive Data](/ar/adaptive-data/configure-adaptive-data).
+
+## أين أجد الشروط والخصوصية؟
+
+- [شروط الخدمة](https://adaptionlabs.ai/terms-of-service)
+- [سياسة الخصوصية](https://adaptionlabs.ai/privacy-policy)
+
+## كيف أحصل على المساعدة؟
+
+راجع [الدعم](/ar/resources/support) أو راسِل [support@adaptionlabs.ai](mailto:support@adaptionlabs.ai).
+
+## هل تدعمون Python غير المتزامنة؟
+
+نعم. استخدم `AsyncAdaption` مع `await` / `async for` كما في [البداية](/ar/introduction/getting-started).

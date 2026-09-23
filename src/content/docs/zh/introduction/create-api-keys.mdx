@@ -1,0 +1,52 @@
+---
+title: 创建 API 密钥
+description: 创建并使用 Adaption API 密钥，从应用程序、CI 和 notebook 安全地以编程方式访问 Adaptive Data。
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+API 密钥用于验证对 Adaptive Data 的**编程访问**——也就是你在应用中使用的同一批平台能力，只不过改为从你的代码、自动化流程或 notebook 中调用。请把它们当作生产集成的凭据，而不是可以随意分享的令牌。
+
+<Callout variant="note">
+  请将密钥保存在密钥管理服务或环境变量中，不要提交到版本控制系统。
+</Callout>
+
+## 在应用中创建密钥
+
+<Steps>
+  <Step>[登录](https://adaptionlabs.ai/app/auth) Adaption。</Step>
+  <Step>
+    打开 [**Settings**](https://adaptionlabs.ai/app/settings)，进入 [**API keys**](https://adaptionlabs.ai/app/settings?tab=api_keys) 部分。
+  </Step>
+  <Step>
+    创建密钥，复制一次并妥善保存。之后将无法再次查看。
+  </Step>
+</Steps>
+
+## 在 Python 中使用密钥
+
+显式传入密钥：
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+或者设置 **`ADAPTION_API_KEY`**，然后无参数构造客户端：
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+```python
+from adaption import Adaption
+
+client = Adaption()  # reads ADAPTION_API_KEY
+```
+
+异步代码使用 **`AsyncAdaption`**，方式完全相同。
+
+## 下一步
+
+继续阅读 **[快速上手](/zh/introduction/getting-started)**，安装 SDK 并运行你的第一个 **导入 → 适配 → 下载** 流程。

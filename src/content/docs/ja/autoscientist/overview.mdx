@@ -1,0 +1,37 @@
+---
+title: 概要
+description: AutoScientist が何を構築するのか、そして反復的な学習ループがどのように動くのかを理解します。
+---
+
+AutoScientist は、モデル学習とアライメントの裏側にあるリサーチループを自動化します。目標を指定すると、AutoScientist はデータと[学習レシピ](/ja/autoscientist/recommended-hyperparameters)を最適化し、モデルを学習して評価し、実行が目標に到達するかイテレーションを使い切るまでこれを繰り返します。
+
+[Adaptive Data](/ja/adaptive-data/overview) の実行を完了したデータセットから始めてください。ソースがすでに学習にすぐ使えるプロンプト／コンプリーションのデータセットである場合は、代わりに[アダプトしていないデータで実行する](/ja/autoscientist/run-on-non-adapted-data)こともできます。
+
+![AutoScientist 用のデータセットを選択する](/auto-scientist/ASEX1.png)
+
+## 作成できるもの
+
+- **インストラクションデータセット**は、教師ありファインチューニング向けに、プロンプトと期待されるコンプリーションを対にします。
+- **選好ペアのデータセット**は、Direct Preference Optimization（DPO）向けに、採用（chosen）と不採用（rejected）のコンプリーションを比較します。
+
+[実行を作成する](/ja/autoscientist/running-autoscientist)ときに、教師ありファインチューニングには `training_method="instruction"` を、SFT → DPO のパイプラインには `training_method="alignment"` を設定します。アライメントには `preference_pairs` として準備されたデータセットが必要です。アプリに保存された設定に頼らず、メソッドを明示的に渡してください。
+
+## ループの仕組み
+
+各実行は 4 つのステージを巡ります:
+
+1. **[データ最適化](/ja/autoscientist/data-augmentation)**では、多様性を高めて過学習を抑えるために、任意でドメイン特化の行と汎用の行を追加します。
+2. **[学習](/ja/autoscientist/running-autoscientist)**では、選択したモデル、LoRA またはフルファインチューニング、現在のハイパーパラメーターのレシピを使って SFT または DPO を実行します。
+3. **[評価](/ja/autoscientist/interpreting-results)**では、そのイテレーションを `target_win_rate` と比較し、損失、学習率、勾配ノルムなどの学習診断を記録します。
+4. **ハイパーパラメーター調整**では、評価を分析し、次のイテレーションに向けてレシピを見直します。
+
+ループは `target_win_rate` に到達するか、`max_iterations` を完了した時点で停止します。ステータス `succeeded` はどちらの条件でも起こりうるため、完了後に `best_win_rate` を確認してください。
+
+## 次のステップ
+
+- [データ拡張を設定する](/ja/autoscientist/data-augmentation)
+- [実行を作成して監視する](/ja/autoscientist/running-autoscientist)
+- [結果を解釈する](/ja/autoscientist/interpreting-results)
+- [最良のチェックポイントをダウンロードする](/ja/autoscientist/download-the-model)
+- [サポート対象モデルと学習の制限を確認する](/ja/autoscientist/supported-models)
+- [`create` API リファレンス](/api/python/resources/autoscientist/methods/create)で、すべてのリクエストとレスポンスのフィールドを参照する

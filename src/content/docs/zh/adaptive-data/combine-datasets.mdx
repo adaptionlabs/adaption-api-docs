@@ -1,0 +1,71 @@
+---
+title: 合并数据集
+description: 使用 Python SDK 校验并将多个 Adaptive Data 数据集合并为一个新数据集。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+当相关的训练样本分散在多个 Adaptive Data 结果中时，可以合并数据集。合并会创建一个新数据集，所有源数据集保持不变。
+
+每个源数据集都必须属于你的组织，并且已完成一次 Adaptive Data 运行。以下示例假定你已经[配置好 Python SDK](/zh/introduction/getting-started)。
+
+## 校验源数据集
+
+在合并之前先校验这些数据集。校验只检查兼容性，不会写入数据：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_ids = [
+    "dataset_abc123",
+    "dataset_def456",
+]
+
+validation = client.datasets.combine.validate(dataset_ids=dataset_ids)
+
+for issue in validation.issues:
+    print(issue.level, issue.code, issue.message)
+
+if not validation.compatible:
+    raise ValueError("The datasets cannot be combined")
+
+print(validation.training_type, validation.total_estimated_rows)
+```
+
+每条校验问题都包含 `level`、稳定的 `code` 以及面向用户的 `message`：
+
+- **错误**会阻止合并。例如某个源数据集尚未就绪、属于其他组织，或者混合了文本数据与多模态数据。
+- **警告**描述合并操作可以自动完成的调整。例如把类型不一致的列转换为同一类型，或者把混合的训练类型统一为指令数据集。
+
+所有校验字段与问题代码请参阅 [`combine.validate` 参考](/api/python/resources/datasets/subresources/combine/methods/validate)。
+
+## 合并数据集
+
+把相同的源数据集 ID 传给 `combine.create`，并为输出数据集起一个名称：
+
+```python
+from uuid import uuid4
+
+idempotency_key = str(uuid4())
+
+combined = client.datasets.combine.create(
+    dataset_ids=dataset_ids,
+    name="Combined support data",
+    idempotency_key=idempotency_key,
+)
+
+print(combined.dataset_id)
+```
+
+该请求同步执行，合并完成后返回新的 `dataset_id`。目前没有对外开放的合并任务轮询流程。
+
+<Callout variant="note">
+  如果需要重试请求，请保持相同的 `idempotency_key`。使用该键重试会返回首次请求创建的数据集，
+  而不会再次启动一次合并。这个键是可选的，但在长时间运行的请求可能断开连接时，提供它会很有帮助。
+</Callout>
+
+训练类型相同的数据集会保留该类型。把指令数据集与偏好数据集合并会得到指令数据集。其他警告级别的调和结果会在合并开始前由校验报告出来。
+
+当前的请求要求与响应字段请参阅 [`combine.create` 参考](/api/python/resources/datasets/subresources/combine/methods/create)。

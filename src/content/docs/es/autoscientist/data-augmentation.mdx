@@ -1,0 +1,58 @@
+---
+title: Aumento de datos
+description: Añade filas específicas del dominio y de propósito general antes de que empiece el entrenamiento de AutoScientist.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+El [aumento de datos](/api/python/resources/autoscientist/methods/create) es opcional, pero se recomienda cuando un conjunto de datos es pequeño o le falta diversidad. AutoScientist puede añadir dos tipos independientes de filas antes de que comiencen sus iteraciones de entrenamiento:
+
+- Las **filas de dominio** añaden ejemplos específicos del dominio del conjunto de datos. Las filas existentes cuentan para el objetivo recomendado de 20.000 filas de dominio.
+- Las **filas generales** añaden ejemplos diversos que ayudan al modelo a conservar capacidades más amplias.
+
+<Callout variant="note">
+  Es la misma operación sobre el repositorio curado que
+  [`datasets.augment`](/es/adaptive-data/expand-data). Usa ese método
+  auxiliar cuando quieras un nuevo conjunto de datos antes de entrenar. Usa
+  `augmentation_domain_rows` y `augmentation_general_rows` en `create` cuando
+  quieras que las filas se apliquen como parte de la ejecución de entrenamiento.
+</Callout>
+
+## Calcular las incorporaciones
+
+La siguiente solicitud apunta a un mínimo de 20.000 filas de dominio y añade 8.000 filas generales:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+print(run.id, run.status)
+```
+
+Esto produce hasta 28.000 filas de entrenamiento: el conjunto de datos existente más las filas de dominio necesarias para llegar a 20.000, seguidas de 8.000 filas generales. Si el conjunto de datos ya contiene al menos 20.000 filas, `domain_rows_to_add` es cero.
+
+Omite cualquiera de los dos parámetros de aumento para saltarte ese tipo de incorporación. AutoScientist calcula el precio y el tamaño de cada expansión solicitada antes de entrenar. Consulta la [referencia de API de `create`](/api/python/resources/autoscientist/methods/create) para conocer los límites y los campos de solicitud actuales.
+
+## Aumentar datos de preferencia
+
+Para una ejecución de DPO con texto, define `training_method="alignment"` en la misma solicitud. AutoScientist produce incorporaciones con forma de preferencia, y esas incorporaciones cuentan para el mínimo de 12.000 pares de preferencia efectivos:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+```

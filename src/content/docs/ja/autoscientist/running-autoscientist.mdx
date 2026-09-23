@@ -1,0 +1,125 @@
+---
+title: AutoScientist を実行する
+description: Python SDK で AutoScientist の学習実行を作成し、監視し、取り扱います。
+---
+
+## 実行を作成する
+
+SDK は環境から `ADAPTION_API_KEY` を読み取ります。準備したデータセットを指定して [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) を呼び出します:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)  # pending
+```
+
+| パラメーター                | 必須   | 説明                                                                                                                                                                                 |
+| --------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_id`                | はい   | アダプト済みデータセットの ID、または [raw データセット](/ja/autoscientist/run-on-non-adapted-data)の ID。                                                                            |
+| `max_iterations`            | いいえ | 1 から 5 まで。                                                                                                                                                                      |
+| `target_win_rate`           | いいえ | 0.5 より大きく 1 以下。到達した時点でループを早期に停止します。                                                                                                                      |
+| `model`                     | いいえ | [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models) が返す ID。省略した場合、AutoScientist がデータセットに合わせてモデルを選択します。   |
+| `training_method`           | いいえ | SFT には `instruction`、SFT → DPO のパイプラインには `alignment`。選好ペアのデータセットでは `alignment` を明示的に渡してください。                                                  |
+| `hyperparams`               | いいえ | [プラットフォームのレシピ](/ja/autoscientist/recommended-hyperparameters)に対する上書き。設定しなかったキーはプラットフォームの既定値のままです。                                    |
+| `augmentation_domain_rows`  | いいえ | 学習前に追加される[ドメイン特化の行](/ja/autoscientist/data-augmentation)。                                                                                                          |
+| `augmentation_general_rows` | いいえ | 学習前に追加される汎用の行。                                                                                                                                                         |
+| `idempotency_key`           | いいえ | 同じキーでリクエストを繰り返すと、既存の実行が返されます。                                                                                                                           |
+| `column_mapping`            | いいえ | SFT では `prompt` と `completion` を、DPO では `prompt`、`chosen`、`rejected` をマッピングします。省略すると、プラットフォームがマッピングを推測します。                             |
+
+`column_mapping` は、アップロードしたファイルの元のヘッダーではなく、**アダプト済みデータセットのスキーマ**に対して検証されます。アダプトによって `enhanced_prompt` のような列が追加されることがあります。存在しない列へのマッピングは、`Selected column '...' for prompt is not in this dataset` として失敗します。
+
+### 選好ペアで学習する
+
+まず、[Adaptive Data の選好ペア実行](/ja/adaptive-data/configure-adaptive-data#選好ペアを生成する)を完了してください。選好ペアのデータセットだけではアライメントは選択されないため、`training_method` を明示的に設定します:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+)
+print(run.id, run.training_method)  # alignment
+```
+
+標準的な Adaptive Data の出力であれば、`column_mapping` なしで推測できます。アダプト済みのスキーマが代わりに個別のカスタム列を公開している場合は、3 つのロールをすべてマッピングします:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    column_mapping={
+        "prompt": "question",
+        "chosen": "preferred_answer",
+        "rejected": "other_answer",
+    },
+)
+```
+
+DPO には、リクエストした拡張分を含めて、有効な選好ペアが少なくとも **12,000 件**必要です。SFT には、有効な行が少なくとも 1,000 行必要です。`alignment` を選択しても、他の種類のデータセットが変換されるわけではありません。データセットが `preference_pairs` として準備されていない限り、API は実行を `instruction` として解決します。解決された目的関数を確認するには、`run.training_method` を読み取ってください。
+
+AutoScientist はアライメントを 1 回の実行として提示しますが、DPO ステージの前に SFT アダプターを学習します。公開される実行 ID と、解決された `training_method="alignment"` は、両方のステージを通じて変わりません。引き継ぎの間、実行は `running` のままで、指標が一時的に利用できなくなり、`download_available` は false になります。この短い引き継ぎの間にキャンセルをリクエストすると `409` が返ることがあります。イテレーションがアクティブになってから再試行してください。
+
+## 完了を待つ
+
+[実行のステータス](/api/python/resources/autoscientist/methods/get)は、`pending`、`running`、`succeeded`、`failed`、`cancelled` のいずれかです。
+
+```python
+from adaption import TrainingTimeout
+
+try:
+    run = client.autoscientist.wait_for_completion(run.id)
+except TrainingTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.iterations_completed, run.max_iterations, run.best_win_rate)
+```
+
+`wait_for_completion` は 10 秒から 60 秒へとバックオフし、既定のタイムアウトは 4 時間です。タイムアウトしても待機が止まるだけで、学習は止まりません。同じ実行 ID で再度呼び出せば追跡を再開できます。
+
+ポーリングのスケジュールを自分で制御する場合:
+
+```python
+import time
+
+while True:
+    run = client.autoscientist.get(run.id)
+    print(run.status, run.iterations_completed, run.best_win_rate)
+
+    if run.status == "succeeded":
+        break
+    if run.status == "failed":
+        raise RuntimeError(f"failed: {run.error}")
+    if run.status == "cancelled":
+        raise RuntimeError("Run was cancelled")
+
+    time.sleep(30)
+```
+
+成功した実行は、`target_win_rate` に到達したか、最後のイテレーションを使い切ったかのいずれかです。どちらが起きたかを判断するには、[`best_win_rate` を目標値と比較](/ja/autoscientist/interpreting-results)してください。進行中の実行を止めるには、[`client.autoscientist.cancel(run.id)`](/api/python/resources/autoscientist/methods/cancel) を使用します。
+
+## モデルサイズを制限する
+
+アプリでは、**Tiny AutoScientist** によって選択対象が 10B パラメーター未満のモデルに制限されます。SDK では、[サポート対象モデル](/ja/autoscientist/supported-models)を確認し、現在利用できるモデルを一覧表示して、対象となる ID を明示的に渡します:
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+
+model_id = input("Eligible model ID: ").strip()
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model=model_id,
+)
+```
+
+モデルの提供状況とメタデータは変わることがあります。ID からモデルサイズを推測せず、[`autoscientist.list_models`](/api/python/resources/autoscientist/methods/list_models) で現在の値を確認してください。

@@ -1,0 +1,74 @@
+---
+title: 处理非结构化文档
+description: 在 Adaptive Data 应用中直接摄取 PDF、文档、电子表格和幻灯片，无需自建预处理流水线。
+---
+
+大多数组织知识都存放在为人阅读而设计、而非为表格处理而设计的格式中：PDF、OCR 文档、电子表格、文字处理文件、幻灯片以及邮件往来。版式、内嵌表格、合并单元格、手写内容和脚注都会让自定义预处理变得缓慢而脆弱。
+
+Adaptive Data 应用可以直接接受这些原始形式的文件。它会提取并结构化其中的内容，然后产出一个数据集，之后就能使用与其他数据集相同的列映射、适配、评估和导出流程。
+
+## 什么算作非结构化文档？
+
+无论你是本地上传，还是从 Hugging Face 或 Kaggle 导入，应用都会把文档类的源材料视为非结构化数据。常见例子包括：
+
+- **PDF**，包括扫描件和 OCR 文件。
+- 含有合并单元格、多行表头或各工作表版式不一致的**电子表格**。
+- 含有内嵌表格和脚注的**文字处理文档**。
+- 结构通过版式而非行来表达的**幻灯片**。
+- **邮件往来**及类似的对话导出内容。
+
+## 在应用中处理文档
+
+在 [adaptionlabs.ai/app](https://adaptionlabs.ai/app) 登录，[创建数据集](/zh/adaptive-data/create-a-dataset)，然后上传或导入源文件。当应用检测到文档类数据时，它会提出两个问题，用来决定最终产生的数据行。
+
+### 步骤 1 | 启用内容提取
+
+选择 **Yes** 以提取并拆分文档。只有当你希望文件绕过非结构化文档处理流程直接被摄取时，才选择 **No**。
+
+![应用检测到非结构化数据，并询问是否要提取并拆分它，提供 Yes 和 No 两个选项。](/unstructured-documents/extract-and-split.png)
+
+### 步骤 2 | 选择拆分方式
+
+选择应当成为一条数据行的单位：
+
+- **Per document** 会把每个完整文件保留为一行。适用于长上下文任务或整篇文档的信息抽取。
+- **Per page** 会为每一页创建一行。适用于产出更多训练样本，或处理页级内容。
+
+在你继续之前，应用会为这两种选择预览行数。
+
+![应用提供两种拆分方式：把每篇完整文档作为单独一行导入，或把每个文档页面作为单独一行导入，并分别预览行数。](/unstructured-documents/split-by-document-or-page.png)
+
+## 映射提取出的内容
+
+拆分方式通常会提示一种列映射模式。这些只是起点，并非限制。
+
+### 按页 | 把内容作为补全
+
+每一行包含一页提取出的内容。把该内容映射为 **Completion**，让 Adaptive Data 生成与之匹配的提示词。
+
+例如，一个包含退货政策的页面可以作为补全，而 Adaptive Data 会生成类似这样的提示词：
+
+> Explain the conditions under which a customer can return this product.
+
+这是从原始页面走向指令式数据集的最快路径。
+
+### 按文档 | 把内容作为上下文
+
+每一行包含一篇完整文档。把提取出的文档映射为 **Context**，选择 **I don't have prompt**，然后选择 **Write universal prompt**。
+
+请使用一条完整的指令，明确说明期望的输出。例如：
+
+> Extract the customer name, effective date, renewal date, and total contract value from this document. Return valid JSON with the keys `customer_name`, `effective_date`, `renewal_date`, and `contract_value`. Use `null` when a value is not present.
+
+应用会把同一条提示词应用到每一行，同时把该行的文档作为上下文提供。
+
+## 继续使用 Adaptive Data
+
+两个问题都回答完毕后，提取流程就会运行，并产出一个常规的 Adaptive Data 数据集。接下来可以继续：
+
+1. [使用通用提示词进行列映射](/zh/adaptive-data/select-columns#使用通用提示词)。
+2. [配方与品牌控制](/zh/adaptive-data/configure-adaptive-data)。
+3. [质量评估](/zh/adaptive-data/evaluate-dataset-quality)。
+4. 审阅并导出适配后的数据行。
+
+完整的界面流程请继续阅读 [Adaptive Data 应用操作指南](/zh/tutorials/adaptive-data-app-walkthrough)。若要自动化受支持的数据集工作流，请参阅最新的 [API 参考](/api/python)；本页描述的文档提取选项需要在应用中配置。

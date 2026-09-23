@@ -1,0 +1,114 @@
+---
+title: データを拡張する
+description: 取り込み後またはアダプト後に、行を拡張・翻訳・ローカライズしてデータセットのサイズを増やします。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+[データセットを取り込み](/ja/adaptive-data/create-a-dataset)、必要に応じて [Adaptive Data を実行](/api/python/resources/datasets/methods/run)したあと、アダプトのパイプライン全体を再実行せずに行数を増やせます。以下の各メソッドは、元の行と追加された行を含む**新しいデータセット**を返します。
+
+以下の SDK の例は、[Python SDK を設定済み](/ja/introduction/getting-started)で、拡張の準備ができたデータセットを `ADAPTION_DATASET_ID` に設定していることを前提としています:
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+```
+
+## データ拡張
+
+[`datasets.augment`](/api/python/resources/datasets/methods/augment) は、キュレーション済みのプールから追加の行を取得し、新しいデータセットとして返します。同じトピック構成で例を増やしたい場合や、トピック横断のカバレッジを広げたい場合に使用します:
+
+- **ドメイン行**は、データセット内のトピックに一致します。
+- **汎用行**は、多様性を広げるために他のトピックから取得されます。
+
+```python
+estimate = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+)
+print(response.dataset_id, response.status)
+```
+
+レスポンスには新しいデータセットの ID と現在のステータスが含まれます。見積もりの場合はどちらも `None` です。ダウンロードや学習を行う前に、新しいデータセットの完了を待ちます:
+
+```python
+from adaption import DatasetTimeout
+
+try:
+    final = client.datasets.wait_for_completion(response.dataset_id)
+except DatasetTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+print(final.status, final.row_count)
+```
+
+`wait_for_completion` は 2 秒から 30 秒へとバックオフし、既定のタイムアウトは 1 時間です。タイムアウトしても待機が止まるだけで、拡張ジョブ自体は止まりません。同じデータセット ID で再度呼び出せば追跡を再開できます。同じ待機は [`translate`](#行を翻訳する) と [`localize`](#行をローカライズする) のあとにも当てはまります。
+
+いずれかの行パラメーターを省略すると、その種類の追加をスキップできます。拡張は取得された行数に対して課金されます。現在の制限とリクエストフィールドについては、[`augment` リファレンス](/api/python/resources/datasets/methods/augment)を参照してください。
+
+<Callout variant="note">
+  `datasets.augment` は、トピック構成を判定できるテキストデータセットで動作します。画像データセットはサポートしていません。これは [`autoscientist.create`](/ja/autoscientist/data-augmentation) の `augmentation_domain_rows` と `augmentation_general_rows` と同じ、キュレーション済みプールを使う操作です。AutoScientist 側の経路では、新しいデータセットを書き出す代わりに、学習時にそれらの行を適用します。
+</Callout>
+
+## 行を翻訳する
+
+[`datasets.translate`](/api/python/resources/datasets/methods/translate) は、既存の行のサンプルを他の言語に変換します。Adaptive Data は最大 242 言語をサポートします。[ISO 639-1 の言語コード](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes)を指定してください。`sample_rate` は、対象言語ごとに展開されるソース行の割合です:
+
+```python
+estimate = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+)
+print(response.dataset_id, response.status)
+```
+
+対象言語が 2 つ、サンプルレートが `0.25` の場合、出力の行数は入力のおよそ `1 + (0.25 × 2) = 1.5` 倍になります。
+
+## 行をローカライズする
+
+[`datasets.localize`](/api/python/resources/datasets/methods/localize) は、単なる直訳ではなくロケール固有の言い回しを含めて、言語と国の両方に合わせて行を適応させます。国と言語のペアは、[ISO 3166-1 alpha-2 の国コード](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements)と [ISO 639-1 の言語コード](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes)で指定します:
+
+```python
+response = client.datasets.localize(
+    dataset_id,
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
+)
+print(response.dataset_id, response.status)
+```
+
+各ペアは、テキストを翻訳するだけでなく、国と言語に固有のバリアントを作成します。
+
+<Callout variant="note">
+  翻訳とローカライズは出力行数に対して課金されます。これらのメソッドのいずれかで `estimate=True` を指定すると、実行前にリクエストの価格を確認できます。いずれのメソッドでも `idempotency_key` を渡すと、再試行したリクエストは 2 回目の実行を開始して課金する代わりに、最初のリクエストで作成されたデータセットを返します。現在のスキーマとサポートされる値については、[`translate`](/api/python/resources/datasets/methods/translate) と [`localize`](/api/python/resources/datasets/methods/localize) のリファレンスを参照してください。
+</Callout>
+
+アダプト実行におけるレシピ、選好ペア、行数制限、ブランドコントロールについては、[Adaptive Data を設定する](/ja/adaptive-data/configure-adaptive-data)を参照してください。
+
+このページのメソッドは、いずれも新しいデータセットを書き出し、元のデータセットは変更しません。`datasets.run` も `language_expansion` 設定を受け付けます。こちらの経路では、設定をデータセットに保存し、新しいデータセットを作らずにそのアダプト実行の中で行を展開します。その形式については、[`run` リファレンス](/api/python/resources/datasets/methods/run)を参照してください。

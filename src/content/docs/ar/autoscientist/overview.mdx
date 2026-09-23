@@ -1,0 +1,37 @@
+---
+title: نظرة عامة
+description: تعرّف على ما يبنيه AutoScientist وكيف تعمل حلقة التدريب التكرارية فيه.
+---
+
+‏AutoScientist يؤتمت حلقة البحث الكامنة وراء تدريب النماذج ومواءمتها. أنت تختار النتيجة المرجوّة؛ ويحسّن AutoScientist البيانات و[وصفة التدريب](/ar/autoscientist/recommended-hyperparameters)، ويدرّب نموذجًا، ويقيّمه، ويكرّر ذلك إلى أن تبلغ التشغيلة هدفها أو تستنفد تكراراتها.
+
+ابدأ بمجموعة بيانات أكملت تشغيلة [Adaptive Data](/ar/adaptive-data/overview). وإذا كان مصدرك مجموعة بيانات موجّه/إكمال جاهزة للتدريب أصلًا، فيمكنك بدلًا من ذلك [التشغيل على بيانات غير مكيّفة](/ar/autoscientist/run-on-non-adapted-data).
+
+![اختيار مجموعة بيانات لـ AutoScientist](/auto-scientist/ASEX1.png)
+
+## ما يمكنك بناؤه
+
+- **مجموعات بيانات التعليمات** تقرن الموجّهات بالإكمالات المتوقّعة من أجل الضبط الدقيق الخاضع للإشراف.
+- **مجموعات بيانات أزواج التفضيل** تقارن الإكمالات المختارة بالمرفوضة من أجل التحسين المباشر للتفضيل (DPO).
+
+اضبط `training_method="instruction"` للضبط الدقيق الخاضع للإشراف أو `training_method="alignment"` لمسار SFT ← DPO عندما [تنشئ تشغيلة](/ar/autoscientist/running-autoscientist). وتتطلّب المواءمة مجموعة بيانات مُعدّة بوصفها `preference_pairs`؛ ومرّر الطريقة صراحةً بدلًا من الاعتماد على إعدادات التطبيق المحفوظة.
+
+## كيف تعمل الحلقة
+
+تمرّ كل تشغيلة بأربع مراحل:
+
+1. **[تحسين البيانات](/ar/autoscientist/data-augmentation)** يضيف صفوفًا اختيارية موجّهة للمجال وصفوفًا عامّة لتحسين التنوّع وتقليل فرط التخصيص.
+2. **[التدريب](/ar/autoscientist/running-autoscientist)** ينفّذ SFT أو DPO بالنموذج المختار، وبالضبط الدقيق عبر LoRA أو الضبط الكامل، وبوصفة المعاملات الفائقة الحالية.
+3. **[التقييم](/ar/autoscientist/interpreting-results)** يقيس التكرار مقابل `target_win_rate` ويلتقط تشخيصات التدريب مثل الخسارة ومعدّل التعلّم ومعيار التدرّج.
+4. **تعديل المعاملات الفائقة** يحلّل التقييم ويراجع الوصفة للتكرار التالي.
+
+تتوقّف الحلقة عندما تبلغ `target_win_rate` أو تكمل `max_iterations`. وقد تعني الحالة `succeeded` أيًّا من الشرطين، لذا افحص `best_win_rate` بعد الاكتمال.
+
+## الخطوات التالية
+
+- [ضبط تعزيز البيانات](/ar/autoscientist/data-augmentation)
+- [إنشاء تشغيلة ومتابعتها](/ar/autoscientist/running-autoscientist)
+- [تفسير النتائج](/ar/autoscientist/interpreting-results)
+- [تنزيل أفضل نقطة تحقّق](/ar/autoscientist/download-the-model)
+- [مراجعة النماذج المدعومة وحدود التدريب](/ar/autoscientist/supported-models)
+- تصفّح كل حقول الطلب والاستجابة في [مرجع واجهة برمجة التطبيقات لـ `create`](/api/python/resources/autoscientist/methods/create)

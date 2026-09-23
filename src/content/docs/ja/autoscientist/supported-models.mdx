@@ -1,0 +1,117 @@
+---
+title: サポート対象モデル
+description: AutoScientist で利用できるベースモデルと、コンテキスト長、バッチサイズ、LoRA ランクに関するモデルごとの制限。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+以下のモデルはいずれも、[AutoScientist の実行を作成する](/ja/autoscientist/running-autoscientist)ときに `model` フィールドとして渡せます。実行時のモデル一覧が正となります。このページは計画のための参考資料として利用してください。
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id, model.api_model_size, model.methods, model.training_types)
+```
+
+現在のレスポンススキーマについては、[`autoscientist.list_models` API リファレンス](/api/python/resources/autoscientist/methods/list_models)を参照してください。
+
+<Callout variant="note">
+  モデルを選択する必要はありません。`model` を省略すると、AutoScientist が、要求された `training_method` をサポートするモデルを選択します。解決されたモデル ID は実行に含めて返されます。
+</Callout>
+
+## 利用できるモデル
+
+| モデル                                             | `model` ID                                                   | サイズ | メソッド  | サポートされる `training_type` | 推論学習に対応 | 最小行数 |
+| -------------------------------------------------- | ------------------------------------------------------------ | ----- | -------- | ------------------------- | --------------------------- | --------- |
+| **SFT / Alignment**                                |                                                              |       |          |                           |                             |           |
+| Gemma 3 (4B Instruct)                              | `google/gemma-3-4b-it`                                       | 4B    | SFT, DPO | lora, full                | false                       | 1,000     |
+| Gemma 4 (31B Instruct)                             | `google/gemma-4-31B-it`                                      | 31B   | SFT, DPO | lora, full                | true                        | 10,000    |
+| gpt-oss (20B)                                      | `openai/gpt-oss-20b`                                         | 20B   | SFT, DPO | lora                      | true                        | 1,000     |
+| gpt-oss (120B)                                     | `openai/gpt-oss-120b`                                        | 120B  | SFT, DPO | lora                      | true                        | 1,000     |
+| Llama 3.3 (70B Instruct)                           | `meta-llama/Llama-3.3-70B-Instruct-Reference`                | 70B   | SFT, DPO | lora, full                | false                       | 1,000     |
+| Llama 4 Scout (17B-16E Instruct)                   | `meta-llama/Llama-4-Scout-17B-16E-Instruct`                  | 109B  | SFT, DPO | lora                      | false                       | 1,000     |
+| Meta Llama 3.2 (3B Instruct)                       | `meta-llama/Llama-3.2-3B-Instruct`                           | 3B    | SFT, DPO | lora, full                | false                       | 1,000     |
+| Mistral (7B) Instruct v0.2                         | `mistralai/Mistral-7B-Instruct-v0.2`                         | 7B    | SFT, DPO | lora                      | false                       | 1,000     |
+| Mixtral 8x7B Instruct (v0.1)                       | `mistralai/Mixtral-8x7B-Instruct-v0.1`                       | 46.7B | SFT, DPO | lora, full                | false                       | 1,000     |
+| NVIDIA Nemotron 3 Nano Omni 30B A3B Reasoning BF16 | `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16`         | 30B   | SFT, DPO | lora                      | true                        | 10,000    |
+| NVIDIA Nemotron 3 Super 120B A12B BF16             | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`              | 120B  | SFT, DPO | lora                      | false                       | 10,000    |
+| Qwen 3.5 (0.8B)                                    | `Qwen/Qwen3.5-0.8B`                                          | 0.8B  | SFT, DPO | lora                      | false                       | 1,000     |
+| Qwen 3.5 122B A10B                                 | `Qwen/Qwen3.5-122B-A10B`                                     | 122B  | SFT, DPO | lora                      | true                        | 10,000    |
+| Qwen 3.6 35B A3B                                   | `Qwen/Qwen3.6-35B-A3B`                                       | 35B   | SFT, DPO | lora                      | true                        | 10,000    |
+| **SFT / Alignment（マルチモーダル）**              |                                                              |       |          |                           |                             |           |
+| Gemma 3 (4B) VLM                                   | `google/gemma-3-4b-it-VLM`                                   | 4B    | SFT, DPO | lora                      | false                       | 1,000     |
+| Gemma 3 (27B) VLM                                  | `google/gemma-3-27b-it-VLM`                                  | 27B   | SFT, DPO | lora                      | false                       | 1,000     |
+| Gemma 4 (31B) VLM                                  | `google/gemma-4-31B-it-VLM`                                  | 31B   | SFT, DPO | lora                      | false                       | 1,000     |
+| Qwen 3.5 (9B)                                      | `Qwen/Qwen3.5-9B`                                            | 9B    | SFT, DPO | lora                      | false                       | 1,000     |
+
+**最小行数**は、そのモデルを選択するために必要な、有効なデータセットサイズの下限です（ベースの行数に[拡張](/ja/autoscientist/data-augmentation)分を加えたもの）。DPO の学習には、モデルに関係なく少なくとも **12,000 行**が必要です。[行数](#行数)を参照してください。
+
+`training_type` の値に `full` が含まれる場合は、`lora` に加えてフルファインチューニングも利用できることを意味します。
+
+## モデルごとの学習制限
+
+これらの制限は、モデルと学習ハードウェアの性質によるものです。AutoScientist はこれらを自動的に考慮するため、主に[推奨ハイパーパラメーターを上書きする](/ja/autoscientist/recommended-hyperparameters)場合に関係します。
+
+| `model` ID                                                   | コンテキスト (SFT) | コンテキスト (DPO) | 最大バッチ (SFT) | 最大バッチ (DPO) | 勾配累積 | `lora_r` の最大値 |
+| ------------------------------------------------------------ | ------------- | ------------- | --------------- | --------------- | --------------------- | ---------------- |
+| **SFT / Alignment**                                          |               |               |                 |                 |                       |                  |
+| `google/gemma-3-4b-it`                                       | 131072        | 65536         | 8               | 8               | 1                     | 64               |
+| `google/gemma-4-31B-it`                                      | 49152         | 24576         | 4               | 4               | 2                     | 64               |
+| `openai/gpt-oss-20b`                                         | 131072        | 65536         | 1               | 1               | 8                     | 64               |
+| `openai/gpt-oss-120b`                                        | 65536         | 32768         | 2               | 2               | 8                     | 64               |
+| `meta-llama/Llama-3.3-70B-Instruct-Reference`                | 24576         | 12288         | 8               | 8               | 1                     | 64               |
+| `meta-llama/Llama-4-Scout-17B-16E-Instruct`                  | 65536         | 12288         | 8               | 8               | 1                     | 64               |
+| `meta-llama/Llama-3.2-3B-Instruct`                           | 131072        | 65536         | 8               | 8               | 1                     | 64               |
+| `mistralai/Mistral-7B-Instruct-v0.2`                         | 32768         | 32768         | 16              | 8               | 1                     | 64               |
+| `mistralai/Mixtral-8x7B-Instruct-v0.1`                       | 32768         | 16384         | 8               | 8               | 1                     | 64               |
+| `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16`         | 65536         | 32768         | 8               | 8               | 1                     | 64               |
+| `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`              | 49152         | 24576         | 2               | 2               | 4                     | 64               |
+| `Qwen/Qwen3.5-0.8B`                                          | 131072        | 131072        | 8               | 8               | 1                     | 64               |
+| `Qwen/Qwen3.5-122B-A10B`                                     | 65536         | 32768         | 16              | 16              | 1                     | 64               |
+| `Qwen/Qwen3.6-35B-A3B`                                       | 65536         | 32768         | 8               | 8               | 1                     | 64               |
+| **SFT / Alignment（マルチモーダル）**                        |               |               |                 |                 |                       |                  |
+| `google/gemma-3-4b-it-VLM`                                   | 32768         | 32768         | 8               | 8               | 1                     | 64               |
+| `google/gemma-3-27b-it-VLM`                                  | 32768         | 24576         | 8               | 8               | 1                     | 64               |
+| `google/gemma-4-31B-it-VLM`                                  | 24576         | 12288         | 8               | 8               | 1                     | 64               |
+| `Qwen/Qwen3.5-9B`                                            | 65536         | 49152         | 8               | 8               | 1                     | 64               |
+
+
+### バッチサイズ
+
+各モデルには有効なバッチサイズが 1 つだけあります。`batch_size` の既定値は `"max"` で、そのモデル固有の値に解決されます。**ほぼすべての実行で、変更しないのが正しい選択です。** 別の整数を指定すると、ジョブが受け付けられたあとに起動が失敗します。
+
+より大きな実効バッチが有効な場合、モデルは勾配累積を使用します。
+
+```python
+# Recommended: let AutoScientist resolve the model and batch size.
+run = client.autoscientist.create(dataset_id=dataset_id)
+
+# Advanced: pin a model and its required batch size.
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model="openai/gpt-oss-20b",
+    hyperparams={"batch_size": 1},
+)
+```
+
+### LoRA ランク
+
+`lora_r` は、このページのすべてのモデルで 1 から 64 までの値を受け付けます。`lora_alpha` は `lora_r` のちょうど 1 倍または 2 倍でなければなりません。両方が同じリクエストで指定された場合、API が値を相互チェックします。
+
+## 行数
+
+AutoScientist は、次の有効データセットサイズの下限を適用します（ベースの行数 + 拡張分）:
+
+| 学習方法          | 最小行数     | 対象                                |
+| ----------------- | ------------ | ----------------------------------- |
+| SFT (instruction) | **1,000**    | すべてのモデル                      |
+| DPO (preference)  | **12,000**   | すべてのモデル                      |
+| すべての方法      | **10,000**   | Gemma (≥ 26B)、Qwen (≥ 35B)、NVIDIA |
+
+テキストのデータセットは、拡張によって下限に到達できます。マルチモーダルのデータセットは現在拡張できないため、あらかじめ十分な処理済み行数を含んでいる必要があります。AutoScientist は **20,000 行**を、起動の必須条件ではなく推奨される品質目標として扱います。
+
+## コンテキスト長とデータ
+
+学習コンテキストは、ファインチューニング中に使用される最大シーケンス長です。これはサービング時のコンテキストより短くなります。学習上限を超える行は、拒否されるのではなく切り詰められます。
+
+DPO のコンテキストは SFT のコンテキストより短いことがあります。DPO 用にモデルを固定する前に、実行時の `methods` リストに `DPO` が含まれていることを確認し、上の DPO コンテキストの列を参照してください。

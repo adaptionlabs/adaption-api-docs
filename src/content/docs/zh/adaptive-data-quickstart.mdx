@@ -1,0 +1,220 @@
+---
+title: Adaptive Data 快速上手
+description: 安装 Adaption Python SDK，导入数据，运行 Adaptive Data，并下载适配后的数据集。
+---
+
+import {
+  Accordion,
+  Callout,
+  Steps,
+  Step,
+} from "@stainless-api/docs/components";
+
+## 安装 SDK
+
+```shell
+pip install adaption
+```
+
+## 创建 API 密钥
+
+<Steps>
+  <Step>[登录](https://adaptionlabs.ai/app/auth) Adaption。</Step>
+  <Step>
+    打开 [**Settings**](https://adaptionlabs.ai/app/settings)，然后打开 [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys)。
+  </Step>
+  <Step>
+    创建一个密钥并复制它。之后将无法再次查看该密钥。
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  请将 API 密钥保存在环境变量或密钥管理服务中，不要提交到版本控制系统。
+</Callout>
+
+## 在 Python 中使用密钥
+
+在本地测试时，可以直接传入密钥：
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+在应用程序和 CI 中，请设置 `ADAPTION_API_KEY`：
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+SDK 会自动读取该环境变量：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## 创建数据集
+
+本快速上手指南会[从 Hugging Face 导入 Alpaca 数据集](/zh/adaptive-data/create-a-dataset)：
+
+```python
+dataset = client.datasets.create(
+    source={
+        "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+        "files": [
+            "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+        ],
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+你也可以改为上传本地文件或从 Kaggle 导入。每种数据来源都使用同一个 [`datasets.create`](/api/python/resources/datasets/methods/create) 接口，并返回本指南后续使用的 `dataset_id`。
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>上传本地文件</Accordion.Summary>
+
+    该 SDK 辅助方法会创建数据集、上传文件并确认上传完成。
+
+    支持的扩展名：**`.csv`**、**`.json`**、**`.jsonl`** 和 **`.parquet`**。
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>从 Kaggle 导入</Accordion.Summary>
+
+    使用 Kaggle 数据集页面的 URL 以及要拉取的文件。
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    **Kaggle 凭据**必须先在 Adaption 中注册：打开 **[API keys 设置](https://adaptionlabs.ai/app/settings?tab=api_keys)**（如有提示请先登录），在导入之前把你的 Kaggle API 凭据添加到那里。
+
+  </Accordion>
+</Accordion.Group>
+
+[导入是异步执行的](/zh/adaptive-data/create-a-dataset#等待导入完成)。请等到数据摄取完成、数据集已填充之后，再启动 Adaptive Data。
+
+## 等待数据集导入
+
+轮询[数据集状态](/api/python/resources/datasets/methods/get_status)，直到可以获取已导入的行数：
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## 适配数据集
+
+**适配**会应用平台的配方与优化策略。请[映射源数据列](/zh/adaptive-data/select-columns)，使其对应 Adaptive Data 所需的角色。对于 Alpaca，`instruction` 是提示词，`output` 是补全，`input` 是上下文。
+
+[请先申请估算](/zh/adaptive-data/configure-adaptive-data#限制行数并估算运行)。它会校验配置并返回报价，而不会真正启动运行：
+
+```python
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "output",
+    "context": ["input"],
+}
+job_specification = {"max_rows": 5_000}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+```
+
+确认无误后，提交同样的配置，但不带 `estimate=True`：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+## 等待 Adaptive Data 完成
+
+该 SDK 辅助方法会轮询[数据集状态](/api/python/resources/datasets/methods/get_status)，直到适配运行结束：
+
+```python
+status = client.datasets.wait_for_completion(dataset_id, timeout=3600)
+if status.status == "failed":
+    raise RuntimeError(f"Adaptive Data failed: {status.error_data}")
+
+print(status.status)
+```
+
+## 下载适配后的数据集
+
+**导出**增强后的数据，供训练流水线、评估框架或下游存储使用。[`download`](/api/python/resources/datasets/methods/download) 会以指定的文件格式流式返回已处理的数据行。它接受 `file_format` 参数，取值可以是 `csv`、`json`、`jsonl` 或 `parquet`，默认值为 `csv`。
+
+```python
+client.datasets.download(dataset_id, file_format="parquet").write_to_file(
+    "adapted-alpaca.tar.gz"
+)
+```
+
+`download` 返回的是文件本身，而不是指向文件的链接。可以用 `.read()` 读取字节，用 `.write_to_file(path)` 直接写入磁盘，或用 `.text()` 解码文本格式——注意它是一个方法，不是属性。这种返回形式要求 `adaption >= 0.9.0`；更早的版本返回字符串，会损坏所有二进制格式。
+
+对于较大的导出，请使用流式方式，避免把整个响应体驻留在内存中：
+
+```python
+with client.datasets.with_streaming_response.download(
+    dataset_id, file_format="parquet"
+) as export:
+    export.stream_to_file("adapted-alpaca.tar.gz")
+```
+
+`file_format="parquet"` 返回的是 **由多个 Parquet 分片组成的 gzip 压缩 tar 归档**，而不是单个 `.parquet` 文件——请先解压再读取：
+
+```python
+import tarfile
+
+with tarfile.open("adapted-alpaca.tar.gz") as archive:
+    archive.extractall("adapted-alpaca/")
+```
+
+状态为 **`succeeded`** 的数据集包含完整输出。对于 **`failed`** 的数据集，下载内容包含运行中止前已处理的数据行；只有在尚未启动任何运行时，API 才会返回 `422`。
+
+## 进一步阅读
+
+- [AutoScientist 快速上手](/zh/autoscientist-quickstart) —— 用适配后的数据集训练模型。
+- [配置 Adaptive Data](/zh/adaptive-data/configure-adaptive-data) —— 限制行数、减少幻觉、生成推理轨迹并应用品牌控制。
+- [评估数据集质量](/zh/adaptive-data/evaluate-dataset-quality) —— 查看评估状态与指标。
+- [处理非结构化文档](/zh/tutorials/processing-unstructured-documents) —— 准备文档类数据。
+- 浏览 [API 参考](/api/python)，查看完整的方法签名与响应结构。

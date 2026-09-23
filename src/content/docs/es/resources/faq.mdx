@@ -1,0 +1,75 @@
+---
+title: Preguntas frecuentes
+description: Preguntas frecuentes sobre Adaptive Data, la API de Adaption y el SDK de Python.
+---
+
+## ¿Qué es Blueprint?
+
+[Blueprint](https://www.adaptionlabs.ai/blog/blueprint) es la **capa de especificación** de Adaption para Adaptive Data: defines objetivos —longitud, seguridad, políticas propias— y la plataforma orienta los datos adaptados hacia esos objetivos, de modo que los requisitos quedan **explícitos y persistentes** en lugar de ser retoques puntuales del prompt.
+
+En el SDK, el campo **`brand_controls.blueprint`** de `datasets.run` es la superficie en prosa libre de esa capa: un prompt de sistema que se inyecta en cada completion generada para fijar el tono, la persona, el idioma o cualquier directriz que no encaje en los campos estructurados de longitud, seguridad o anclaje. Consulta [Configurar Adaptive Data](/es/adaptive-data/configure-adaptive-data).
+
+## ¿Cómo me autentico?
+
+Crea una clave de API en la [aplicación de Adaption](https://adaptionlabs.ai/app/auth) y pásala a `Adaption(api_key=...)` o define **`ADAPTION_API_KEY`**. Consulta [Crear claves de API](/es/introduction/create-api-keys).
+
+## ¿De qué formas se puede crear un conjunto de datos?
+
+Las tres vías de incorporación empiezan con [`datasets.create(source=...)`](/api/python/resources/datasets/methods/create):
+
+1. **Archivo local**: pasa su nombre y formato, envía los bytes con PUT a `upload_instructions.url` y después llama a `datasets.upload.complete_by_id(...)`. Los formatos admitidos incluyen datos tabulares, documentos, hojas de cálculo, presentaciones, HTML, ZIP y texto.
+2. **Hugging Face**: pasa la URL completa del conjunto de datos y los archivos seleccionados; la importación en el servidor es asíncrona, así que espera antes de adaptar.
+3. **Kaggle**: pasa la URL completa del conjunto de datos y los archivos seleccionados; añade tus credenciales de Kaggle en la [configuración de **API keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+
+Más detalles: [Primeros pasos](/es/introduction/getting-started).
+
+## ¿Cuándo conviene subir un archivo, usar Hugging Face o usar Kaggle?
+
+- **Subir un archivo** cuando los archivos ya están en local o se han exportado desde otro sistema.
+- **Hugging Face** cuando el conjunto de datos canónico está allí y quieres archivos concretos sin descargarlos manualmente.
+- **Kaggle** cuando la fuente de verdad es un conjunto de datos de Kaggle y las credenciales están registradas en la [configuración de **API keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+
+## ¿Puedo usar PDF y otros documentos no estructurados como entrada?
+
+Sí. Adaptive Data acepta entradas en bruto con formato de documento —PDF, escaneos con OCR, hojas de cálculo, presentaciones, cadenas de correo y formatos similares— por cualquiera de las vías de incorporación (subida local, Hugging Face o Kaggle). Cuando llegan datos con formato de documento, la aplicación detecta que no están estructurados y te guía por un flujo breve que los convierte en un conjunto de datos sin canalizaciones de preprocesamiento a medida. Esta capacidad se apoya en la función **Forge** de Adaptive Data. Consulta [Procesar documentos no estructurados](/es/tutorials/processing-unstructured-documents).
+
+## ¿Cuál es la diferencia entre datos estructurados y no estructurados?
+
+Esta distinción es independiente de cómo incorpores los datos a Adaption. Los **datos estructurados** —CSV, JSON, JSONL, Parquet o conjuntos de datos de Hugging Face / Kaggle en esos formatos— pasan por la incorporación tal cual y mapeas las columnas directamente. Los **datos no estructurados** —PDF, escaneos, presentaciones, hojas de cálculo con mucho diseño y archivos similares con formato de documento— activan un flujo adicional que extrae el contenido y te permite elegir cómo se divide en filas antes del mapeo de columnas. Ambos tipos pueden llegar por subida local, Hugging Face o Kaggle. Consulta [Procesar documentos no estructurados](/es/tutorials/processing-unstructured-documents).
+
+## ¿Qué es el mapeo de columnas?
+
+`column_mapping` indica a Adaptive Data qué columnas contienen el **prompt**, la **completion** opcional, el **chat** o el **contexto**. `prompt` es obligatorio para una ejecución real. Ejemplos: [Primeros pasos](/es/introduction/getting-started).
+
+## ¿Cómo funcionan los créditos y las estimaciones?
+
+Llama a `datasets.run(..., estimate=True)` para validar la solicitud y leer los **créditos estimados** y la duración **sin** iniciar una ejecución completa, de modo que puedas presupuestar trabajos y poner condiciones en CI. El consumo real puede variar con el volumen de datos y las opciones elegidas.
+
+## ¿Cómo espero a que termine un conjunto de datos o una ejecución?
+
+Usa `datasets.wait_for_completion(dataset_id, timeout=...)` (con retroceso exponencial) o gestiona `DatasetTimeout` para trabajos largos. También puedes sondear `get_status` / `get` manualmente.
+
+## ¿Qué es la mitigación de alucinaciones?
+
+Con `brand_controls={"hallucination_mitigation": True}`, la plataforma aplica **anclaje** (incluida la búsqueda web cuando procede) para reducir el contenido inventado. Consulta [Configurar Adaptive Data](/es/adaptive-data/configure-adaptive-data).
+
+## ¿Qué son las trazas de razonamiento?
+
+`recipe_specification={"recipes": {"reasoning_traces": True}}` solicita completions adaptadas que incluyan razonamiento explícito, algo útil para auditorías y para determinadas configuraciones de entrenamiento. Consulta [Configurar Adaptive Data](/es/adaptive-data/configure-adaptive-data).
+
+## ¿Qué relación tienen la longitud y la seguridad con Blueprint?
+
+`brand_controls` expone **`length`** (`minimal` | `concise` | `detailed` | `extensive`), **`safety_categories`** y **`blueprint`** (un prompt de sistema en prosa libre para el tono, la persona o la voz de marca) como parte de la **especificación** a nivel de ejecución, la misma filosofía que se describe en [Blueprint](https://www.adaptionlabs.ai/blog/blueprint). Consulta [Configurar Adaptive Data](/es/adaptive-data/configure-adaptive-data).
+
+## ¿Dónde están los términos y la privacidad?
+
+- [Términos del servicio](https://adaptionlabs.ai/terms-of-service)
+- [Política de privacidad](https://adaptionlabs.ai/privacy-policy)
+
+## ¿Cómo consigo ayuda?
+
+Consulta [Soporte](/es/resources/support) o escribe a [support@adaptionlabs.ai](mailto:support@adaptionlabs.ai).
+
+## ¿Admiten Python asíncrono?
+
+Sí. Usa `AsyncAdaption` con `await` / `async for` como se muestra en [Primeros pasos](/es/introduction/getting-started).

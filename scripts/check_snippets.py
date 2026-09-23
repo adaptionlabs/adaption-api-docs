@@ -24,6 +24,16 @@ from pathlib import Path
 DOCS = Path(__file__).resolve().parent.parent / "src" / "content" / "docs"
 FENCE = re.compile(r"```py(?:thon)?[^\n]*\n(.*?)```", re.S)
 
+# Translated pages live in `src/content/docs/<locale>/`. Their fences are copies
+# of the English ones -- scripts/check_translations.py asserts they are
+# byte-identical -- so type-checking them again would multiply this job's
+# runtime by six and report every error six times.
+LOCALE_DIRS = {"zh", "ja", "pt", "es", "ar"}
+
+
+def english_only(mdx: Path) -> bool:
+    return mdx.relative_to(DOCS).parts[0] not in LOCALE_DIRS
+
 # Fragment noise: absent only because a snippet is an excerpt.
 IGNORED_CODES = {
     "name-defined",
@@ -68,7 +78,7 @@ TYPED_DICT_PARAM = re.compile(r'expected "[^"]*\bOmit\b[^"]*"')
 
 def extract(tmp: Path) -> dict[Path, str]:
     origin: dict[Path, str] = {}
-    for mdx in sorted(DOCS.rglob("*.mdx")):
+    for mdx in filter(english_only, sorted(DOCS.rglob("*.mdx"))):
         text = mdx.read_text(encoding="utf-8")
         for i, match in enumerate(FENCE.finditer(text)):
             line = text[: match.start()].count("\n") + 1

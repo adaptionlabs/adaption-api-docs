@@ -1,0 +1,96 @@
+---
+title: データセットを作成する
+description: Python SDK でローカルファイルをアップロードしたり、Hugging Face や Kaggle からデータセットを取り込んだりします。
+---
+
+import { Accordion, Callout } from "@stainless-api/docs/components";
+
+変換スクリプトを書かなくても、ローカルファイル、Hugging Face、Kaggle からデータを取り込めます。どの方法でも `dataset_id` が返され、これを [`datasets.run`](/api/python/resources/datasets/methods/run) に渡します。
+
+以下の例は、[Python SDK をインストールし `ADAPTION_API_KEY` を設定済み](/ja/introduction/getting-started)であることを前提としています:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>1. ローカルファイルをアップロードする</Accordion.Summary>
+
+    SDK のヘルパーがデータセットを作成し、ファイルをアップロードし、アップロードの完了を確認します。
+
+    サポートされる拡張子: **`.csv`**、**`.json`**、**`.jsonl`**、**`.parquet`**。
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>2. Hugging Face から取り込む</Accordion.Summary>
+
+    Hugging Face のデータセット URL と、取り込むファイルを指定します。
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+            "files": [
+                "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+            ],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>3. Kaggle から取り込む</Accordion.Summary>
+
+    Kaggle のデータセットページの URL と、取得するファイルを指定します。
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    **Kaggle の認証情報**は Adaption に登録しておく必要があります。**[API keys の設定](https://adaptionlabs.ai/app/settings?tab=api_keys)** を開き（求められたらサインインします）、取り込みの前に Kaggle API の認証情報を追加してください。
+
+  </Accordion>
+</Accordion.Group>
+
+<Callout variant="note">
+  raw（パススルー）処理は現在、ローカルファイルのアップロードでのみサポートされています。`processing_mode="raw"` を Hugging Face や Kaggle の URL と組み合わせないでください。ローカルファイルの例については、[アダプトしていないデータで実行する](/ja/autoscientist/run-on-non-adapted-data)を参照してください。
+</Callout>
+
+## インポートの完了を待つ
+
+取り込みは非同期で実行されます。アダプト実行を開始する前に、取り込みによってデータセットが構築されるまで[データセットのステータス](/api/python/resources/datasets/methods/get_status)をポーリングします:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        error = status.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset import failed: {message}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+次に、[取り込んだ列をマッピング](/ja/adaptive-data/select-columns)し、続いて[アダプト実行を設定](/ja/adaptive-data/configure-adaptive-data)します。エンドポイントの詳細については、[`create`](/api/python/resources/datasets/methods/create) と [`get_status`](/api/python/resources/datasets/methods/get_status) のリファレンスを参照してください。`datasets.upload_file` ヘルパーは、ローカルファイルについて作成・アップロード・完了の各ステップをまとめて処理します。

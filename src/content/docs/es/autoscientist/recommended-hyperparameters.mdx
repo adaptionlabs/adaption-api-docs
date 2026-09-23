@@ -1,0 +1,113 @@
+---
+title: Hiperparámetros
+description: Comprende la receta de entrenamiento que AutoScientist selecciona e itera automáticamente.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+AutoScientist [propone una receta de entrenamiento completa](/api/python/resources/autoscientist/methods/recommend_hyperparams) antes de entrenar y después la evalúa y la ajusta a lo largo de las iteraciones. **En la mayoría de las ejecuciones, deja los valores recomendados sin cambios.** AutoScientist está optimizado para seleccionar estos valores en conjunto y mejorarlos en función de los resultados medidos.
+
+<Callout variant="warning">
+  No se recomienda cambiar hiperparámetros de forma individual. Una anulación
+  puede impedir que AutoScientist explore la configuración que habría
+  seleccionado y puede reducir la calidad del entrenamiento. Anula un valor solo
+  cuando tengas una restricción experimental o de infraestructura concreta.
+</Callout>
+
+## Referencia de hiperparámetros
+
+`training_method` es un argumento de nivel superior de `create` (`instruction` o `alignment`). Los demás campos que se listan a continuación son claves dentro de `hyperparams`.
+
+### Entrenamiento general
+
+Estos hiperparámetros se aplican tanto a las ejecuciones de SFT como a las de DPO.
+
+| Hiperparámetro | Definición | Valores válidos |
+| -------------- | ---------- | --------------- |
+| `learning_rate` | Tasa de aprendizaje máxima del optimizador. Controla el tamaño de paso durante las actualizaciones de pesos. | Decimal en `[1e-6, 5e-4]` |
+| `n_epochs` | Número de pasadas completas que hace el entrenamiento sobre el conjunto de datos. | Entero, `1`–`5` |
+| `batch_size` | Número de muestras por paso de entrenamiento. En SFT debe ser `"max"`. En DPO, un entero potencia de 2 o `"max"`. | `"max"` o entero potencia de 2 ≥ 1 |
+| `lr_scheduler_type` | Cómo cambia la tasa de aprendizaje durante el entrenamiento. Una planificación lineal decae de forma constante; una planificación coseno ralentiza su decaimiento cerca del final. | `"linear"` \| `"cosine"` |
+| `min_lr_ratio` | Tasa de aprendizaje mínima como fracción del máximo. La tasa de aprendizaje no decaerá por debajo de `learning_rate × min_lr_ratio`. | Decimal, `0.0`–`1.0` |
+| `scheduler_num_cycles` | Número o fracción de ciclos de decaimiento coseno a lo largo del entrenamiento. Solo afecta a las planificaciones coseno. | Decimal `> 0.0` (predeterminado `0.5`) |
+| `warmup_ratio` | Fracción del total de pasos de entrenamiento dedicada a subir gradualmente la tasa de aprendizaje desde cero. Suaviza la transición hasta la tasa de aprendizaje objetivo. | Decimal, `0.0`–`1.0` (normalmente `0.03`–`0.1`) |
+| `max_grad_norm` | Norma máxima del gradiente para el recorte de gradientes. Limita la magnitud del gradiente para reducir los gradientes explosivos y las actualizaciones inestables. Ponlo a `0.0` para desactivarlo. | Decimal ≥ `0.0` |
+| `weight_decay` | Penalización de regularización L2. Desincentiva pesos excesivamente grandes, lo que ayuda a evitar el sobreajuste y mejora la generalización a datos no vistos. | Decimal ≥ `0.0` |
+| `training_type` | Estrategia de entrenamiento. `"lora"` inserta adaptadores de rango bajo; `"full"` actualiza todos los pesos del modelo. El ajuste fino completo solo está disponible para los [modelos admitidos](/es/autoscientist/supported-models). | `"lora"` \| `"full"` |
+
+### LoRA
+
+Estos hiperparámetros configuran Low-Rank Adaptation y solo se aplican cuando `training_type` es `"lora"`. En las canalizaciones de alineación (SFT → DPO), la configuración de LoRA queda congelada a partir de la iteración de SFT ganadora y no puede cambiarse durante DPO.
+
+| Hiperparámetro | Definición | Valores válidos |
+| -------------- | ---------- | --------------- |
+| `lora_r` | Rango de las matrices del adaptador LoRA. Controla la capacidad del adaptador: los rangos más altos pueden representar adaptaciones más complejas, pero requieren más memoria y cómputo. | Entero potencia de 2, `1`–`64` |
+| `lora_alpha` | Factor de escala de la contribución del adaptador LoRA al modelo base. Debe ser `1×` o `2×` el valor de `lora_r`. | Entero potencia de 2 (`1×` o `2× lora_r`) |
+| `lora_dropout` | Probabilidad de dropout aplicada a las capas LoRA durante el entrenamiento. Añade regularización para reducir el sobreajuste. | Decimal, `0.0`–`1.0` (normalmente `0.0`–`0.1`) |
+| `lora_trainable_modules` | Qué capas del modelo reciben adaptadores LoRA. `"all-linear"` afecta a todas las capas lineales; como alternativa, especifica una lista de nombres de módulos separados por comas. | `"all-linear"` o lista separada por comas (p. ej. `"q_proj,v_proj,o_proj"`) |
+
+### Específicos de SFT
+
+| Hiperparámetro | Definición | Valores válidos |
+| --------------- | ---------- | --------------- |
+| `train_on_inputs` | Si la pérdida de entrenamiento se calcula también sobre los tokens del prompt además de los de la completion. Ponerlo en `false` enmascara el prompt para que el modelo solo aprenda a generar completions. | `true` \| `false` |
+
+### Específicos de alineación
+
+Estos hiperparámetros se aplican únicamente al entrenamiento basado en preferencias (DPO). Son inertes en las ejecuciones de SFT.
+
+| Hiperparámetro | Definición | Valores válidos |
+| -------------- | ---------- | --------------- |
+| `dpo_beta` | Controla cuánto puede alejarse el modelo del modelo de referencia. Los valores más bajos (en torno a `0.1`) actualizan de forma más agresiva hacia la salida preferida; los más altos (en torno a `0.7`) se mantienen más cerca de la referencia. | Decimal, `0.05`–`0.9` |
+| `dpo_normalize_logratios_by_length` | Normaliza los log-ratios por la longitud de la muestra durante el cálculo de la pérdida. Se activa automáticamente (`true`) cuando `simpo_gamma` es mayor que `0`. Cambiar este indicador altera la escala efectiva de `dpo_beta`; trata cualquier cambio como una intervención importante. | `true` \| `false` |
+| `rpo_alpha` | Peso de una pérdida auxiliar de log-verosimilitud negativa (NLL) sobre las respuestas preferidas, añadida sobre la pérdida estándar de DPO (Regularized Preference Optimization). Contrarresta el desplazamiento de verosimilitud: el fallo por el que la probabilidad de la respuesta elegida baja aunque crezca el margen de recompensa. Ponlo a `0.0` para desactivarlo. **No puede combinarse con `simpo_gamma`.** | Decimal ≥ `0.0` (habitual `0.1`–`1.0`) |
+| `simpo_gamma` | Margen de recompensa objetivo de Simple Preference Optimization. Por encima de `0.0`, el objetivo pasa a ser libre de referencia y normalizado por longitud: la respuesta elegida debe superar a la rechazada al menos por ese margen. Sube `dpo_beta` a la vez, ya que SimPO suele requerir una beta bastante mayor. Ponlo a `0.0` para desactivarlo. **No puede combinarse con `rpo_alpha`.** | Decimal ≥ `0.0` (habitual `0.3`–`1.6`) |
+
+## Revisar en la aplicación
+
+Los campos propuestos son editables, pero el flujo de trabajo predeterminado consiste en revisarlos y aceptarlos:
+
+1. Revisa el modelo, el algoritmo y la receta generada.
+2. Mantén los valores recomendados salvo que una restricción conocida exija una anulación.
+3. Inspecciona el JSON final de **AutoScientist Config** antes de confirmar.
+4. Deja que AutoScientist evalúe y refine la receta a lo largo de las iteraciones.
+5. Después del entrenamiento, compara la tasa de victorias y los diagnósticos tal como se describe en [Interpretar los resultados](/es/autoscientist/interpreting-results).
+
+## Avanzado: aplicar anulaciones desde la API
+
+Las anulaciones desde la API son una vía de escape avanzada para experimentos controlados o requisitos estrictos. El SDK acepta el objetivo de entrenamiento mediante `training_method` de nivel superior, el modelo base mediante `model` de nivel superior y las anulaciones de la receta mediante `hyperparams`. `training_type` es un campo dentro de `hyperparams`, no un argumento de nivel superior.
+
+Si una anulación es necesaria, evita nombres de clave no admitidos: copia un objeto `hyperparams` válido de la configuración actual de la aplicación o constrúyelo a partir del [esquema de API de `create`](/api/python/resources/autoscientist/methods/create) actual, guárdalo como `hyperparams.json` y pásalo sin cambios:
+
+```python
+import json
+from pathlib import Path
+
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+hyperparams = json.loads(Path("hyperparams.json").read_text())
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    hyperparams={
+        **hyperparams,
+        "training_type": "lora",
+        "dpo_beta": 0.1,
+    },
+)
+print(run.id, run.status)
+```
+
+Las claves de hiperparámetros sin definir siguen bajo el control de la plataforma. Para imponer un modelo concreto, revisa los [modelos admitidos](/es/autoscientist/supported-models), lista los ID disponibles actualmente y pasa uno mediante `model`:
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+```
+
+Es preferible dejar `model` y `hyperparams` sin definir para que AutoScientist pueda elegirlos e iterarlos automáticamente. Consulta [Ejecutar AutoScientist](/es/autoscientist/running-autoscientist) para ver el flujo completo de solicitud y estado.

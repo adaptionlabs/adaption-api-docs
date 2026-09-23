@@ -1,0 +1,37 @@
+---
+title: 概览
+description: 了解 AutoScientist 会构建什么，以及它的迭代式训练循环如何运作。
+---
+
+AutoScientist 把模型训练与对齐背后的研究循环自动化。你只需确定目标；AutoScientist 会优化数据和[训练配方](/zh/autoscientist/recommended-hyperparameters)、训练模型、评估结果，并不断重复，直到该次运行达成目标或用完迭代次数。
+
+请从一个已完成 [Adaptive Data](/zh/adaptive-data/overview) 运行的数据集开始。如果你的数据源本身已经是可直接训练的提示词/补全数据集，也可以改为[在未适配的数据上运行](/zh/autoscientist/run-on-non-adapted-data)。
+
+![为 AutoScientist 选择数据集](/auto-scientist/ASEX1.png)
+
+## 你可以构建什么
+
+- **指令数据集**把提示词与期望的补全配对，用于有监督微调。
+- **偏好对数据集**对比「已选」与「被拒」的补全，用于直接偏好优化（DPO）。
+
+在[创建运行](/zh/autoscientist/running-autoscientist)时，有监督微调请设置 `training_method="instruction"`，SFT → DPO 流水线请设置 `training_method="alignment"`。对齐训练需要以 `preference_pairs` 形式准备的数据集；请显式传入训练方法，不要依赖应用中保存的设置。
+
+## 循环如何运作
+
+每次运行都会循环经过四个阶段：
+
+1. **[数据优化](/zh/autoscientist/data-augmentation)**会可选地加入面向特定领域和通用的数据行，以提升多样性并减少过拟合。
+2. **[训练](/zh/autoscientist/running-autoscientist)**会使用选定的模型、LoRA 或全参数微调以及当前的超参数配方来执行 SFT 或 DPO。
+3. **[评估](/zh/autoscientist/interpreting-results)**会以 `target_win_rate` 为基准衡量本次迭代，并记录损失、学习率、梯度范数等训练诊断指标。
+4. **超参数调整**会分析评估结果，并为下一次迭代修订配方。
+
+当循环达到 `target_win_rate` 或完成 `max_iterations` 时即会停止。`succeeded` 状态可能对应其中任一情况，因此请在运行结束后检查 `best_win_rate`。
+
+## 后续步骤
+
+- [配置数据增强](/zh/autoscientist/data-augmentation)
+- [创建并监控运行](/zh/autoscientist/running-autoscientist)
+- [解读结果](/zh/autoscientist/interpreting-results)
+- [下载最佳检查点](/zh/autoscientist/download-the-model)
+- [查看支持的模型与训练限制](/zh/autoscientist/supported-models)
+- 在 [`create` API 参考](/api/python/resources/autoscientist/methods/create)中浏览全部请求与响应字段
