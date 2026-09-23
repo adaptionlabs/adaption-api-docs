@@ -24,7 +24,7 @@ column_mapping = {
 
 ## How a run is processed
 
-A run always applies your settings in the same order. This means the order you pass your arguments to `datasets.run` has no effect.
+A run always applies your settings in the same order. This means the order you pass your arguments to `datasets.adapt` has no effect.
 
 1. **Map columns.** `column_mapping` selects which source columns are read as the prompt, completion, chat, and context.
 2. **Limit rows.** If `job_specification.max_rows` is set, a sample of that many rows is selected: a random sample for text datasets, the first rows for image datasets. Later steps see only those rows.
@@ -57,7 +57,7 @@ Recipes are optional transformations that operate on the mapped data:
 In the SDK, recipes belong under `recipe_specification.recipes`. You can enable more than one recipe in the same run:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     recipe_specification={
@@ -74,7 +74,7 @@ print(f"Run started: {run.run_id}")
 <Callout variant="note">
   The exact reasoning-trace output depends on the API and recipe version.
   Inspect the downloaded dataset and see `RecipeSpecification` on the
-  [`datasets.run` reference](/api/python/resources/datasets/methods/run).
+  [`datasets.adapt` reference](/api/python/resources/datasets/methods/adapt).
 </Callout>
 
 Use reasoning traces if you want to fine-tune a model that supports chain-of-thought reasoning.
@@ -91,7 +91,7 @@ preference_mapping = {
     "completion": "response",
 }
 
-estimate = client.datasets.run(
+estimate = client.datasets.adapt(
     dataset_id,
     column_mapping=preference_mapping,
     training_type="preference_pairs",
@@ -99,7 +99,7 @@ estimate = client.datasets.run(
 )
 print(f"Estimated credits: {estimate.estimated_credits_consumed}")
 
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=preference_mapping,
     training_type="preference_pairs",
@@ -107,16 +107,16 @@ run = client.datasets.run(
 print(f"Run started: {run.run_id}")
 ```
 
-Use `training_type="instruction_dataset"`—or omit `training_type`—to produce enhanced prompt/completion pairs instead. Language expansion, recipes, job limits, and brand controls can be included in the same preference-pair run. See `training_type` on the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for the current schema.
+Use `training_type="instruction_dataset"`—or omit `training_type`—to produce enhanced prompt/completion pairs instead. Language expansion, recipes, job limits, and brand controls can be included in the same preference-pair run. See `training_type` on the [`datasets.adapt` reference](/api/python/resources/datasets/methods/adapt) for the current schema.
 
 ## Limit rows and estimate a run
 
-Use `job_specification.max_rows` to test mappings and controls on a subset before processing a large dataset. [Request an estimate with `datasets.run`](/api/python/resources/datasets/methods/run) first to validate the same configuration and receive a credit quote without starting adaptation:
+Use `job_specification.max_rows` to test mappings and controls on a subset before processing a large dataset. [Request an estimate with `datasets.adapt`](/api/python/resources/datasets/methods/adapt) first to validate the same configuration and receive a credit quote without starting adaptation:
 
 ```python
 job_specification = {"max_rows": 500}
 
-estimate = client.datasets.run(
+estimate = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     job_specification=job_specification,
@@ -124,7 +124,7 @@ estimate = client.datasets.run(
 )
 print(f"Estimated credits: {estimate.estimated_credits_consumed}")
 
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     job_specification=job_specification,
@@ -132,7 +132,7 @@ run = client.datasets.run(
 print(f"Run started: {run.run_id}")
 ```
 
-Omit `max_rows` when you want to process the full dataset. See `JobSpecification` on the [`datasets.run` reference](/api/python/resources/datasets/methods/run) for all job-level options.
+Omit `max_rows` when you want to process the full dataset. See `JobSpecification` on the [`datasets.adapt` reference](/api/python/resources/datasets/methods/adapt) for all job-level options.
 
 ## Configure brand controls
 
@@ -148,7 +148,7 @@ Omit `max_rows` when you want to process the full dataset. See `JobSpecification
 Hallucination mitigation steers generated completions toward verifiable information. Enable it for fact-sensitive data such as customer support, grounded question answering, or compliance workflows:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     brand_controls={"hallucination_mitigation": True},
@@ -159,10 +159,10 @@ Grounding can affect latency and credit use. Use `estimate=True` to compare the 
 
 ### Control length and safety
 
-Length and safety constraints compose in the same `brand_controls` object. Use the [`datasets.run` reference](/api/python/resources/datasets/methods/run) as the source of truth for supported safety category names:
+Length and safety constraints compose in the same `brand_controls` object. Use the [`datasets.adapt` reference](/api/python/resources/datasets/methods/adapt) as the source of truth for supported safety category names:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     brand_controls={
@@ -177,7 +177,7 @@ run = client.datasets.run(
 Use `blueprint` for qualitative requirements that do not fit a structured field. It acts as a system instruction for generated completions and applies consistently across the run:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     brand_controls={
@@ -202,7 +202,7 @@ brand_controls = {
     "blueprint": "Answer in British English with a warm, direct tone.",
 }
 
-estimate = client.datasets.run(
+estimate = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     brand_controls=brand_controls,
@@ -211,7 +211,7 @@ estimate = client.datasets.run(
 )
 print(f"Estimated credits: {estimate.estimated_credits_consumed}")
 
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     brand_controls=brand_controls,

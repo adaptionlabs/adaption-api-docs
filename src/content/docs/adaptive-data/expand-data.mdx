@@ -5,7 +5,7 @@ description: Augment, translate, or localize rows to increase dataset size after
 
 import { Callout } from "@stainless-api/docs/components";
 
-After you [import a dataset](/adaptive-data/create-a-dataset) and optionally [run Adaptive Data](/api/python/resources/datasets/methods/run), you can increase row count without re-running the full adaptation pipeline. Each method below returns a **new dataset** that includes your source rows plus the added ones.
+After you [import a dataset](/adaptive-data/create-a-dataset) and optionally [run Adaptive Data](/api/python/resources/datasets/methods/adapt), you can increase row count without re-running the full adaptation pipeline. Each method below returns a **new dataset** that includes your source rows plus the added ones.
 
 The SDK examples assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to a dataset that is ready to expand:
 
@@ -121,4 +121,4 @@ Each pair creates a country- and language-specific variant rather than only tran
 
 For recipes, preference pairs, row limits, and brand controls on an adaptation run, see [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
 
-The methods on this page each write a new dataset and leave the source unchanged. `datasets.run` also accepts a `language_expansion` setting; that path stores the setting on the dataset and expands rows inside its own adaptation run, without creating a new dataset. See the [`run` reference](/api/python/resources/datasets/methods/run) for that shape.
+The methods on this page each write a new dataset and leave the source unchanged. `datasets.adapt` also accepts a `language_expansion` setting; that path stores the setting on the dataset and expands rows inside its own adaptation run, without creating a new dataset. See the [`adapt` reference](/api/python/resources/datasets/methods/adapt) for that shape.
