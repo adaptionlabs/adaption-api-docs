@@ -1434,12 +1434,157 @@
           "leaderboard"
         ]
       }
+    },
+    "/api/v1/responses": {
+      "post": {
+        "description": "Creates a Responses API response through the inference gateway.",
+        "operationId": "ResponsesController_create",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The upstream Responses API response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The endpoint is not available."
+          },
+          "502": {
+            "description": "The model provider could not complete the request."
+          },
+          "503": {
+            "description": "Model inference is not configured for this environment."
+          }
+        },
+        "summary": "Generate a model response",
+        "tags": [
+          "responses"
+        ]
+      }
+    },
+    "/api/v1/responses/compact": {
+      "post": {
+        "description": "Compacts a conversation through the inference gateway.",
+        "operationId": "ResponsesController_compact",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The upstream compacted response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The endpoint is not available."
+          },
+          "502": {
+            "description": "The model provider could not complete the request."
+          },
+          "503": {
+            "description": "Model inference is not configured for this environment."
+          }
+        },
+        "summary": "Compact a model conversation",
+        "tags": [
+          "responses"
+        ]
+      }
+    },
+    "/api/v1/responses/{response_id}/cancel": {
+      "post": {
+        "description": "Cancels a response through the inference gateway.",
+        "operationId": "ResponsesController_cancel",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_id",
+            "required": true,
+            "in": "path",
+            "description": "Identifier of the response to cancel.",
+            "schema": {
+              "example": "resp_123",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The upstream cancellation response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The endpoint is not available."
+          },
+          "502": {
+            "description": "The model provider could not complete the request."
+          },
+          "503": {
+            "description": "Model inference is not configured for this environment."
+          }
+        },
+        "summary": "Cancel a model response",
+        "tags": [
+          "responses"
+        ]
+      }
     }
   },
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.4.51",
+    "version": "0.4.54",
     "contact": {}
   },
   "tags": [],
