@@ -1,0 +1,60 @@
+---
+title: Interpretar os resultados
+description: Recupere uma execução do AutoScientist e entenda sua taxa de vitória e seus diagnósticos de treinamento.
+---
+
+## Recuperar uma execução concluída
+
+Use o ID da execução retornado quando você [cria a execução](/api/python/resources/autoscientist/methods/create) e depois [recupere seus resultados atuais](/api/python/resources/autoscientist/methods/get):
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+run_id = "autoscientist_run_abc123"
+run = client.autoscientist.get(run_id)
+
+if run.status in {"pending", "running"}:
+    run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(f"Iterations: {run.iterations_completed}/{run.max_iterations}")
+print(f"Training method: {run.training_method}")
+print(f"Best win rate: {run.best_win_rate}")
+print(f"Checkpoint available: {run.download_available}")
+```
+
+A página de resultados do aplicativo também mostra o ID do modelo treinado, **Weights export** e **AutoScientist Config**. Os campos de resposta podem evoluir; use a [referência da API de `get`](/api/python/resources/autoscientist/methods/get) para identificar o campo exato do SDK que corresponde a um valor do aplicativo.
+
+### Transições de estágio do DPO
+
+Uma execução retornada com `training_method="alignment"` inclui um estágio de SFT seguido de DPO sob o mesmo ID público. Durante a transição entre os estágios, `status` permanece `running`, `best_win_rate` e outros campos de melhor resultado podem ser nulos e `download_available` é falso. Continue consultando; assim que o DPO começa, o status público, as iterações, as métricas e a disponibilidade do artefato descrevem esse estágio.
+
+## Taxa de vitória do treinamento
+
+O gráfico **Training Winrates** compara o modelo base com o modelo adaptado em avaliações derivadas do seu conjunto de dados. Uma taxa de vitória de 70% para o modelo adaptado significa que ele venceu cerca de 70% das comparações diretas.
+
+`best_win_rate` é o melhor resultado entre todas as iterações. Uma execução `succeeded` pode ter atingido `target_win_rate` antecipadamente ou simplesmente ter completado `max_iterations`, portanto compare esses valores em vez de tratar o sucesso como prova de que a meta foi alcançada.
+
+## Métricas de treinamento e avaliação
+
+Os gráficos traçam diagnósticos padrão ao longo das etapas de treinamento:
+
+- A **perda** mede o erro de previsão. Perdas de treinamento e de avaliação em queda geralmente indicam aprendizado; perda de treinamento em queda acompanhada de perda de avaliação piorando pode indicar overfitting. No DPO, a perda reflete com que intensidade o modelo separa as respostas escolhidas das rejeitadas em relação à política de referência; compare-a com a taxa de vitória da avaliação em vez de interpretá-la isoladamente.
+- A **taxa de aprendizado** mostra o tamanho do passo do otimizador ao longo do tempo e reflete o warmup e o agendamento configurados.
+- A **norma do gradiente** mede a magnitude geral do gradiente. Picos repentinos podem indicar atualizações instáveis, enquanto uma curva estável sugere que a otimização se acomodou.
+
+Leia essas curvas em conjunto. Uma curva de perda suave não basta se a taxa de vitória estiver estagnada, e uma boa taxa de vitória ainda pode vir acompanhada de diagnósticos de treinamento instáveis que merecem investigação.
+
+## Problemas comuns
+
+- **Taxa de vitória estagnada ou negativa:** use um modelo com capacidade suficiente, considere mais épocas e avalie se o [aumento de dados](/pt/autoscientist/data-augmentation) deve levar o conjunto de dados de domínio a cerca de 20.000 linhas.
+- **Nenhum checkpoint disponível para download:** confirme que a execução foi bem-sucedida e que `download_available` é verdadeiro antes de seguir [Baixar o modelo](/pt/autoscientist/download-the-model) ou chamar o [método `download`](/api/python/resources/autoscientist/methods/download).
+- **Métricas de DPO temporariamente ausentes:** se a execução ainda estiver `running`, ela pode estar migrando de SFT para DPO. Continue consultando o mesmo ID de execução.
+- **Estado da execução pouco claro:** recupere a execução e inspecione `status`; `pending` significa na fila, `running` significa ativa e `failed` inclui o motivo em `error`.
+- **Necessidade das linhas originais em vez das adaptadas:** crie um [conjunto de dados bruto](/pt/autoscientist/run-on-non-adapted-data) ou selecione as colunas originais ao configurar a execução.

@@ -1,0 +1,196 @@
+---
+title: Adaptive Data を設定する
+description: インストラクションデータや選好データを生成し、レシピを適用し、行数を制限し、アダプト後の出力を制御します。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+[列をマッピング](/ja/adaptive-data/select-columns)したら、Adaptive Data がそれらをどう変換するかを設定します。学習フォーマットの選択、レシピの適用、実行の制限、出力要件の定義ができます。
+
+以下の SDK の例は、[Python SDK を設定済み](/ja/introduction/getting-started)で、`ADAPTION_DATASET_ID` に[取り込み済みデータセット](/ja/adaptive-data/create-a-dataset)を設定していることを前提としています:
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+```
+## レシピを適用する
+
+レシピは、マッピング済みのデータに対して動作する任意の変換です:
+
+- **プロンプトの重複排除**は、例の多様性を保つために重複したプロンプトを削除します。
+- **プロンプトの言い換え**は、明確さとタスクとの整合性のためにプロンプトを書き換えます。
+- **推論トレース**は、アダプト後のコンプリーションに対応する推論を付与します。
+
+SDK では、レシピは `recipe_specification.recipes` の下に置きます。同じ実行で複数のレシピを有効にできます:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    recipe_specification={
+        "recipes": {
+            "deduplication": True,
+            "prompt_rephrase": True,
+            "reasoning_traces": True,
+        },
+    },
+)
+print(f"Run started: {run.run_id}")
+```
+
+<Callout variant="note">
+  推論トレースの正確な出力は、API とレシピのバージョンによって異なります。ダウンロードしたデータセットを確認し、[`datasets.run` リファレンス](/api/python/resources/datasets/methods/run)の `RecipeSpecification` を参照してください。
+</Callout>
+
+連鎖的思考（chain-of-thought）推論に対応したモデルをファインチューニングしたい場合は、推論トレースを使用してください。
+
+## 選好ペアを生成する
+
+既定では、Adaptive Data は教師ありファインチューニング向けのインストラクションデータセットを生成します。DPO のような選好学習のために、採用（chosen）と不採用（rejected）のレスポンスが必要な場合は、`training_type` を `preference_pairs` に設定します。
+
+ソースのマッピングは同じです。`prompt` 列を指定し、任意で既存の `completion` 列を指定します。選好ペアのフィールドは Adaptive Data が出力側で生成します。
+
+```python
+preference_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+)
+print(f"Run started: {run.run_id}")
+```
+
+代わりに強化されたプロンプト／コンプリーションのペアを生成するには、`training_type="instruction_dataset"` を使うか、`training_type` を省略します。言語展開、レシピ、ジョブ制限、ブランドコントロールは、同じ選好ペアの実行に含めることができます。現在のスキーマについては、[`datasets.run` リファレンス](/api/python/resources/datasets/methods/run)の `training_type` を参照してください。
+
+## 行数を制限して実行を見積もる
+
+大きなデータセットを処理する前に、`job_specification.max_rows` を使ってサブセットでマッピングやコントロールをテストします。まず [`datasets.run` で見積もりをリクエスト](/api/python/resources/datasets/methods/run)して、同じ設定を検証し、アダプトを開始せずにクレジットの見積もりを受け取ります:
+
+```python
+job_specification = {"max_rows": 500}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+データセット全体を処理したい場合は `max_rows` を省略します。ジョブレベルのオプション一覧については、[`datasets.run` リファレンス](/api/python/resources/datasets/methods/run)の `JobSpecification` を参照してください。
+
+## ブランドコントロールを設定する
+
+`brand_controls` は、出力要件をアダプト実行の一部にします:
+
+- **`length`** は目標とする詳しさを制御します: `minimal`、`concise`、`detailed`、`extensive`。
+- **`safety_categories`** は、適用するコンテンツ安全性のカテゴリーを指定します。
+- **`hallucination_mitigation`** は、該当する場合にウェブ検索で生成を根拠づけます。
+- **`blueprint`** は、トーン、ペルソナ、対象読者、言語、製品固有の言い回しについて自由形式の指示を与えます。
+
+### ハルシネーションを低減する
+
+ハルシネーションの低減は、生成されるコンプリーションを検証可能な情報へと導きます。カスタマーサポート、根拠づけされた質問応答、コンプライアンスのワークフローなど、事実性が重要なデータで有効にしてください:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={"hallucination_mitigation": True},
+)
+```
+
+根拠づけはレイテンシーとクレジット消費に影響することがあります。スケールさせる前に `estimate=True` で実行を比較してください。
+
+### 長さと安全性を制御する
+
+長さと安全性の制約は、同じ `brand_controls` オブジェクトの中で組み合わせられます。サポートされる安全性カテゴリー名については、[`datasets.run` リファレンス](/api/python/resources/datasets/methods/run)を信頼できる情報源として参照してください:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "length": "concise",
+        "safety_categories": ["harassment", "hate"],
+    },
+)
+```
+
+### Blueprint を設定する
+
+構造化フィールドに収まらない定性的な要件には `blueprint` を使います。これは生成されるコンプリーションに対するシステム指示として働き、実行全体に一貫して適用されます:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "blueprint": (
+            "You are a customer-success assistant for Acme. "
+            "Answer in British English with a warm, direct tone. "
+            "Do not recommend third-party tools."
+        ),
+    },
+)
+```
+
+### ブランドコントロールを組み合わせる
+
+構造化されたコントロールと Blueprint の指示は併用できます:
+
+```python
+brand_controls = {
+    "length": "concise",
+    "safety_categories": ["harassment", "hate"],
+    "hallucination_mitigation": True,
+    "blueprint": "Answer in British English with a warm, direct tone.",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+)
+print(f"Run started: {run.run_id}")
+```
+
+実行が完了したら、[データセット品質を評価](/ja/adaptive-data/evaluate-dataset-quality)し、[アダプト済みの行をダウンロード](/api/python/resources/datasets/methods/download)します。

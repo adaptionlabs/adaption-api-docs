@@ -1,0 +1,65 @@
+---
+title: はじめに
+description: Adaption Python SDK をインストールし、API キーで認証します。
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+Adaption は、通常はフロンティアラボに限られていたデータ最適化とモデル学習の技術を、日々の開発チームに届けます。
+
+- **[Adaptive Data](/ja/adaptive-data/overview)** は学習データを分析・改善し、モデル学習にすぐ使えるデータセットとしてエクスポートできるようにします。
+- **[AutoScientist](/ja/autoscientist/overview)** はモデル学習とアライメントの裏側にあるリサーチループを自動化し、目的に適応したモデルを生み出します。
+
+どちらの製品も Adaption API と Python SDK から利用できます。
+
+## SDK をインストールする
+
+```shell
+pip install adaption
+```
+
+## API キーを作成する
+
+<Steps>
+  <Step>Adaption に[サインイン](https://adaptionlabs.ai/app/auth)します。</Step>
+  <Step>
+    [**Settings**](https://adaptionlabs.ai/app/settings) を開き、続いて [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys) を開きます。
+  </Step>
+  <Step>
+    キーを作成してコピーします。キーをあとから再表示することはできません。
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  API キーは環境変数またはシークレットマネージャーに保存してください。ソース管理にはコミットしないでください。
+</Callout>
+
+## Python でキーを使う
+
+ローカルでの検証では、キーを直接渡すことができます:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+アプリケーションや CI では、`ADAPTION_API_KEY` を設定します:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+SDK は環境変数を自動的に読み取ります:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## クイックスタートを選ぶ
+
+- [Adaptive Data クイックスタート](/ja/adaptive-data-quickstart) — データセットの取り込み、アダプト、エクスポートを行います。
+- [AutoScientist クイックスタート](/ja/autoscientist-quickstart) — モデルの学習とダウンロードを行います。

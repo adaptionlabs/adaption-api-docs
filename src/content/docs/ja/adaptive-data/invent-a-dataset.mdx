@@ -1,0 +1,364 @@
+---
+title: データセットを発明する
+description: ソースデータセットを用意せずに、モデル学習にすぐ使えるデータセットをゼロから生成します。
+---
+
+Invent は、モデル学習にすぐ使えるデータセットをゼロから生成します。ソースデータセットは不要です。プロンプトでデータセットを説明し、必要に応じてドメインとサブドメインで絞り込むと、API がタスクに合わせたデータセットを作成します。
+
+既存のデータセットを取り込んでアダプトしたい場合は、代わりに [`datasets.create`](/ja/adaptive-data/create-a-dataset) を使用してください。
+
+### 作成できるもの
+
+- **インストラクションデータセット**は、教師ありファインチューニング向けに、プロンプトと生成されたコンプリーションを対にします。
+- **選好ペア**は、選好ベースの学習向けに、2 つのコンプリーションを互いにランク付けします。
+
+### 仕組み
+
+1. **データセットを説明する。** `dataset_prompt` と、任意の `domains` および `subdomains` を使って、データセット発明のプロセスを導きます。
+2. **見積もる（任意）。** `estimate=True` でそのリクエストの価格を算出します。何も作成されず、課金もされません。
+3. **生成する。** [`datasets.invent`](/api/python/resources/datasets/methods/invent) を呼び出してデータセットを作成し、生成を開始します。この呼び出しはステータス `running` ですぐに返ります。
+4. **ポーリングしてダウンロードする。** ステータスが `succeeded` になるまで [`datasets.get`](/api/python/resources/datasets/methods/get) をポーリングし、その後[行をダウンロードします](#行をダウンロードする)。
+
+## データセットを生成する
+
+`datasets.invent` を 1 回呼び出すだけで、データセットが作成され、説明文と任意のドメイン選択から行の生成が始まります。以下の例は、[Python SDK をインストールし `ADAPTION_API_KEY` を設定済み](/ja/introduction/getting-started)であることを前提としています。
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    rows=1000,
+    name="Clinical Q&A",
+)
+
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+### データセットを説明する
+
+データセットを発明するには、次のパラメーターのうち**少なくとも 1 つ**を指定します:
+
+| パラメーター     | 説明                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `dataset_prompt` | 生成するデータの説明。省略した場合は、ドメインの選択から説明が生成されます。最大 10,000 文字。                                         |
+| `domains`        | 生成元となるドメインコード。[ドメインとサブドメインを選ぶ](#ドメインとサブドメインを選ぶ)を参照してください。                          |
+| `subdomains`     | 生成を絞り込む、修飾されたサブドメインコード。[ドメインとサブドメインを選ぶ](#ドメインとサブドメインを選ぶ)を参照してください。        |
+
+### リクエストパラメーター
+
+| パラメーター         | 必須     | 説明                                                                                                                                                 |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `rows`               | はい     | 生成する行数。プランごとの 1 回あたりの行数上限に従います。                                                                                           |
+| `name`               | いいえ   | 発明したデータセットの表示名。                                                                                                                       |
+| `training_type`      | いいえ   | `instruction_dataset`（既定）または `preference_pairs`。[出力フォーマットを選ぶ](#出力フォーマットを選ぶ)を参照してください。                        |
+| `language_expansion` | いいえ   | 生成された行のサンプルを翻訳またはローカライズします。[言語とロケールに展開する](#言語とロケールに展開する)を参照してください。                       |
+| `estimate`           | いいえ   | データセットを作成したり開始したりせずに、クレジットの見積もりを返します。既定値は `False`。                                                          |
+| `idempotency_key`    | いいえ   | 再試行を安全にします。同じキーでリクエストを繰り返すと、生成を再度開始する代わりに元のデータセットが返されます。最大 255 文字。                       |
+
+### まずリクエストの価格を確認する
+
+`estimate=True` を設定すると、そのリクエストの価格が算出されます。何も生成されず、課金もされません:
+
+```python
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+    estimate=True,
+)
+
+print(f"Estimated credits: {estimate.estimated_credits}")
+print(f"Available credits: {estimate.available_credits}")
+```
+
+## ドメインとサブドメインを選ぶ
+
+コードをハードコードせず、`datasets.invent` が現在受け付けるコードを取得してください:
+
+```python
+response = client.datasets.invent_domains()
+
+for domain in response.domains:
+    print(domain.code, domain.title)
+    for subdomain in domain.subdomains:
+        print("  ", subdomain.code, subdomain.title)
+```
+
+### ドメインとサブドメインのフィールド
+
+| フィールド   | 説明                                                                                                                                                                 |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`       | `domains` または `subdomains` に送る値。ドメインコードは `medical` のような値で、サブドメインコードは `medical.symptoms_diagnosis` のように修飾された値です。         |
+| `title`      | ドメインまたはサブドメインの人間が読める名前。                                                                                                                       |
+| `subdomains` | ドメイン内で利用できるサブドメイン。空のリストは、そのドメインにサブドメインがないことを意味します。                                                                  |
+
+### サブドメインで絞り込む
+
+サブドメインコードは、`invent_domains` が返したとおりに正確に渡してください。`subdomains` は修飾されたコードのフラットなリストです:
+
+ここでは、医療の部分が選択したサブドメインに絞り込まれています。法務のサブドメインは指定していないため、法務の部分は法務ドメイン全体から生成されます。
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical", "legal"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+)
+```
+
+
+### 複数のドメインを組み合わせる
+
+`domains` に含まれるすべてのコードが、同じ生成の実行に寄与します。下位区分のないドメインについては、そのドメインコードを渡し、サブドメインは省略してください。
+
+## 生成を設定する
+
+出力フォーマットの設定、言語の展開、再試行の安全化を行います。
+
+### 出力フォーマットを選ぶ
+
+`training_type` の既定値は `instruction_dataset` です。採用（chosen）と不採用（rejected）のコンプリーションのペアが必要な場合は、`preference_pairs` を設定します:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    training_type="preference_pairs",
+)
+```
+
+標準的な教師ありファインチューニングには `instruction_dataset` を、DPO のような選好ベースの学習には `preference_pairs` を使用します。同じフォーマットについては、[Adaptive Data を設定する](/ja/adaptive-data/configure-adaptive-data#選好ペアを生成する)でも説明しています。
+
+### 言語とロケールに展開する
+
+`language_expansion` は、[Adaptive Data の言語展開](/ja/adaptive-data/expand-data)と同じ構造を使用します:
+
+- `translate` は、対象言語ごとに新しい行のバリアントを生成します。
+- `localize` は、単なる直訳ではなくロケール固有の言い回しを使って、国と言語のペアごとに新しい行のバリアントを生成します。
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "translate",
+        "sample_rate": 0.25,
+        "languages": ["es", "fr"],
+    },
+)
+```
+
+`sample_rate` は、対象ごとに展開される発明済み行の割合で、`0.01` から `1` の間でなければなりません。クレジットは展開後の出力行数に対して課金されます。
+
+ローカライズでは、国と言語のペアを渡します:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "localize",
+        "sample_rate": 0.25,
+        "pairs": [{"country": "ES", "language": "ca"}],
+    },
+)
+```
+
+未知の言語コードや国／言語コードを指定すると、サポートされるコードの例とともに `400` レスポンスが返ります。
+
+### 再試行を安全にする
+
+ネットワーク障害によってアプリケーションがリクエストを再試行する可能性がある場合は、冪等性キーを指定してください:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    idempotency_key="clinical-qa-2026-09-02",
+)
+```
+
+このキーで同じリクエストを繰り返すと、別の生成実行を開始する代わりに元のデータセットが返されます。
+
+### まとめて実行する
+
+```python
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+## ステータスを確認してダウンロードする
+
+発明したデータセットの ID で `datasets.get` をポーリングし、生成が `succeeded` または `failed` を報告するまで待ちます。
+
+### 生成が終わるまでポーリングする
+
+```python
+import time
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+```
+
+### 行をダウンロードする
+
+完成したデータセットを JSON Lines、JSON、CSV、Parquet のいずれかでダウンロードします:
+
+```python
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+レスポンスとストリーミングのオプション一覧については、[`datasets.download`](/api/python/resources/datasets/methods/download) を参照してください。
+
+### 完全な例
+
+```python
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+
+assert dataset_id is not None
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+生成したデータセットで学習するには、その ID を [`autoscientist.create`](/ja/autoscientist/running-autoscientist) に渡します:
+
+```python
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)
+```

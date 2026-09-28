@@ -1,0 +1,57 @@
+---
+title: 数据增强
+description: 在 AutoScientist 开始训练之前，加入特定领域和通用的数据行。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+[数据增强](/api/python/resources/autoscientist/methods/create)是可选的，但在数据集较小或多样性不足时值得推荐。AutoScientist 可以在开始训练迭代之前加入两类相互独立的数据行：
+
+- **领域数据行**会加入与数据集所属领域相关的样本。已有的数据行会计入推荐的 20,000 条领域数据行目标。
+- **通用数据行**会加入多样化的样本，帮助模型保留更广泛的能力。
+
+<Callout variant="note">
+  这与 [`datasets.augment`](/zh/adaptive-data/expand-data)
+  是同一套精选数据池操作。如果你希望在训练之前先得到一个新数据集，请使用那个辅助方法。
+  如果你希望这些数据行作为训练运行的一部分被应用，请使用 `create` 上的
+  `augmentation_domain_rows` 和 `augmentation_general_rows`。
+</Callout>
+
+## 计算需要新增的行数
+
+下面的请求以至少 20,000 条领域数据行为目标，并额外加入 8,000 条通用数据行：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+print(run.id, run.status)
+```
+
+这样最多会产生 28,000 条训练数据行：现有数据集，加上补足到 20,000 条所需的领域数据行，再加上 8,000 条通用数据行。如果数据集已经包含至少 20,000 行，则 `domain_rows_to_add` 为零。
+
+省略其中某个增强参数即可跳过该类型的新增。AutoScientist 会在训练前为每次请求的扩展定价并确定规模。当前的限制与请求字段请参阅 [`create` API 参考](/api/python/resources/autoscientist/methods/create)。
+
+## 增强偏好数据
+
+对于文本 DPO 运行，请在同一个请求上设置 `training_method="alignment"`。AutoScientist 会生成偏好对形式的新增数据，这些数据会计入至少 12,000 条有效偏好对的下限要求：
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+```

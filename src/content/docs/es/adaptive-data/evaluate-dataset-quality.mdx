@@ -1,0 +1,109 @@
+---
+title: Evaluar la calidad del conjunto de datos
+description: Sondea el estado de la evaluación e inspecciona las métricas de calidad de un conjunto de datos adaptado con el SDK de Python.
+---
+
+Cuando una [ejecución de adaptación](/es/adaptive-data/configure-adaptive-data) termina correctamente, la evaluación compara los datos de origen y los adaptados en las dimensiones de calidad que mide la plataforma. La evaluación se ejecuta según su propio calendario, así que la adaptación puede terminar antes de que los resultados de calidad estén listos.
+
+El SDK de Python expone los resultados de dos formas:
+
+- **[`datasets.get_evaluation(dataset_id)`](/api/python/resources/datasets/methods/get_evaluation)** devuelve el estado de la evaluación y el resultado completo de `quality`.
+- **[`datasets.get(dataset_id)`](/api/python/resources/datasets/methods/get)** devuelve el registro del conjunto de datos y su `evaluation_summary` compacto.
+
+## Obtener los resultados de la evaluación
+
+Llama a `get_evaluation` con el mismo `dataset_id` que usaste para la ejecución de adaptación:
+
+```python
+evaluation = client.datasets.get_evaluation(dataset_id)
+
+print(evaluation.status)
+if evaluation.quality:
+    print(f"Score before: {evaluation.quality.score_before}")
+    print(f"Score after:  {evaluation.quality.score_after}")
+    print(f"Improvement:  {evaluation.quality.improvement_percent}%")
+```
+
+Cuando la evaluación termina correctamente, `quality` puede incluir puntuaciones de antes y después en una escala de 0 a 10, calificaciones con letra, el porcentaje de mejora y un percentil posterior a la adaptación. Mientras el estado sea `pending` o `running`, `quality` puede no estar presente.
+
+## Sondear hasta que termine la evaluación
+
+Sondea el estado de la evaluación con un plazo límite para que un notebook o un trabajo de CI no espere indefinidamente:
+
+```python
+import time
+
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped")
+elif evaluation.quality:
+    print(evaluation.quality.model_dump(exclude_none=True))
+```
+
+Los clientes asíncronos devuelven la misma forma de respuesta con `await client.datasets.get_evaluation(dataset_id)`.
+
+## Leer el resumen desde el conjunto de datos
+
+Si tu aplicación ya [obtiene el conjunto de datos](/api/python/resources/datasets/methods/get), usa `evaluation_summary` para las métricas principales sin una solicitud de evaluación aparte:
+
+```python
+dataset = client.datasets.get(dataset_id)
+
+if dataset.evaluation_summary:
+    summary = dataset.evaluation_summary
+    print(f"Score after: {summary.score_after}")
+    print(f"Improvement: {summary.improvement_percent}%")
+```
+
+[`datasets.get_status`](/api/python/resources/datasets/methods/get_status) informa del progreso de la incorporación y la adaptación; no incluye resultados de evaluación.
+
+## Ejemplo completo
+
+Este script lee del entorno el ID de conjunto de datos de una adaptación completada, espera a la evaluación e imprime tanto el resultado detallado como el resumen compacto:
+
+```python
+import os
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    print(f"Evaluation status: {evaluation.status}")
+
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped for this dataset")
+elif not evaluation.quality:
+    raise RuntimeError("Evaluation succeeded without quality metrics")
+else:
+    print(evaluation.quality.model_dump(exclude_none=True))
+
+dataset = client.datasets.get(dataset_id)
+if dataset.evaluation_summary:
+    print(dataset.evaluation_summary.model_dump(exclude_none=True))
+```
+
+Usa `get_evaluation` cuando necesites el estado explícito de la canalización o los detalles completos de calidad. Usa `evaluation_summary` cuando baste con un resultado compacto en el registro del conjunto de datos. Para iterar sobre la calidad de forma económica, [limita las filas y estima la ejecución](/es/adaptive-data/configure-adaptive-data#limitar-filas-y-estimar-una-ejecución) antes de escalarla.

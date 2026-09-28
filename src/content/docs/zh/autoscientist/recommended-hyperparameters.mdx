@@ -1,0 +1,112 @@
+---
+title: 超参数
+description: 了解 AutoScientist 自动选择并不断迭代的训练配方。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+AutoScientist 会在训练之前[提出一份完整的训练配方](/api/python/resources/autoscientist/methods/recommend_hyperparams)，然后在多次迭代中评估并调整这份配方。**对于大多数运行，请保持推荐值不变。** AutoScientist 经过优化，会把这些取值作为一个整体来选择，并根据实测结果加以改进。
+
+<Callout variant="warning">
+  不建议单独修改个别超参数。覆盖某个取值可能会阻止 AutoScientist
+  探索它原本会选择的配置，并可能降低训练质量。
+  只有在你有特定的实验需求或基础设施约束时，才去覆盖某个取值。
+</Callout>
+
+## 超参数参考
+
+`training_method` 是 `create` 的顶层参数（取值为 `instruction` 或 `alignment`）。下面其余的字段都是 `hyperparams` 内部的键。
+
+### 通用训练参数
+
+这些超参数同时适用于 SFT 和 DPO 运行。
+
+| 超参数                   | 定义                                                                                                                           | 有效取值                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `learning_rate`          | 优化器的峰值学习率。控制权重更新时的步长。                                                                                     | `[1e-6, 5e-4]` 区间内的浮点数                                         |
+| `n_epochs`               | 训练在数据集上完整遍历的次数。                                                                                                 | 整数，`1`–`5`                                                         |
+| `batch_size`             | 每个训练步的样本数。在 SFT 中必须为 `"max"`。在 DPO 中可以是 2 的幂的整数或 `"max"`。                                          | `"max"` 或 ≥ 1 的 2 的幂整数                                         |
+| `lr_scheduler_type`      | 学习率在训练过程中的变化方式。线性调度会稳定衰减；余弦调度会在接近结束时放缓衰减。                                             | `"linear"` \| `"cosine"`                                              |
+| `min_lr_ratio`           | 学习率下限相对峰值的比例。学习率不会衰减到低于 `learning_rate × min_lr_ratio`。                                                | 浮点数，`0.0`–`1.0`                                                   |
+| `scheduler_num_cycles`   | 训练过程中余弦衰减周期的数量或比例。只对余弦调度生效。                                                                         | 大于 `0.0` 的浮点数（默认 `0.5`）                                     |
+| `warmup_ratio`           | 用于把学习率从零逐步提升到目标值的训练步数占总步数的比例。让进入目标学习率的过程更平滑。                                       | 浮点数，`0.0`–`1.0`（通常为 `0.03`–`0.1`）                            |
+| `max_grad_norm`          | 梯度裁剪的最大梯度范数。限制梯度幅度，以减少梯度爆炸和不稳定的更新。设为 `0.0` 可禁用。                                        | ≥ `0.0` 的浮点数                                                      |
+| `weight_decay`           | L2 正则化惩罚项。抑制过大的权重，有助于防止过拟合并提升对未见数据的泛化能力。                                                  | ≥ `0.0` 的浮点数                                                      |
+| `training_type`          | 训练策略。`"lora"` 会插入低秩适配器；`"full"` 会更新模型的全部权重。全参数微调仅适用于[受支持的模型](/zh/autoscientist/supported-models)。 | `"lora"` \| `"full"`                                                  |
+
+### LoRA
+
+这些超参数用于配置低秩适配（Low-Rank Adaptation），仅当 `training_type` 为 `"lora"` 时适用。在对齐（SFT → DPO）流水线中，LoRA 设置会沿用胜出的 SFT 迭代并被冻结，在 DPO 阶段无法更改。
+
+| 超参数                   | 定义                                                                                                                           | 有效取值                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `lora_r`                 | LoRA 适配器矩阵的秩。控制适配器容量——更高的秩可以表示更复杂的适配，但需要更多显存和算力。                                      | 2 的幂整数，`1`–`64`                                                  |
+| `lora_alpha`             | LoRA 适配器对基础模型贡献的缩放系数。必须是 `lora_r` 的 `1×` 或 `2×`。                                                         | 2 的幂整数（`lora_r` 的 `1×` 或 `2×`）                                |
+| `lora_dropout`           | 训练期间应用于 LoRA 层的 dropout 概率。引入正则化以减少过拟合。                                                                | 浮点数，`0.0`–`1.0`（通常为 `0.0`–`0.1`）                             |
+| `lora_trainable_modules` | 哪些模型层会接入 LoRA 适配器。`"all-linear"` 会作用于每一个线性层；也可以指定以逗号分隔的模块名列表。                          | `"all-linear"` 或逗号分隔的列表（例如 `"q_proj,v_proj,o_proj"`）      |
+
+### SFT 专用
+
+| 超参数            | 定义                                                                                                                | 有效取值           |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `train_on_inputs` | 训练损失是否除了补全 token 之外也在提示词 token 上计算。设为 `false` 会遮蔽提示词，使模型只学习生成补全。           | `true` \| `false`  |
+
+### 对齐训练专用
+
+这些超参数仅适用于基于偏好的（DPO）训练。在 SFT 运行中它们不起作用。
+
+| 超参数                              | 定义                                                                                                                                                                                     | 有效取值                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| `dpo_beta`                          | 控制模型允许偏离参考模型的程度。较低的取值（约 `0.1`）会更激进地朝偏好输出更新；较高的取值（约 `0.7`）则更贴近参考模型。                                                                 | 浮点数，`0.05`–`0.9`                |
+| `dpo_normalize_logratios_by_length` | 在计算损失时按样本长度对对数比值做归一化。当 `simpo_gamma` 大于 `0` 时会自动设为 `true`。改变这个开关会改变 `dpo_beta` 的实际量级；请把它的改动视为重大干预。                             | `true` \| `false`                   |
+| `rpo_alpha`                         | 在标准 DPO 损失之上，对偏好回答附加的负对数似然（NLL）辅助损失的权重（正则化偏好优化）。用于对抗似然位移——即奖励间隔增大、但被选回答的概率反而下降的失效模式。设为 `0.0` 可禁用。**不能与 `simpo_gamma` 同时使用。** | ≥ `0.0` 的浮点数（典型值 `0.1`–`1.0`） |
+| `simpo_gamma`                       | 来自 Simple Preference Optimization 的目标奖励间隔。大于 `0.0` 时，训练目标变为无需参考模型且按长度归一化：被选回答必须以至少该间隔胜过被拒回答。由于 SimPO 通常需要明显更大的 beta，请同时提高 `dpo_beta`。设为 `0.0` 可禁用。**不能与 `rpo_alpha` 同时使用。** | ≥ `0.0` 的浮点数（典型值 `0.3`–`1.6`） |
+
+## 在应用中审阅
+
+系统提出的字段都可以编辑，但默认的工作流是审阅并接受它们：
+
+1. 审阅模型、算法以及生成的配方。
+2. 除非有已知约束必须覆盖，否则请保留推荐值。
+3. 在确认之前检查最终的 **AutoScientist Config** JSON。
+4. 让 AutoScientist 在多次迭代中评估并优化该配方。
+5. 训练结束后，按照[解读结果](/zh/autoscientist/interpreting-results)中的说明对比胜率与诊断指标。
+
+## 进阶：通过 API 覆盖参数
+
+API 覆盖是一个面向受控实验或硬性要求的高级手段。SDK 通过顶层的 `training_method` 接收训练目标，通过顶层的 `model` 接收基础模型，通过 `hyperparams` 接收对配方的覆盖项。`training_type` 是 `hyperparams` 内部的字段，而不是顶层参数。
+
+如果确实需要覆盖，请避免使用不受支持的键名：从当前应用配置中复制一个有效的 `hyperparams` 对象，或按当前的 [`create` API 结构](/api/python/resources/autoscientist/methods/create)构造一个，把它保存为 `hyperparams.json`，然后原样传入：
+
+```python
+import json
+from pathlib import Path
+
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+hyperparams = json.loads(Path("hyperparams.json").read_text())
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    hyperparams={
+        **hyperparams,
+        "training_type": "lora",
+        "dpo_beta": 0.1,
+    },
+)
+print(run.id, run.status)
+```
+
+未设置的超参数键仍由平台控制。若要强制使用某个特定模型，请查看[支持的模型](/zh/autoscientist/supported-models)，列出当前可用的 ID，并通过 `model` 传入其中一个：
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+```
+
+建议不要设置 `model` 和 `hyperparams`，让 AutoScientist 自动选择并迭代它们。完整的请求与状态工作流请参阅[运行 AutoScientist](/zh/autoscientist/running-autoscientist)。

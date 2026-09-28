@@ -1,0 +1,32 @@
+---
+title: Visão geral
+description: Entenda o que o Adaptive Data produz e como os dados percorrem a importação, a adaptação e a avaliação.
+---
+
+O Adaptive Data analisa a estrutura dos seus dados de origem e depois os adapta e otimiza, transformando-os em um conjunto de dados pronto para modelos de treinamento de IA.
+
+## O que você pode construir
+
+- **Conjuntos de dados de instrução** — prompts associados às completions esperadas para ajuste fino supervisionado
+- **Pares de preferência** — duas completions comparadas para indicar qual é melhor, para treinamento baseado em preferência
+
+## Como funciona
+
+O Adaptive Data percorre seis estágios:
+
+1. **[Importar](/pt/adaptive-data/create-a-dataset)** — traga dados de um arquivo local, do Hugging Face ou do Kaggle.
+2. **[Mapear colunas](/pt/adaptive-data/select-columns)** — identifique dados de prompt, completion, contexto, imagem ou chat.
+3. **[Aplicar receitas](/pt/adaptive-data/configure-adaptive-data#aplicar-receitas)** — opcionalmente remova prompts duplicados ou reescreva-os e gere rastros de raciocínio.
+4. **[Expandir](/pt/adaptive-data/expand-data)** — opcionalmente aumente, traduza ou localize linhas em um novo conjunto de dados.
+5. **[Definir controles de marca](/pt/adaptive-data/configure-adaptive-data#configurar-controles-de-marca)** — opcionalmente controle extensão, segurança, embasamento, tom e outras instruções do Blueprint.
+6. **[Executar](/api/python/resources/datasets/methods/run) e [avaliar](/pt/adaptive-data/evaluate-dataset-quality)** — inicie a adaptação e depois compare os sinais de qualidade dos dados de origem e dos dados adaptados.
+
+Depois de concluir várias execuções, você pode [combinar os conjuntos de dados resultantes](/pt/adaptive-data/combine-datasets) em um novo conjunto de dados de treinamento.
+
+## Entradas compatíveis
+
+- **Formatos de arquivo**: CSV, JSON, JSONL, Parquet, PDF, DOCX, PPTX, XLSX, HTML, ZIP e TXT
+- **Hugging Face**: aponte para a URL de um conjunto de dados
+- **Kaggle**: aponte para a URL da página de um conjunto de dados
+
+Comece pelo [início rápido do Adaptive Data](/pt/adaptive-data-quickstart) ou consulte a [referência completa da API](/api/python).

@@ -1,0 +1,72 @@
+---
+title: دمج مجموعات البيانات
+description: تحقّق من عدّة مجموعات بيانات Adaptive Data وادمجها في مجموعة بيانات جديدة واحدة باستخدام حزمة Python SDK.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+ادمج مجموعات البيانات عندما تكون أمثلة التدريب المترابطة موزّعة على عدّة نتائج من Adaptive Data. ينشئ الدمج مجموعة بيانات جديدة ويترك كل مجموعة بيانات مصدر دون تغيير.
+
+يجب أن ينتمي كل مصدر إلى مؤسّستك وأن يكون قد أكمل تشغيلة Adaptive Data. تفترض الأمثلة أنّك [أعددت حزمة Python SDK](/ar/introduction/getting-started).
+
+## التحقّق من مجموعات البيانات المصدر
+
+تحقّق من مجموعات البيانات قبل دمجها. يفحص التحقّق التوافق دون كتابة أي بيانات:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_ids = [
+    "dataset_abc123",
+    "dataset_def456",
+]
+
+validation = client.datasets.combine.validate(dataset_ids=dataset_ids)
+
+for issue in validation.issues:
+    print(issue.level, issue.code, issue.message)
+
+if not validation.compatible:
+    raise ValueError("The datasets cannot be combined")
+
+print(validation.training_type, validation.total_estimated_rows)
+```
+
+لكل مشكلة تحقّق حقل `level` ورمز `code` ثابت ورسالة `message` موجّهة للمستخدم:
+
+- **الأخطاء** تمنع الدمج. فمثلًا قد لا يكون أحد المصادر جاهزًا، أو قد ينتمي إلى مؤسّسة أخرى، أو قد يمزج بيانات نصّية وبيانات متعدّدة الوسائط.
+- **التحذيرات** تصف تغييرات يمكن لعملية الدمج إجراؤها تلقائيًا. إذ يمكنها تحويل أنواع الأعمدة غير المتطابقة إلى نوع مشترك أو تسوية أنواع التدريب المختلطة إلى مجموعة بيانات تعليمات.
+
+راجع [مرجع `combine.validate`](/api/python/resources/datasets/subresources/combine/methods/validate) للاطّلاع على جميع حقول التحقّق ورموز المشكلات.
+
+## دمج مجموعات البيانات
+
+مرّر معرّفات المصادر نفسها إلى `combine.create` وأعطِ مجموعة البيانات الناتجة اسمًا:
+
+```python
+from uuid import uuid4
+
+idempotency_key = str(uuid4())
+
+combined = client.datasets.combine.create(
+    dataset_ids=dataset_ids,
+    name="Combined support data",
+    idempotency_key=idempotency_key,
+)
+
+print(combined.dataset_id)
+```
+
+يُنفَّذ الطلب بشكل متزامن ويُعيد `dataset_id` الجديد بعد انتهاء الدمج. ولا يوجد مسار عام لاستطلاع مهمّة الدمج.
+
+<Callout variant="note">
+  حافظ على قيمة `idempotency_key` نفسها إذا أعدت إرسال الطلب. فإعادة المحاولة
+  بذلك المفتاح تُعيد مجموعة البيانات التي أنشأها الطلب الأول بدلًا من بدء دمج
+  آخر. المفتاح اختياري، لكن تزويده مفيد إذا فقد طلب طويل الأمد اتّصاله.
+</Callout>
+
+تحتفظ مجموعات البيانات ذات نوع التدريب نفسه بذلك النوع. ودمج مجموعة بيانات تعليمات مع مجموعة بيانات تفضيل يُنتج مجموعة بيانات تعليمات. أمّا التسويات الأخرى من مستوى التحذير فيُبلِغ عنها التحقّق قبل أن تبدأ الدمج.
+
+راجع [مرجع `combine.create`](/api/python/resources/datasets/subresources/combine/methods/create) للاطّلاع على متطلّبات الطلب الحالية وحقول الاستجابة.

@@ -1,0 +1,172 @@
+---
+title: Início rápido do AutoScientist
+description: Crie um conjunto de dados pronto para treinamento, execute o AutoScientist e baixe o melhor checkpoint do modelo.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **Experimente no Google Colab**
+
+Siga o [notebook do Colab da API do AutoScientist](https://colab.research.google.com/drive/16Zly8_sDqQSP86MvdgTJ1I1T6Vjq6bkJ?usp=sharing) para um passo a passo interativo.
+
+</Callout>
+
+Este guia exige `adaption >= 0.7.0`. Ele usa o [processamento bruto](/pt/autoscientist/run-on-non-adapted-data) para um exemplo curto e independente. Para obter os melhores resultados, primeiro melhore seu conjunto de dados com o [Adaptive Data](/pt/adaptive-data-quickstart) e, em seguida, passe o ID desse conjunto de dados adaptado ao AutoScientist. Consulte a [visão geral do AutoScientist](/pt/autoscientist/overview) para entender como o ciclo de pesquisa funciona e como interpretar seus resultados.
+
+## Instalar o SDK
+
+```shell
+pip install "adaption>=0.7.0"
+```
+
+## Criar uma chave de API
+
+<Steps>
+  <Step>[Entre](https://adaptionlabs.ai/app/auth) na Adaption.</Step>
+  <Step>
+    Abra [**Settings**](https://adaptionlabs.ai/app/settings) e, em seguida, [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    Crie a chave e copie-a. Não será possível visualizá-la novamente.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  Armazene as chaves de API em variáveis de ambiente ou em um gerenciador de
+  segredos. Não as versione no controle de código.
+</Callout>
+
+## Usar a chave em Python
+
+Para testes locais, você pode passar a chave diretamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+Para aplicações e CI, defina `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+O SDK lê a variável de ambiente automaticamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## Criar um conjunto de dados pronto para treinamento
+
+A [criação de conjunto de dados bruto](/pt/autoscientist/run-on-non-adapted-data) só é apropriada quando um arquivo local já contém colunas de prompt e completion. Este exemplo usa `training_data.csv` com as colunas `instruction` e `response`:
+
+```python
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+O envio é processado de forma assíncrona após ser concluído. Consulte o [status do conjunto de dados](/api/python/resources/datasets/methods/get_status) até que a contagem de linhas esteja disponível antes de usar o conjunto de dados:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## Aumentar o conjunto de dados com linhas adicionais
+
+O [aumento de dados](/pt/autoscientist/data-augmentation) é opcional, mas fortemente recomendado. Muitos dos nossos modelos exigem um tamanho mínimo de conjunto de dados para garantir um desempenho razoável. Consulte os [modelos compatíveis](/pt/autoscientist/supported-models) para requisitos específicos.
+
+Este exemplo tem como meta pelo menos 20.000 linhas de domínio e, em seguida, adiciona linhas de uso geral suficientes para que elas representem 40% do conjunto de dados aumentado.
+
+<Callout variant="note">
+  **Por que adicionar linhas de uso geral?** Fazer ajuste fino apenas com dados
+  específicos do domínio pode causar **esquecimento catastrófico**; o modelo
+  perde capacidades gerais que aprendeu durante o pré-treinamento. Misturar
+  dados de uso geral preserva esses pontos fortes existentes enquanto o modelo
+  aprende seu domínio, resultando em um ajuste fino mais robusto e equilibrado.
+</Callout>
+
+```python
+import math
+
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+total_domain_rows = (dataset.row_count or 0) + domain_rows_to_add
+
+target_general_ratio = 0.4
+general_rows_to_add = math.ceil(
+    target_general_ratio
+    * total_domain_rows
+    / (1 - target_general_ratio)
+)
+
+print(f"Domain rows to add: {domain_rows_to_add}")
+print(f"General rows to add: {general_rows_to_add}")
+```
+
+## Executar o AutoScientist
+
+Crie uma [execução do AutoScientist](/api/python/resources/autoscientist/methods/create) a partir do conjunto de dados preparado:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=general_rows_to_add,
+)
+print(run.id, run.status)  # "pending"
+```
+
+Para especificar um modelo para sua execução, passe o parâmetro `model` para `client.autoscientist.create()`. Se ele for omitido, o AutoScientist seleciona automaticamente o melhor modelo para seu conjunto de dados. Para detalhes completos sobre limites de contexto, tipos de treinamento (LoRA vs. completo) e capacidades multimodais, consulte a documentação de [modelos compatíveis](/pt/autoscientist/supported-models).
+
+## Aguardar a conclusão da execução
+
+Aguarde a execução e, em seguida, inspecione seu [status e seus resultados](/api/python/resources/autoscientist/methods/get):
+
+```python
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status != "succeeded":
+    raise RuntimeError(f"{run.status}: {run.error}")
+
+print(f"Best win rate: {run.best_win_rate}")
+```
+
+## Baixar o modelo
+
+`download_available` confirma que o AutoScientist produziu um checkpoint. O [endpoint de download](/api/python/resources/autoscientist/methods/download) transmite o arquivo compactado sem carregá-lo na memória:
+
+```python
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+O arquivo contém o checkpoint da melhor iteração, que não é necessariamente a última. Consulte a [referência de `create`](/api/python/resources/autoscientist/methods/create) para ver todos os parâmetros de execução e a [referência de `get`](/api/python/resources/autoscientist/methods/get) para os campos de resposta.

@@ -1,0 +1,98 @@
+---
+title: 创建数据集
+description: 使用 Python SDK 上传本地文件，或从 Hugging Face、Kaggle 导入数据集。
+---
+
+import { Accordion, Callout } from "@stainless-api/docs/components";
+
+无需编写转换脚本，即可从本地文件、Hugging Face 或 Kaggle 导入数据。每种方式都会返回一个 `dataset_id`，供你传给 [`datasets.run`](/api/python/resources/datasets/methods/run)。
+
+以下示例假定你已经[安装 Python SDK 并设置了 `ADAPTION_API_KEY`](/zh/introduction/getting-started)：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>1. 上传本地文件</Accordion.Summary>
+
+    该 SDK 辅助方法会创建数据集、上传文件并确认上传完成。
+
+    支持的扩展名：**`.csv`**、**`.json`**、**`.jsonl`** 和 **`.parquet`**。
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>2. 从 Hugging Face 导入</Accordion.Summary>
+
+    指向一个 Hugging Face 数据集 URL 以及要导入的文件。
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+            "files": [
+                "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+            ],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>3. 从 Kaggle 导入</Accordion.Summary>
+
+    使用 Kaggle 数据集页面的 URL 以及要拉取的文件。
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    **Kaggle 凭据**必须先在 Adaption 中注册：打开 **[API keys 设置](https://adaptionlabs.ai/app/settings?tab=api_keys)**（如有提示请先登录），在导入之前把你的 Kaggle API 凭据添加到那里。
+
+  </Accordion>
+</Accordion.Group>
+
+<Callout variant="note">
+  目前只有本地文件上传支持原始（直通）处理模式。
+  不要把 `processing_mode="raw"` 与 Hugging Face 或 Kaggle URL 一起使用。
+  本地文件的示例请参阅[在未适配的数据上运行](/zh/autoscientist/run-on-non-adapted-data)。
+</Callout>
+
+## 等待导入完成
+
+导入是异步执行的。在启动适配运行之前，请轮询[数据集状态](/api/python/resources/datasets/methods/get_status)，直到数据摄取已填充数据集：
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        error = status.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset import failed: {message}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+接下来，请[映射导入的列](/zh/adaptive-data/select-columns)，然后[配置适配运行](/zh/adaptive-data/configure-adaptive-data)。接口细节请参阅 [`create`](/api/python/resources/datasets/methods/create) 与 [`get_status`](/api/python/resources/datasets/methods/get_status) 参考。对于本地文件，`datasets.upload_file` 辅助方法会一并处理创建、上传和完成确认这几个步骤。

@@ -1,0 +1,66 @@
+---
+title: البداية
+description: ثبّت حزمة Adaption Python SDK وصادِق باستخدام مفتاح واجهة برمجة التطبيقات.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+‏Adaption يتيح للفرق اليومية تقنيات تحسين البيانات وتدريب النماذج التي عادةً ما تقتصر على المختبرات الرائدة.
+
+- ‏**[Adaptive Data](/ar/adaptive-data/overview)** يحلّل بيانات التدريب ويحسّنها لتتمكّن من تصدير مجموعة بيانات جاهزة للنموذج.
+- ‏**[AutoScientist](/ar/autoscientist/overview)** يؤتمت حلقة البحث الكامنة وراء تدريب النماذج ومواءمتها لإنتاج نموذج مكيّف مع هدفك.
+
+كلا المنتجين متاح عبر واجهة برمجة تطبيقات Adaption وحزمة Python SDK.
+
+## تثبيت حزمة SDK
+
+```shell
+pip install adaption
+```
+
+## إنشاء مفتاح واجهة برمجة التطبيقات
+
+<Steps>
+  <Step>[سجّل الدخول](https://adaptionlabs.ai/app/auth) إلى Adaption.</Step>
+  <Step>
+    افتح [**Settings**](https://adaptionlabs.ai/app/settings)، ثم افتح [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    أنشئ مفتاحًا وانسخه. لن تتمكّن من عرض المفتاح مرّة أخرى.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  احفظ مفاتيح واجهة برمجة التطبيقات في متغيّرات البيئة أو في مدير أسرار. لا
+  تُضِفها إلى نظام إدارة الشيفرة.
+</Callout>
+
+## استخدام المفتاح في Python
+
+للاختبار المحلّي، يمكنك تمرير المفتاح مباشرةً:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+أمّا في التطبيقات وأنظمة التكامل المستمر، فاضبط `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+تقرأ حزمة SDK متغيّر البيئة تلقائيًا:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## اختيار بداية سريعة
+
+- [البداية السريعة مع Adaptive Data](/ar/adaptive-data-quickstart) — استورد مجموعة بيانات وكيّفها وصدّرها.
+- [البداية السريعة مع AutoScientist](/ar/autoscientist-quickstart) — درّب نموذجًا ونزّله.

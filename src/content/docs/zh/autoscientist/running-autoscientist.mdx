@@ -1,0 +1,125 @@
+---
+title: 运行 AutoScientist
+description: 使用 Python SDK 创建、监控并处理一次 AutoScientist 训练运行。
+---
+
+## 创建运行
+
+SDK 会从环境变量中读取 `ADAPTION_API_KEY`。用准备好的数据集调用 [`autoscientist.create`](/api/python/resources/autoscientist/methods/create)：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)  # pending
+```
+
+| 参数                        | 是否必填 | 说明                                                                                                                                       |
+| --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_id`                | 是       | 适配后的数据集 ID，或一个[原始数据集](/zh/autoscientist/run-on-non-adapted-data)。                                                         |
+| `max_iterations`            | 否       | 取值 1 到 5。                                                                                                                              |
+| `target_win_rate`           | 否       | 大于 0.5 且不超过 1。一旦达到该值即提前结束循环。                                                                                          |
+| `model`                     | 否       | [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models) 返回的 ID。若省略，AutoScientist 会为数据集自动选择模型。 |
+| `training_method`           | 否       | `instruction` 表示 SFT，`alignment` 表示 SFT → DPO 流水线。对于偏好对数据集，请显式传入 `alignment`。                                      |
+| `hyperparams`               | 否       | 对[平台配方](/zh/autoscientist/recommended-hyperparameters)的覆盖项；未设置的键会保留平台默认值。                                          |
+| `augmentation_domain_rows`  | 否       | 训练前加入的[面向特定领域的数据行](/zh/autoscientist/data-augmentation)。                                                                  |
+| `augmentation_general_rows` | 否       | 训练前加入的通用数据行。                                                                                                                   |
+| `idempotency_key`           | 否       | 使用同一个键重复请求会返回已有的运行。                                                                                                     |
+| `column_mapping`            | 否       | 为 SFT 映射 `prompt` 和 `completion`，或为 DPO 映射 `prompt`、`chosen` 和 `rejected`。省略它则由平台自行推断映射。                          |
+
+`column_mapping` 是针对**适配后数据集的结构**进行校验的，而不是上传文件的原始表头。适配过程可能新增 `enhanced_prompt` 之类的列。若映射到不存在的列，会失败并提示 `Selected column '...' for prompt is not in this dataset`。
+
+### 基于偏好对训练
+
+首先，完成一次 [Adaptive Data 偏好对运行](/zh/adaptive-data/configure-adaptive-data#生成偏好对)。偏好对数据集本身并不会自动选择对齐训练，因此请显式设置 `training_method`：
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+)
+print(run.id, run.training_method)  # alignment
+```
+
+标准的 Adaptive Data 输出可以在不提供 `column_mapping` 的情况下被推断出来。如果适配后的结构暴露的是各自独立的自定义列，则需要映射全部三个角色：
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    column_mapping={
+        "prompt": "question",
+        "chosen": "preferred_answer",
+        "rejected": "other_answer",
+    },
+)
+```
+
+DPO 至少需要 **12,000 条有效偏好对**，其中包含所请求的数据增强。SFT 至少需要 1,000 条有效数据行。选择 `alignment` 并不会转换数据集的类型：除非数据集是以 `preference_pairs` 形式准备的，否则 API 会把该次运行解析为 `instruction`。请读取 `run.training_method` 以确认最终解析出的训练目标。
+
+AutoScientist 把对齐训练呈现为一次运行，但会在 DPO 阶段之前先训练一个 SFT 适配器。公开的运行 ID 以及解析出的 `training_method="alignment"` 在两个阶段中保持不变。在阶段交接过程中，运行仍为 `running`，指标可能暂时不可用，`download_available` 为 false。在这段短暂的交接期内提交取消请求可能返回 `409`；请等某次迭代进入活动状态后重试。
+
+## 等待运行完成
+
+[运行状态](/api/python/resources/autoscientist/methods/get)取值为 `pending`、`running`、`succeeded`、`failed` 或 `cancelled`。
+
+```python
+from adaption import TrainingTimeout
+
+try:
+    run = client.autoscientist.wait_for_completion(run.id)
+except TrainingTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.iterations_completed, run.max_iterations, run.best_win_rate)
+```
+
+`wait_for_completion` 的退避间隔从 10 秒增长到 60 秒，默认超时为四小时。超时只会停止等待，并不会停止训练。用同一个运行 ID 再次调用即可恢复跟踪。
+
+如果你想自己控制轮询节奏：
+
+```python
+import time
+
+while True:
+    run = client.autoscientist.get(run.id)
+    print(run.status, run.iterations_completed, run.best_win_rate)
+
+    if run.status == "succeeded":
+        break
+    if run.status == "failed":
+        raise RuntimeError(f"failed: {run.error}")
+    if run.status == "cancelled":
+        raise RuntimeError("Run was cancelled")
+
+    time.sleep(30)
+```
+
+成功的运行要么达到了 `target_win_rate`，要么用完了最后一次迭代。请[把 `best_win_rate` 与目标值对比](/zh/autoscientist/interpreting-results)，以判断属于哪种情况。要中止正在进行的运行，请使用 [`client.autoscientist.cancel(run.id)`](/api/python/resources/autoscientist/methods/cancel)。
+
+## 限制模型规模
+
+在应用中，**Tiny AutoScientist** 会把可选范围限制在参数量小于 100 亿的模型。使用 SDK 时，请查看[支持的模型](/zh/autoscientist/supported-models)，列出当前可用的模型，并显式传入一个符合条件的 ID：
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+
+model_id = input("Eligible model ID: ").strip()
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model=model_id,
+)
+```
+
+模型的可用性与元数据可能会变化。请用 [`autoscientist.list_models`](/api/python/resources/autoscientist/methods/list_models) 确认当前取值，而不要从模型 ID 推断其规模。

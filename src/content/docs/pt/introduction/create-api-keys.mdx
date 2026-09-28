@@ -1,0 +1,52 @@
+---
+title: Criar chaves de API
+description: Crie e use chaves de API da Adaption para acesso programático seguro ao Adaptive Data a partir de aplicações, CI e notebooks.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+As chaves de API autenticam o **acesso programático** ao Adaptive Data — os mesmos recursos da plataforma que você usa no aplicativo, invocados a partir do seu código, da sua automação ou dos seus notebooks. Trate-as como credenciais para integrações em produção, não como tokens compartilháveis.
+
+<Callout variant="note">
+  Guarde as chaves em um gerenciador de segredos ou em variáveis de ambiente. Não as versione no controle de código.
+</Callout>
+
+## Criar uma chave no aplicativo
+
+<Steps>
+  <Step>[Entre](https://adaptionlabs.ai/app/auth) na Adaption.</Step>
+  <Step>
+    Abra [**Settings**](https://adaptionlabs.ai/app/settings) e a seção [**API keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    Crie a chave, copie-a de imediato e guarde-a em segurança. Não será possível visualizá-la novamente.
+  </Step>
+</Steps>
+
+## Usar a chave em Python
+
+Passe a chave explicitamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+Ou defina **`ADAPTION_API_KEY`** e construa o cliente sem argumentos:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+```python
+from adaption import Adaption
+
+client = Adaption()  # reads ADAPTION_API_KEY
+```
+
+O mesmo padrão vale para **`AsyncAdaption`** em código assíncrono.
+
+## Próximo passo
+
+Siga para **[Primeiros passos](/pt/introduction/getting-started)** para instalar o SDK e executar seu primeiro fluxo de **importação → adaptação → download**.

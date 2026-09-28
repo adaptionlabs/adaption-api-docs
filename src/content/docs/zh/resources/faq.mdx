@@ -1,0 +1,75 @@
+---
+title: 常见问题
+description: 关于 Adaptive Data、Adaption API 和 Python SDK 的常见问题。
+---
+
+## 什么是 Blueprint？
+
+[Blueprint](https://www.adaptionlabs.ai/blog/blueprint) 是 Adaption 为 Adaptive Data 提供的**规格层**：你定义目标——长度、安全性、自定义策略——平台会引导适配后的数据朝这些目标靠拢，使各项要求变得**明确且持久**，而不是一次性的提示词微调。
+
+在 SDK 中，`datasets.run` 上的 **`brand_controls.blueprint`** 字段就是该层的自由文本入口：它是一段注入到每个生成补全中的系统提示，用于设定语气、人设、语言，或任何无法用结构化的长度/安全性/事实依据字段表达的准则。参见[配置 Adaptive Data](/zh/adaptive-data/configure-adaptive-data)。
+
+## 如何进行身份验证？
+
+在 [Adaption 应用](https://adaptionlabs.ai/app/auth)中创建一个 API 密钥，然后把它传给 `Adaption(api_key=...)`，或者设置 **`ADAPTION_API_KEY`**。参见[创建 API 密钥](/zh/introduction/create-api-keys)。
+
+## 有哪些创建数据集的方式？
+
+三条数据摄取路径都从 [`datasets.create(source=...)`](/api/python/resources/datasets/methods/create) 开始：
+
+1. **本地文件** —— 传入文件名和格式，用 PUT 把字节上传到 `upload_instructions.url`，然后调用 `datasets.upload.complete_by_id(...)`。支持的格式包括表格数据、文档、电子表格、幻灯片、HTML、ZIP 和纯文本。
+2. **Hugging Face** —— 传入完整的数据集 URL 和选定的文件；服务端导入是异步的——请等待完成后再进行适配。
+3. **Kaggle** —— 传入完整的数据集 URL 和选定的文件；并在 [API keys 设置](https://adaptionlabs.ai/app/settings?tab=api_keys)中添加 Kaggle 凭据。
+
+详情请参阅[快速上手](/zh/introduction/getting-started)。
+
+## 什么时候该用文件上传、Hugging Face 还是 Kaggle？
+
+- 当文件已经在本地，或从其他系统导出时，使用**上传**。
+- 当权威数据集托管在 Hugging Face，并且你希望直接获取特定文件而无需手动下载时，使用 **Hugging Face**。
+- 当数据的事实来源是 Kaggle 数据集，并且已在 [API keys 设置](https://adaptionlabs.ai/app/settings?tab=api_keys)中注册凭据时，使用 **Kaggle**。
+
+## 可以用 PDF 和其他非结构化文档作为输入吗？
+
+可以。Adaptive Data 接受原始的文档类输入——PDF、OCR 扫描件、电子表格、幻灯片、邮件往来等类似格式——并支持任意一条摄取路径（本地上传、Hugging Face 或 Kaggle）。当收到文档类数据时，应用会识别出它是非结构化的，并引导你完成一个简短的流程，把它转换成数据集，无需自建预处理流水线。该能力由 Adaptive Data 的 **Forge** 功能提供。参见[处理非结构化文档](/zh/tutorials/processing-unstructured-documents)。
+
+## 结构化数据和非结构化数据有什么区别？
+
+这种区分与你把数据带入 Adaption 的方式无关。**结构化数据**——CSV、JSON、JSONL、Parquet，或以这些格式存放的 Hugging Face / Kaggle 数据集——会原样通过摄取流程，你可以直接映射列。**非结构化数据**——PDF、扫描件、幻灯片、版式复杂的电子表格以及类似的文档类文件——会触发一个额外流程，先提取内容，再让你在映射列之前选择如何把内容拆分成数据行。这两类数据都可以通过本地上传、Hugging Face 或 Kaggle 进入平台。参见[处理非结构化文档](/zh/tutorials/processing-unstructured-documents)。
+
+## 什么是列映射？
+
+`column_mapping` 告诉 Adaptive Data 哪些列存放**提示词**、可选的**补全**、**对话**或**上下文**。真实运行必须提供 `prompt`。示例请参阅[快速上手](/zh/introduction/getting-started)。
+
+## 额度和估算是怎么运作的？
+
+调用 `datasets.run(..., estimate=True)` 可以校验请求并读取**估算额度**与预计时长，而**不会**启动完整运行——这样你就能为任务做预算并在 CI 中设置门槛。实际用量仍可能随数据量和所选选项而变化。
+
+## 如何等待数据集或运行完成？
+
+使用 `datasets.wait_for_completion(dataset_id, timeout=...)`（采用指数退避），或者为长时间任务处理 `DatasetTimeout`。你也可以手动轮询 `get_status` / `get`。
+
+## 什么是幻觉缓解？
+
+设置 `brand_controls={"hallucination_mitigation": True}` 后，平台会应用**事实依据检索**（在适用时包括网络搜索）以减少编造内容。参见[配置 Adaptive Data](/zh/adaptive-data/configure-adaptive-data)。
+
+## 什么是推理轨迹？
+
+`recipe_specification={"recipes": {"reasoning_traces": True}}` 会请求在适配后的补全中包含显式推理过程——这对审计和某些训练场景很有用。参见[配置 Adaptive Data](/zh/adaptive-data/configure-adaptive-data)。
+
+## 长度和安全性与 Blueprint 是什么关系？
+
+`brand_controls` 把 **`length`**（`minimal` | `concise` | `detailed` | `extensive`）、**`safety_categories`** 以及 **`blueprint`**（用于语气、人设或品牌声音的自由文本系统提示）作为运行级**规格**的一部分暴露出来——这与 [Blueprint](https://www.adaptionlabs.ai/blog/blueprint) 中描述的理念一脉相承。参见[配置 Adaptive Data](/zh/adaptive-data/configure-adaptive-data)。
+
+## 服务条款和隐私政策在哪里？
+
+- [服务条款](https://adaptionlabs.ai/terms-of-service)
+- [隐私政策](https://adaptionlabs.ai/privacy-policy)
+
+## 如何获得帮助？
+
+请参阅[获取支持](/zh/resources/support)，或发送邮件至 [support@adaptionlabs.ai](mailto:support@adaptionlabs.ai)。
+
+## 支持异步 Python 吗？
+
+支持。请像[快速上手](/zh/introduction/getting-started)中那样，配合 `await` / `async for` 使用 `AsyncAdaption`。

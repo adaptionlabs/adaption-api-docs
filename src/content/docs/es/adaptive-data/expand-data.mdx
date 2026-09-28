@@ -1,0 +1,127 @@
+---
+title: Expandir tus datos
+description: Aumenta, traduce o localiza filas para incrementar el tamaño del conjunto de datos después de importarlo o adaptarlo.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Después de [importar un conjunto de datos](/es/adaptive-data/create-a-dataset) y, opcionalmente, [ejecutar Adaptive Data](/api/python/resources/datasets/methods/run), puedes aumentar el número de filas sin volver a ejecutar toda la canalización de adaptación. Cada método que se describe a continuación devuelve un **conjunto de datos nuevo** que incluye tus filas de origen más las añadidas.
+
+Los ejemplos del SDK dan por hecho que has [configurado el SDK de Python](/es/introduction/getting-started) y has definido `ADAPTION_DATASET_ID` con un conjunto de datos listo para expandir:
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+```
+
+## Aumento de datos
+
+[`datasets.augment`](/api/python/resources/datasets/methods/augment) recupera filas adicionales del repositorio curado y las devuelve como un nuevo conjunto de datos. Úsalo cuando quieras más ejemplos con la misma mezcla temática o una cobertura más amplia entre temas:
+
+- Las **filas de dominio** coinciden con los temas de tu conjunto de datos.
+- Las **filas generales** proceden de otros temas para ampliar la diversidad.
+
+```python
+estimate = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+)
+print(response.dataset_id, response.status)
+```
+
+La respuesta contiene el id del nuevo conjunto de datos y su estado actual; ambos son `None` en una estimación. Espera al nuevo conjunto de datos antes de descargarlo o entrenar con él:
+
+```python
+from adaption import DatasetTimeout
+
+try:
+    final = client.datasets.wait_for_completion(response.dataset_id)
+except DatasetTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+print(final.status, final.row_count)
+```
+
+`wait_for_completion` aplica un retroceso de 2 a 30 segundos y tiene un tiempo de espera predeterminado de una hora. Que se agote el tiempo detiene la espera, no el trabajo de expansión. Vuelve a llamarlo con el mismo ID de conjunto de datos para retomar el seguimiento. La misma espera se aplica después de [`translate`](#traducir-filas) y [`localize`](#localizar-filas).
+
+Omite cualquiera de los dos parámetros de filas para saltarte ese tipo de incorporación. El aumento de datos se factura por las filas recuperadas. Consulta la [referencia de `augment`](/api/python/resources/datasets/methods/augment) para conocer los límites y los campos de solicitud actuales.
+
+<Callout variant="note">
+  `datasets.augment` funciona con conjuntos de datos de texto cuya mezcla
+  temática se pueda determinar. No admite conjuntos de datos de imágenes. Es la
+  misma operación sobre el repositorio curado que
+  `augmentation_domain_rows` y `augmentation_general_rows` en
+  [`autoscientist.create`](/es/autoscientist/data-augmentation). La vía de
+  AutoScientist aplica esas filas en el momento del entrenamiento en lugar de
+  escribir un conjunto de datos nuevo.
+</Callout>
+
+## Traducir filas
+
+[`datasets.translate`](/api/python/resources/datasets/methods/translate) convierte una muestra de las filas existentes a otros idiomas. Adaptive Data admite hasta 242 idiomas. Proporciona [códigos de idioma ISO 639-1](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). `sample_rate` es la fracción de filas de origen que se expande para cada idioma de destino:
+
+```python
+estimate = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+)
+print(response.dataset_id, response.status)
+```
+
+Con dos idiomas de destino y una tasa de muestreo de `0.25`, la salida contiene aproximadamente `1 + (0.25 × 2) = 1.5` veces más filas que la entrada.
+
+## Localizar filas
+
+[`datasets.localize`](/api/python/resources/datasets/methods/localize) adapta las filas a un idioma y a un país, incluyendo formulaciones propias de cada configuración regional en lugar de una traducción directa. Proporciona pares de país e idioma con [códigos de país ISO 3166-1 alfa-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) y [códigos de idioma ISO 639-1](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+
+```python
+response = client.datasets.localize(
+    dataset_id,
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
+)
+print(response.dataset_id, response.status)
+```
+
+Cada par crea una variante específica de país e idioma en lugar de limitarse a traducir el texto.
+
+<Callout variant="note">
+  Traducir y localizar se facturan por las filas de salida. Define
+  `estimate=True` en cualquiera de estos métodos para calcular el precio de una
+  solicitud antes de ejecutarla. Pasa `idempotency_key` en cualquiera de ellos
+  para que una solicitud reintentada devuelva el conjunto de datos que creó la
+  primera en lugar de iniciar y cobrar una segunda ejecución. Consulta las
+  referencias de [`translate`](/api/python/resources/datasets/methods/translate)
+  y [`localize`](/api/python/resources/datasets/methods/localize) para conocer
+  el esquema y los valores admitidos actuales.
+</Callout>
+
+Para las recetas, los pares de preferencia, los límites de filas y los controles de marca de una ejecución de adaptación, consulta [Configurar Adaptive Data](/es/adaptive-data/configure-adaptive-data).
+
+Cada uno de los métodos de esta página escribe un conjunto de datos nuevo y deja intacto el de origen. `datasets.run` también acepta un ajuste `language_expansion`; esa vía guarda el ajuste en el conjunto de datos y expande las filas dentro de su propia ejecución de adaptación, sin crear un conjunto de datos nuevo. Consulta la [referencia de `run`](/api/python/resources/datasets/methods/run) para ver esa forma.

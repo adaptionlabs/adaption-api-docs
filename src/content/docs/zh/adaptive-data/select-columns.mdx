@@ -1,0 +1,231 @@
+---
+title: 选择要适配的列
+description: 在运行 Adaptive Data 之前，把数据集的列映射到提示词、补全、上下文、图像或对话角色。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+数据集由数据行和具名列构成。Adaptive Data 需要知道哪一列包含指令、哪一列包含答案，以及哪些列提供辅助材料。在 Python SDK 中，你通过 [`datasets.run`](/api/python/resources/datasets/methods/run) 上的 **`column_mapping`** 来定义这些角色。
+
+列映射是后续步骤的基础，例如[配方与品牌控制](/zh/adaptive-data/configure-adaptive-data)、[评估](/zh/adaptive-data/evaluate-dataset-quality)以及[导出](/api/python/resources/datasets/methods/download)。
+
+## 映射提示词或补全
+
+每次运行至少需要下面两个锚点之一：
+
+- **提示词（prompt）** —— 需要完成的问题、指令或任务。
+- **补全（completion）** —— 期望的回应或答案。
+
+你只需要提供其中一个。如果缺少另一个，Adaptive Data 可以自动生成。
+
+下面的示例假定你已经[安装并配置好 Python SDK](/zh/introduction/getting-started)，并且[上传了数据集](/zh/adaptive-data/create-a-dataset)从而获得 `dataset_id`。
+
+### 只有提示词没有补全
+
+如果数据集只有提示词而没有补全，只需映射提示词列。Adaptive Data 会为每一行生成一个补全。
+
+例如，一个带有 `instruction` 列的 CSV 可能包含诸如 “Explain why leaves appear green” 和 “Convert 15 miles to kilometres” 这样的真实任务：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"prompt": "instruction"},
+)
+```
+
+### 只有补全没有提示词
+
+如果数据集包含高质量的答案但没有提示词，只需映射补全列。Adaptive Data 会为每个答案合成一个合适的提示词。
+
+例如，一个带有 `response` 列的 CSV 可能包含诸如 “Leaves appear green because chlorophyll reflects green wavelengths of light” 这样的参考答案：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"completion": "response"},
+)
+```
+
+### 同时有提示词和补全
+
+大多数指令数据集本身就同时包含这两个角色：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+```
+
+## 添加上下文列
+
+上下文列保存的是逐行的背景信息、参考数据或元数据，模型需要它们才能回答提示词。与 `prompt` 和 `completion` 不同，**`context` 是一个列表**，因此你可以映射多个列。
+
+下面的示例映射了一个文档问答数据集，其中每个问题都带有标题和正文段落：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "context": ["document_title", "document_body"],
+    },
+)
+```
+
+常见的使用模式包括：
+
+- **检索增强生成（RAG）** —— 把查询映射为 `prompt`，把检索到的段落映射为 `context`，把参考答案映射为 `completion`。
+- **逐行元数据** —— 为每个提示词附带受众、语气、地区或产品线信息。
+- **通用提示词加上下文** —— 用同一条指令作用于每一行，由上下文列提供各行特有的素材。
+
+如果每一行共用同一条指令，请使用通用提示词。关于视觉上下文，请参阅[映射图像列](#映射图像列)。
+
+## 使用通用提示词
+
+如果每一行都应使用相同的指令，而数据集又没有提示词列，请定义一个**通用提示词**。随后由上下文列或图像列提供该指令所作用的逐行内容。
+
+在 Python SDK 中，直接在 `column_mapping` 里设置 `universal_prompt`。下面的示例对评论进行分类，同时把已有的 `sentiment` 列作为期望的补全：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "universal_prompt": (
+            "Classify the sentiment of this review as positive, neutral, "
+            "or negative. Respond with one word."
+        ),
+        "context": ["review"],
+        "completion": "sentiment",
+    },
+)
+```
+
+你也可以在 Web 应用中配置同样的映射：
+
+### 1. 选择 "I don't have prompt"
+
+在列设置步骤中，找到 **Prompt column** 卡片并选择 **I don't have prompt**。
+
+![向导的列设置步骤，其中 Prompt column 卡片及其 “I don't have prompt” 复选框被高亮显示，旁边还有 Context column 和 Completion column 卡片。](/universal-prompts/dont-have-prompt.png)
+
+提示词卡片会显示两个选项：
+
+- **Let adaption create prompt** 会为每个补全生成一个提示词。
+- **Write universal prompt** 会把同一条指令应用到每一行。
+
+### 2. 编写共享指令
+
+选择 **Write universal prompt**，然后在 **Enter prompt for all entries...** 中输入该指令。
+
+![展开后的提示词卡片，高亮显示 “Write universal prompt” 链接，下方是占位文本为 “Enter prompt for all entries...” 的文本框，上方可见 “Let adaption create prompt” 开关。](/universal-prompts/universal-prompt.png)
+
+请写一条完整、自成一体的指令，清楚说明任务和期望输出。例如：
+
+> Classify the sentiment of this review as positive, neutral, or negative. Respond with one word.
+
+通过 [`datasets.run` API](/api/python/resources/datasets/methods/run) 和 Python SDK 也能使用同样的 `universal_prompt` 值，因此应用中的运行和编程方式的运行可以共用同一套映射。
+
+## 映射图像列
+
+图像使用专门的 **`image`** 映射，而不是 `context` 列表。下面的映射使用公开的 [MathVision 数据集](https://huggingface.co/datasets/MathLLMs/MathVision)：`question` 包含提示词，`decoded_image` 包含图形，`answer` 包含期望答案。
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "image": "decoded_image",
+    },
+)
+```
+
+![在适配向导的列选择步骤中映射 MathVision 的各列：question 作为提示词，decoded_image 作为图像上下文，answer 作为补全。](/multimodal-context/column-selection.png)
+
+图像列适用于视觉问答、图像描述、分类、OCR 以及其他多模态任务。
+
+### 支持的图像输入
+
+支持的表示形式取决于数据集来源。
+
+#### Hugging Face
+
+- **`bytes`** —— 原始图像字节
+- **`hf_struct`** —— Hugging Face 的 `Image()` 特征
+- **`list`** —— 图像字节数组
+- **`url`** —— 绝对的 `http(s)` URL
+- **`path`** —— 相对路径，例如 `imagefolder` 条目
+
+#### Kaggle
+
+- 没有清单文件的图像文件夹，例如 `train/<class>/*.png`
+- 带有图像列的 CSV 或 Parquet 清单文件
+- 带有字节列或 URL 列的表格文件
+
+#### 直接上传文件
+
+对于直接上传的 CSV、Parquet、JSON、JSONL、XLSX 等文件：
+
+- **`bytes`**、**`hf_struct`** 或 **`list`**
+- **`url`** —— 绝对的 `http(s)` URL
+
+## 映射对话列
+
+![映射对话列](/chat-column.png)
+
+对话列包含一段多轮对话，其结构与 OpenAI 风格的聊天 API 所用的格式相同。每个单元格都是一个由对话轮次组成的 JSON 数组：
+
+```json
+[
+  { "role": "system", "content": "You are a helpful assistant." },
+  { "role": "user", "content": "How do I reset my password?" },
+  {
+    "role": "assistant",
+    "content": "Open Settings, select Account, then select Reset password."
+  }
+]
+```
+
+映射包含这些数组的列：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"chat": "messages"},
+)
+```
+
+<Callout variant="note">
+  `chat` 映射与 `prompt`、`completion` 和
+  `context` 映射互斥。
+</Callout>
+
+当你映射 `chat` 时，Adaptive Data 会从对话中推导出提示词和补全。已有的多轮数据请使用 `chat`；单条「指令—答案」对请使用 `prompt` 和 `completion`。
+
+## 纯文本与对话轮次数组
+
+映射为 `prompt` 或 `completion` 的单元格可以包含以下两种内容之一：
+
+- **纯文本** —— 每个单元格中是一个字符串。
+- **对话轮次数组** —— 由 `{"role": "...", "content": "..."}` 对象组成的 JSON 数组。
+
+例如，结构化的补全可以在一个单元格内保留一次完整的往返对话：
+
+```json
+[
+  { "role": "user", "content": "Summarize this email." },
+  {
+    "role": "assistant",
+    "content": "The customer accepted the revised delivery date."
+  }
+]
+```
+
+Adaptive Data 会把有效的数组解析为对话轮次，并把其他值当作纯文本处理。如果一整段多轮对话存放在同一列中，建议使用专门为此设计的 `chat` 映射。
+
+当前的结构定义请参阅 [`datasets.run` 参考](/api/python/resources/datasets/methods/run)中的 **ColumnMapping**。

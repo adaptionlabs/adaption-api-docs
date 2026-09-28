@@ -1,0 +1,58 @@
+---
+title: تعزيز البيانات
+description: أضِف صفوفًا خاصّة بالمجال وصفوفًا عامّة قبل بدء تدريب AutoScientist.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+‏[التعزيز](/api/python/resources/autoscientist/methods/create) اختياري، لكنّه موصى به عندما تكون مجموعة البيانات صغيرة أو تفتقر إلى التنوّع. ويستطيع AutoScientist إضافة نوعين مستقلّين من الصفوف قبل بدء تكرارات التدريب:
+
+- **صفوف المجال** تضيف أمثلة خاصّة بمجال مجموعة البيانات. وتُحتسب الصفوف الموجودة ضمن الهدف الموصى به البالغ 20,000 صف مجال.
+- **الصفوف العامّة** تضيف أمثلة متنوّعة تساعد النموذج على الاحتفاظ بقدرات أوسع.
+
+<Callout variant="note">
+  هذه هي عملية المجموعة المنسَّقة نفسها التي توفّرها
+  [`datasets.augment`](/ar/adaptive-data/expand-data). استخدم ذلك المساعد
+  عندما تريد مجموعة بيانات جديدة قبل التدريب. واستخدم
+  `augmentation_domain_rows` و`augmentation_general_rows` في `create` عندما
+  تريد تطبيق الصفوف ضمن تشغيلة التدريب نفسها.
+</Callout>
+
+## حساب الإضافات
+
+يستهدف الطلب التالي 20,000 صف مجال على الأقل ويضيف 8,000 صف عام:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+print(run.id, run.status)
+```
+
+ينتج عن ذلك ما يصل إلى 28,000 صف تدريب: مجموعة البيانات الحالية، مضافًا إليها ما يكفي من صفوف المجال للوصول إلى 20,000، ثم 8,000 صف عام. وإذا كانت مجموعة البيانات تحتوي أصلًا على 20,000 صف على الأقل، فإن `domain_rows_to_add` تساوي صفرًا.
+
+أغفِل أيًّا من معاملَي التعزيز لتخطّي ذلك النوع من الإضافة. ويسعّر AutoScientist كل توسيع مطلوب ويحدّد حجمه قبل التدريب. راجع [مرجع واجهة برمجة التطبيقات لـ `create`](/api/python/resources/autoscientist/methods/create) للاطّلاع على الحدود الحالية وحقول الطلب.
+
+## تعزيز بيانات التفضيل
+
+لتشغيلة DPO نصّية، اضبط `training_method="alignment"` في الطلب نفسه. عندها يُنتج AutoScientist إضافات على شكل تفضيلات، وتُحتسب تلك الإضافات ضمن الحد الأدنى البالغ 12,000 زوج تفضيل فعّال:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=8_000,
+)
+```

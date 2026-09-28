@@ -1,0 +1,198 @@
+---
+title: Configurar o Adaptive Data
+description: Gere dados de instrução ou de preferência, aplique receitas, limite linhas e controle as saídas adaptadas.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Depois de [mapear suas colunas](/pt/adaptive-data/select-columns), configure como o Adaptive Data as transforma. Você pode escolher o formato de treinamento, aplicar receitas, limitar a execução e definir requisitos de saída.
+
+Os exemplos do SDK abaixo pressupõem que você tenha [configurado o SDK Python](/pt/introduction/getting-started) e definido `ADAPTION_DATASET_ID` como um [conjunto de dados importado](/pt/adaptive-data/create-a-dataset):
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+```
+## Aplicar receitas
+
+As receitas são transformações opcionais que operam sobre os dados mapeados:
+
+- A **remoção de prompts duplicados** elimina prompts repetidos para manter os exemplos diversos.
+- A **reescrita de prompts** reformula os prompts em busca de clareza e alinhamento com a tarefa.
+- Os **rastros de raciocínio** fornecem o raciocínio associado às completions adaptadas.
+
+No SDK, as receitas ficam em `recipe_specification.recipes`. Você pode habilitar mais de uma receita na mesma execução:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    recipe_specification={
+        "recipes": {
+            "deduplication": True,
+            "prompt_rephrase": True,
+            "reasoning_traces": True,
+        },
+    },
+)
+print(f"Run started: {run.run_id}")
+```
+
+<Callout variant="note">
+  A saída exata dos rastros de raciocínio depende da versão da API e da receita.
+  Inspecione o conjunto de dados baixado e consulte `RecipeSpecification` na
+  [referência de `datasets.run`](/api/python/resources/datasets/methods/run).
+</Callout>
+
+Use rastros de raciocínio se quiser fazer o ajuste fino de um modelo que suporte raciocínio em cadeia de pensamento.
+
+## Gerar pares de preferência
+
+Por padrão, o Adaptive Data produz um conjunto de dados de instrução para ajuste fino supervisionado. Defina `training_type` como `preference_pairs` quando você precisar, em vez disso, de respostas escolhidas e rejeitadas para treinamento por preferência, como o DPO.
+
+O mapeamento de origem permanece o mesmo: forneça uma coluna `prompt` e, opcionalmente, uma coluna `completion` existente. O Adaptive Data gera os campos de pares de preferência na saída.
+
+```python
+preference_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+)
+print(f"Run started: {run.run_id}")
+```
+
+Use `training_type="instruction_dataset"` — ou omita `training_type` — para produzir pares aprimorados de prompt/completion. Expansão de idiomas, receitas, limites de job e controles de marca podem ser incluídos na mesma execução de pares de preferência. Consulte `training_type` na [referência de `datasets.run`](/api/python/resources/datasets/methods/run) para ver o esquema atual.
+
+## Limitar linhas e estimar uma execução
+
+Use `job_specification.max_rows` para testar mapeamentos e controles em um subconjunto antes de processar um conjunto de dados grande. [Solicite primeiro uma estimativa com `datasets.run`](/api/python/resources/datasets/methods/run) para validar a mesma configuração e receber um orçamento em créditos sem iniciar a adaptação:
+
+```python
+job_specification = {"max_rows": 500}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+Omita `max_rows` quando quiser processar o conjunto de dados completo. Consulte `JobSpecification` na [referência de `datasets.run`](/api/python/resources/datasets/methods/run) para ver todas as opções em nível de job.
+
+## Configurar controles de marca
+
+`brand_controls` torna os requisitos de saída parte da execução de adaptação:
+
+- **`length`** controla a verbosidade desejada: `minimal`, `concise`, `detailed` ou `extensive`.
+- **`safety_categories`** identifica as categorias de segurança de conteúdo a serem aplicadas.
+- **`hallucination_mitigation`** embasa as gerações com busca na web, quando aplicável.
+- **`blueprint`** fornece instruções em texto livre para tom, persona, público, idioma ou terminologia específica do produto.
+
+### Reduzir alucinações
+
+A mitigação de alucinações direciona as completions geradas para informações verificáveis. Habilite-a para dados sensíveis a fatos, como suporte ao cliente, respostas a perguntas com embasamento ou fluxos de conformidade:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={"hallucination_mitigation": True},
+)
+```
+
+O embasamento pode afetar a latência e o consumo de créditos. Use `estimate=True` para comparar a execução antes de escalá-la.
+
+### Controlar extensão e segurança
+
+As restrições de extensão e segurança se combinam no mesmo objeto `brand_controls`. Use a [referência de `datasets.run`](/api/python/resources/datasets/methods/run) como fonte da verdade para os nomes de categorias de segurança compatíveis:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "length": "concise",
+        "safety_categories": ["harassment", "hate"],
+    },
+)
+```
+
+### Definir um Blueprint
+
+Use `blueprint` para requisitos qualitativos que não se encaixam em um campo estruturado. Ele funciona como uma instrução de sistema para as completions geradas e se aplica de forma consistente em toda a execução:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "blueprint": (
+            "You are a customer-success assistant for Acme. "
+            "Answer in British English with a warm, direct tone. "
+            "Do not recommend third-party tools."
+        ),
+    },
+)
+```
+
+### Combinar controles de marca
+
+Controles estruturados e instruções do Blueprint podem ser usados em conjunto:
+
+```python
+brand_controls = {
+    "length": "concise",
+    "safety_categories": ["harassment", "hate"],
+    "hallucination_mitigation": True,
+    "blueprint": "Answer in British English with a warm, direct tone.",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+)
+print(f"Run started: {run.run_id}")
+```
+
+Depois que a execução terminar, [avalie a qualidade do conjunto de dados](/pt/adaptive-data/evaluate-dataset-quality) e [baixe as linhas adaptadas](/api/python/resources/datasets/methods/download).

@@ -1,0 +1,143 @@
+---
+title: Adaptive Data 应用操作指南
+description: 在 Adaption 应用中导入数据集、映射列、配置适配、启动运行并查看结果。
+---
+
+## 开始之前
+
+在 [adaptionlabs.ai/app](https://adaptionlabs.ai/app) 登录。完成这份应用操作指南不需要 API 密钥。
+
+Adaptive Data 可以构建：
+
+- **指令数据集**：把提示词与期望的补全配对，用于有监督微调。
+- **偏好对**：对比两个补全，并指出更优的那一个。
+
+## 步骤 1 | 导入你的数据
+
+在应用中从以下任一来源[创建数据集](/zh/adaptive-data/create-a-dataset)：
+
+- **本地文件：** CSV、JSON、JSONL、Parquet、PDF、DOCX、PPTX、XLSX、HTML、ZIP 或 TXT。
+- **Hugging Face：** 输入数据集 URL 并选择要导入的文件。如果该数据集有访问限制，请先在 Hugging Face 上申请访问权限，再进行导入。
+- **Kaggle：** 输入数据集页面的 URL。
+
+PDF、扫描件、幻灯片和邮件往来等文档类来源会触发额外的提取与拆分流程。参见[处理非结构化文档](/zh/tutorials/processing-unstructured-documents)。
+
+Adaptive Data 目前不支持金融时间序列之类的非文本表格数据。
+
+## 步骤 2 | 映射列
+
+[为每个源数据列指定角色](/zh/adaptive-data/select-columns)：
+
+- **Prompt：** 每一行中的问题、指令或任务。
+- **Context：** 回答提示词所需的背景材料。你可以选择多个上下文列，包括图像列。
+- **Completion：** 期望的回应。
+- **Chat：** 多轮对话或对话历史。
+
+每次运行至少需要提示词或补全之一。Adaptive Data 可以生成缺失的那个角色。
+
+- 没有提示词列：选择 **I don't have prompt**，然后可以让 Adaption 为每一行生成一个提示词，或者选择 **Write universal prompt**。
+- 没有补全列：选择 **I don't have a completion column** 以自动生成。
+
+例如，一个文档抽取数据集可以把 `document_body` 用作上下文，并使用这样一条通用提示词：
+
+> Extract the customer name, contract start date, renewal date, and total contract value. Return valid JSON with the keys `customer_name`, `start_date`, `renewal_date`, and `contract_value`.
+
+请确保回答提示词所需的每一列都被映射为上下文。列选择指南中还包含[图像列](/zh/adaptive-data/select-columns#映射图像列)的详细映射模式。
+
+## 步骤 3 | 评估数据质量
+
+[**Data Evaluation** 步骤](/zh/adaptive-data/evaluate-dataset-quality)会给出：
+
+- 一个字母等级和 0 到 10 的质量评分。
+- 相对于所识别领域中其他数据集的百分位。
+- 识别出的领域、语言和语气。
+
+用这个基线，在运行结束后把源数据集与适配后的结果进行对比。
+
+## 步骤 4 | 选择配方
+
+[只选择](/zh/adaptive-data/configure-adaptive-data#应用配方)符合你目标的配方：
+
+- **Prompt Deduplication** 会移除重复的提示词，避免重复样本主导数据集。
+- **Prompt Rephrasing** 会重写提示词，使其更清晰、更贴合任务。
+- **Reasoning Traces** 会在受支持的工作流中，为最终输出附加逐步推理过程。
+- **Hallucination Mitigation** 会应用事实依据检索与校验，减少缺乏依据的补全。
+- **Freeform Brand Voice** 会引导生成的数据趋向特定的个性、语气和风格。
+
+如果提示词必须逐字节保持不变，请关闭 **Prompt Rephrasing** 和 **Metadata Injection**。
+
+## 步骤 5 | 配置 Blueprint
+
+如果你对 **Do you want to add brand guidelines or global constraints?** 回答 **Yes**，应用会打开 [Blueprint 及其品牌控制](/zh/adaptive-data/configure-adaptive-data#配置品牌控制)。
+
+你可以直接输入一条系统级指令，也可以上传品牌准则、系统提示，或关于安全性、语气和长度的策略。例如：
+
+> Write concise customer-support answers in British English. Use a warm, direct tone. Never recommend third-party products, and do not make claims that are not supported by the supplied context.
+
+Blueprint 还提供结构化的控制项：
+
+- **Length：** Detailed、Extensive、Minimal 或 Concise。
+- **Safety Classification：** Sexual、Self-harm、Hate、Harassment 和 Violence。
+- **Hallucination mitigation：** 减少生成补全中缺乏依据的内容。
+
+这些控制项会应用到每一条适配后的数据行，因此请把它们用于真正全局性的要求，而不是针对个别行的指导。
+
+## 步骤 6 | 审阅并启动
+
+**Summary** 界面会显示：
+
+- 用于减少处理行数的 [**Reduce Rows** 滑块](/zh/adaptive-data/configure-adaptive-data#限制行数并估算运行)。
+- 你的可用额度。
+- 所配置任务的确切额度花费。
+
+审阅估算结果后，即可启动运行。仪表盘可能显示以下状态：
+
+- **Job launched：** 已提交或排队中。
+- **Running：** 正在处理。
+- **Job completed：** 结果和质量评分已可查看。
+- **Job failed：** 处理在完成前中止。
+
+大规模导入可能在队列中停留数小时。如果某个任务看起来卡住了：
+
+1. 把已用时间与显示的预估时长对比，并把排队时间考虑在内。
+2. 确认数据集使用的是受支持的提示词/补全列，或 OpenAI 风格的对话数据。
+3. 对失败的任务重试一次，尤其是它在失败前已经达到 100% 的情况。
+4. 如果仍然卡住或再次失败，请[联系支持团队](/zh/resources/support)并附上数据集 ID。
+
+## 步骤 7 | 查看结果
+
+处理完成后，打开数据集并选择 **View** 标签页。每一行都会并排显示源数据与适配后的数据，包括原始提示词与增强后的提示词、原始补全与增强后的补全，以及内联的上下文。
+
+对比适配前后的：
+
+- 质量评分，范围 0 到 10。
+- 字母等级。
+- 领域百分位，范围 0 到 100。
+- 逐条的源数据行与适配后数据行。
+
+行数可能会减少，因为提示词去重会移除重复的样本。
+
+## 步骤 8 | 扩展数据集
+
+Adaptive Data 运行完成后，你可以选择把数据集[扩展](/zh/adaptive-data/expand-data)为一个包含更多数据行的新版本：
+
+- **Augment** 会从精选数据池中取出更多与领域匹配的数据行或通用数据行。
+- **Translate** 会为现有数据行创建翻译版本。应用最多支持 242 种语言；参见[支持的语言列表](https://docs.google.com/spreadsheets/d/17NTJw8MF04B_zpNLT72V1bXbQk-VJOxuYOah1w7YboY/edit?usp=sharing)。
+- **Localize** 会同时针对语言和国家/地区调整数据行，除了直接翻译之外还会采用符合当地习惯的措辞。
+
+如果适配后的数据集在规模和覆盖面上已经够用，就不必进行扩展。
+
+## 常见问题
+
+- **任务长时间停留在 Job launched：**预估时长可能不包含排队时间。请等待超过显示的预估时长后再升级处理。
+- **Hugging Face 或 Kaggle 图像导入一直待处理：**如果多模态导入没有进展，请[联系支持团队](/zh/resources/support)并附上数据集 ID。
+- **大型 JSONL 文件处理失败：**请重试一次；如果再次失败，请附上数据集 ID 联系支持团队。
+- **数据集因格式被拒：**请把它整理成提示词/补全列，或 OpenAI 风格的对话列，然后重新进行[列映射](#步骤-2--映射列)。
+- **提示词发生了意料之外的变化：**如需严格保持提示词原样，请关闭 **Prompt Rephrasing** 和 **Metadata Injection**。
+
+## 后续步骤
+
+- [处理图像列](/zh/adaptive-data/select-columns#映射图像列)
+- [详细配置 Adaptive Data](/zh/adaptive-data/configure-adaptive-data)
+- [处理非结构化文档](/zh/tutorials/processing-unstructured-documents)
+- 当你准备把同样的流程自动化时，请参阅 [API 参考](/api/python)。

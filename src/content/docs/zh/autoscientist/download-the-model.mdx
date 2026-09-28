@@ -1,0 +1,56 @@
+---
+title: 下载模型
+description: 把 AutoScientist 的最佳检查点流式下载为本地归档文件。
+---
+
+AutoScientist 会[下载最佳迭代的检查点](/api/python/resources/autoscientist/methods/download)，它不一定是最后一次迭代。该接口会流式传输一个压缩的 tar 归档，而不是返回预签名 URL。
+
+对于 `training_method="alignment"`，下载的内容属于 DPO 阶段。
+
+## 流式下载检查点
+
+请先[获取该次运行](/api/python/resources/autoscientist/methods/get)，确认它已完成并产出了可下载的检查点：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+run_id = "autoscientist_run_abc123"
+run = client.autoscientist.get(run_id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run is not complete: {run.status}")
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+使用流式响应可以避免把体积庞大的模型归档整个载入内存。
+
+## 查看归档内容
+
+`tar` 会自动识别归档的压缩格式：
+
+```shell
+mkdir -p best-checkpoint
+tar xf best-checkpoint.tgz -C best-checkpoint
+```
+
+LoRA 检查点通常包含：
+
+```text
+adapter_config.json
+adapter_model.safetensors
+tokenizer.json
+trainer_state.json
+...
+```
+
+若要手动发布到 Hugging Face，请创建一个空的模型仓库，并通过其网页界面或相关工具上传解压后的文件。如果权重或分词器包含专有信息，请将该仓库设为私有。
+
+当前的响应内容请参阅 [`download` API 参考](/api/python/resources/autoscientist/methods/download)。

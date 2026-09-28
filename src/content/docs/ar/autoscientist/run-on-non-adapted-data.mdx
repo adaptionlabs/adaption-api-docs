@@ -1,0 +1,58 @@
+---
+title: التشغيل على بيانات غير مكيّفة
+description: ارفع بيانات موجّه/إكمال جاهزة للتدريب من أجل الضبط الدقيق الخاضع للإشراف.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+استخدم [المعالجة الخام لمجموعات البيانات](/api/python/resources/datasets/methods/create) عندما يحتوي ملف جدولي أصلًا على عمودَي موجّه وإكمال جاهزين للتدريب وتريد من AutoScientist أن يتدرّب على تلك الصفوف كما هي باستخدام SFT. وهذا يتخطّى مسار التكييف في Adaptive Data.
+
+<Callout variant="warning">
+  للحصول على أفضل النتائج، [كيّف بياناتك أوّلًا](/ar/adaptive-data/overview).
+  ولا تستخدم المعالجة الخام إلا عندما يكون التدريب على الصفوف الأصلية مقصودًا.
+</Callout>
+
+<Callout variant="note">
+  المعالجة الخام لا تصنّف مجموعة البيانات على أنها `preference_pairs`. ومن أجل
+  DPO، أكمِل أوّلًا [تشغيلة أزواج تفضيل في Adaptive
+  Data](/ar/adaptive-data/configure-adaptive-data#توليد-أزواج-التفضيل)، ثم
+  [أنشئ تشغيلة
+  DPO](/ar/autoscientist/running-autoscientist#التدريب-على-أزواج-التفضيل).
+</Callout>
+
+تدعم المعالجة الخام ملفات CSV وJSON وJSONL وParquet. اضبط `processing_mode` على `raw` و[اربط عمودَي المصدر المطلوبين](/ar/adaptive-data/select-columns) عند إنشاء مجموعة البيانات.
+
+## الرفع والتدريب
+
+يرفع هذا المثال ملف CSV يحتوي عموداه `instruction` و`response` على أزواج التدريب:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+
+client.datasets.wait_for_completion(dataset.dataset_id)
+
+run = client.autoscientist.create(dataset_id=dataset.dataset_id)
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.id, run.best_win_rate)
+```
+
+لا تستدعِ `client.datasets.run` في سير العمل هذا: فالمعالجة الخام تجعل مجموعة البيانات المرفوعة جاهزة لـ AutoScientist مباشرةً. ويشير `column_mapping` أعلاه إلى ترويسات الملف الأصلية؛ أمّا `column_mapping` الخاص بـ AutoScientist، إن قُدِّم لاحقًا، فيشير إلى مخطّط مجموعة البيانات المعالَجة.
+
+راجع [تشغيل AutoScientist](/ar/autoscientist/running-autoscientist) للاطّلاع على تفاصيل الاستطلاع والإلغاء والحالة. وللاطّلاع على تفاصيل نقاط النهاية، راجع مرجعَي [`datasets.create`](/api/python/resources/datasets/methods/create) و[`autoscientist.create`](/api/python/resources/autoscientist/methods/create).

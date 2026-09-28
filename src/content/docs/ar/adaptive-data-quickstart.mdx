@@ -1,0 +1,221 @@
+---
+title: البداية السريعة مع Adaptive Data
+description: ثبّت حزمة Adaption Python SDK، واستورد البيانات، وشغّل Adaptive Data، ونزّل مجموعة البيانات المكيّفة.
+---
+
+import {
+  Accordion,
+  Callout,
+  Steps,
+  Step,
+} from "@stainless-api/docs/components";
+
+## تثبيت حزمة SDK
+
+```shell
+pip install adaption
+```
+
+## إنشاء مفتاح واجهة برمجة التطبيقات
+
+<Steps>
+  <Step>[سجّل الدخول](https://adaptionlabs.ai/app/auth) إلى Adaption.</Step>
+  <Step>
+    افتح [**Settings**](https://adaptionlabs.ai/app/settings)، ثم افتح [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    أنشئ مفتاحًا وانسخه. لن تتمكّن من عرض المفتاح مرّة أخرى.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  احفظ مفاتيح واجهة برمجة التطبيقات في متغيّرات البيئة أو في مدير أسرار. لا
+  تُضِفها إلى نظام إدارة الشيفرة.
+</Callout>
+
+## استخدام المفتاح في Python
+
+للاختبار المحلّي، يمكنك تمرير المفتاح مباشرةً:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+أمّا في التطبيقات وأنظمة التكامل المستمر، فاضبط `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+تقرأ حزمة SDK متغيّر البيئة تلقائيًا:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## إنشاء مجموعة بيانات
+
+تستورد هذه البداية السريعة [مجموعة بيانات Alpaca من Hugging Face](/ar/adaptive-data/create-a-dataset):
+
+```python
+dataset = client.datasets.create(
+    source={
+        "url": "https://huggingface.co/datasets/tatsu-lab/alpaca",
+        "files": [
+            "data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"
+        ],
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+يمكنك بدلًا من ذلك رفع ملف محلّي أو الاستيراد من Kaggle. يستخدم كل مصدر نقطة النهاية نفسها [`datasets.create`](/api/python/resources/datasets/methods/create) ويُعيد `dataset_id` الذي يعتمد عليه بقية هذا الدليل.
+
+<Accordion.Group>
+  <Accordion>
+    <Accordion.Summary>رفع ملف محلّي</Accordion.Summary>
+
+    ينشئ مساعد حزمة SDK مجموعة البيانات، ويرفع الملف، ويؤكّد اكتمال الرفع.
+
+    الامتدادات المدعومة: **`.csv`** و**`.json`** و**`.jsonl`** و**`.parquet`**.
+
+    ```python
+    dataset = client.datasets.upload_file("training_data.csv")
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+  </Accordion>
+  <Accordion>
+    <Accordion.Summary>الاستيراد من Kaggle</Accordion.Summary>
+
+    استخدم عنوان صفحة مجموعة البيانات على Kaggle والملفات المراد سحبها.
+
+    ```python
+    dataset = client.datasets.create(
+        source={
+            "url": "https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset",
+            "files": ["spam.csv"],
+        },
+    )
+    dataset_id = dataset.dataset_id
+    print(dataset_id)
+    ```
+
+    يجب تسجيل **بيانات اعتماد Kaggle** في Adaption: افتح **[إعدادات API keys](https://adaptionlabs.ai/app/settings?tab=api_keys)** (سجّل الدخول إذا طُلب منك ذلك) وأضِف بيانات اعتماد واجهة برمجة تطبيقات Kaggle هناك قبل الاستيراد.
+
+  </Accordion>
+</Accordion.Group>
+
+[تعمل عمليات الاستيراد بشكل غير متزامن](/ar/adaptive-data/create-a-dataset#انتظار-الاستيراد). انتظر حتى ينتهي الاستيعاب من تعبئة مجموعة البيانات قبل بدء Adaptive Data.
+
+## انتظار استيراد مجموعة البيانات
+
+استطلِع [حالة مجموعة البيانات](/api/python/resources/datasets/methods/get_status) إلى أن يتوفّر عدد الصفوف المستوردة:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## تكييف مجموعة البيانات
+
+يطبّق **التكييف** وصفات المنصّة وتحسيناتها. [اربط أعمدة المصدر](/ar/adaptive-data/select-columns) بالأدوار التي يتوقّعها Adaptive Data. في Alpaca، يكون `instruction` هو الموجّه، و`output` هو الإكمال، و`input` هو السياق.
+
+[اطلب تقديرًا أوّلًا](/ar/adaptive-data/configure-adaptive-data#تحديد-الصفوف-وتقدير-التشغيلة). يتحقّق ذلك من صحّة الإعداد ويُعيد عرض سعر دون بدء التشغيلة:
+
+```python
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "output",
+    "context": ["input"],
+}
+job_specification = {"max_rows": 5_000}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+```
+
+وعندما تكون مستعدًّا للمتابعة، أرسِل الإعداد نفسه دون `estimate=True`:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+## انتظار اكتمال Adaptive Data
+
+يستطلع مساعد حزمة SDK [حالة مجموعة البيانات](/api/python/resources/datasets/methods/get_status) إلى أن تنتهي تشغيلة التكييف:
+
+```python
+status = client.datasets.wait_for_completion(dataset_id, timeout=3600)
+if status.status == "failed":
+    raise RuntimeError(f"Adaptive Data failed: {status.error_data}")
+
+print(status.status)
+```
+
+## تنزيل مجموعة البيانات المكيّفة
+
+**التصدير** يخرج البيانات المعزَّزة لتستخدمها في مسارات التدريب أو أطر التقييم أو التخزين اللاحق. تبثّ [`download`](/api/python/resources/datasets/methods/download) الصفوف المعالَجة بصيغة الملف المطلوبة. وهي تقبل وسيط `file_format` بالقيم `csv` أو `json` أو `jsonl` أو `parquet`، وقيمته الافتراضية `csv`.
+
+```python
+client.datasets.download(dataset_id, file_format="parquet").write_to_file(
+    "adapted-alpaca.tar.gz"
+)
+```
+
+‏`download` تُعيد الملف نفسه، لا رابطًا إليه. اقرأ البايتات عبر `.read()`، أو اكتبها مباشرةً إلى القرص عبر `.write_to_file(path)`، أو فُكّ ترميز صيغة نصّية عبر `.text()` — وهي دالة، لا خاصيّة. يتطلّب هذا الشكل `adaption >= 0.9.0`؛ فالإصدارات الأقدم كانت تُعيد سلسلة نصّية وتُفسِد كل صيغة ثنائية.
+
+في عمليات التصدير الكبيرة، استخدم البثّ بدلًا من الاحتفاظ بالمحتوى في الذاكرة:
+
+```python
+with client.datasets.with_streaming_response.download(
+    dataset_id, file_format="parquet"
+) as export:
+    export.stream_to_file("adapted-alpaca.tar.gz")
+```
+
+‏`file_format="parquet"` تُعيد **أرشيف tar مضغوطًا بـ gzip يحتوي على شظايا Parquet**، لا ملف `.parquet` واحدًا — فُكّ ضغطه قبل القراءة:
+
+```python
+import tarfile
+
+with tarfile.open("adapted-alpaca.tar.gz") as archive:
+    archive.extractall("adapted-alpaca/")
+```
+
+تحتوي مجموعة البيانات ذات الحالة **`succeeded`** على المخرجات الكاملة. أمّا مجموعة البيانات ذات الحالة **`failed`** فيحتوي تنزيلها على الصفوف التي عولجت قبل توقّف التشغيلة؛ ولا تُعيد واجهة برمجة التطبيقات الرمز `422` إلا إذا لم تبدأ أي تشغيلة.
+
+## خطوات إضافية
+
+- [البداية السريعة مع AutoScientist](/ar/autoscientist-quickstart) — درّب نموذجًا انطلاقًا من مجموعة بياناتك المكيّفة.
+- [ضبط Adaptive Data](/ar/adaptive-data/configure-adaptive-data) — تحديد الصفوف، وتقليل الهلوسة، وتوليد آثار الاستدلال، وتطبيق ضوابط العلامة.
+- [تقييم جودة مجموعة البيانات](/ar/adaptive-data/evaluate-dataset-quality) — فحص حالة التقييم ومقاييسه.
+- [معالجة المستندات غير المهيكلة](/ar/tutorials/processing-unstructured-documents) — تحضير البيانات ذات الطابع المستندي.
+- تصفّح [مرجع واجهة برمجة التطبيقات](/api/python) للاطّلاع على تواقيع الدوال الكاملة ومخطّطات الاستجابة.

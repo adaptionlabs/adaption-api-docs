@@ -1,0 +1,52 @@
+---
+title: API キーを作成する
+description: アプリケーション、CI、ノートブックから Adaptive Data へ安全にプログラムアクセスするための Adaption API キーを作成して使用します。
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+API キーは Adaptive Data への**プログラムアクセス**を認証します。アプリで使うのと同じプラットフォーム機能を、コード、自動化、ノートブックから呼び出すためのものです。共有可能なトークンではなく、本番環境の連携に使う資格情報として扱ってください。
+
+<Callout variant="note">
+  キーはシークレットマネージャーまたは環境変数に保存してください。ソース管理にコミットしないでください。
+</Callout>
+
+## アプリでキーを作成する
+
+<Steps>
+  <Step>Adaption に[サインイン](https://adaptionlabs.ai/app/auth)します。</Step>
+  <Step>
+    [**Settings**](https://adaptionlabs.ai/app/settings) を開き、[**API keys**](https://adaptionlabs.ai/app/settings?tab=api_keys) セクションに進みます。
+  </Step>
+  <Step>
+    キーを作成し、その場でコピーして安全に保管します。あとから再表示することはできません。
+  </Step>
+</Steps>
+
+## Python でキーを使う
+
+キーを明示的に渡します:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+あるいは **`ADAPTION_API_KEY`** を設定し、引数なしでクライアントを生成します:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+```python
+from adaption import Adaption
+
+client = Adaption()  # reads ADAPTION_API_KEY
+```
+
+非同期コードでも **`AsyncAdaption`** に同じパターンが使えます。
+
+## 次のステップ
+
+**[はじめに](/ja/introduction/getting-started)** に進み、SDK をインストールして最初の **取り込み → アダプト → ダウンロード** のワークフローを実行しましょう。

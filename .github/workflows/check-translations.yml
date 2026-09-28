@@ -1,0 +1,29 @@
+name: Check translations
+
+# The build happily ships a half-translated locale: a missing page falls back
+# to English, a mistranslated code fence still renders. This job fails on the
+# drift a build cannot see. See scripts/check_translations.py.
+on:
+  pull_request:
+    paths:
+      - "src/content/docs/**"
+      - "src/i18n/**"
+      - "scripts/check_translations.py"
+      - ".github/workflows/check-translations.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/content/docs/**"
+      - "src/i18n/**"
+      - "scripts/check_translations.py"
+      - ".github/workflows/check-translations.yml"
+
+jobs:
+  translations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 scripts/check_translations.py

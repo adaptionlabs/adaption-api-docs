@@ -1,0 +1,364 @@
+---
+title: Inventar um conjunto de dados
+description: Gere um conjunto de dados pronto para modelos do zero, sem precisar de um conjunto de dados de origem.
+---
+
+O Invent gera um conjunto de dados pronto para modelos do zero — nenhum conjunto de dados de origem é necessário. Descreva seu conjunto de dados com um prompt, opcionalmente restrinja com domínios e subdomínios, e a API cria um conjunto de dados para a sua tarefa.
+
+Use [`datasets.create`](/pt/adaptive-data/create-a-dataset) quando você quiser importar e adaptar um conjunto de dados existente.
+
+### O que você pode construir
+
+- **Conjuntos de dados de instrução** associam prompts a completions geradas para ajuste fino supervisionado.
+- **Pares de preferência** classificam duas completions entre si para treinamento baseado em preferência.
+
+### Como funciona
+
+1. **Descreva seu conjunto de dados.** Use `dataset_prompt` e os opcionais `domains` e `subdomains` para orientar o processo de invenção do conjunto de dados.
+2. **Estime (opcional).** Precifique a requisição exata com `estimate=True`. Nada é criado nem cobrado.
+3. **Gere.** Chame [`datasets.invent`](/api/python/resources/datasets/methods/invent) para criar o conjunto de dados e iniciar a geração. A chamada retorna imediatamente com o status `running`.
+4. **Consulte e baixe.** Consulte [`datasets.get`](/api/python/resources/datasets/methods/get) até que o status seja `succeeded` e então [baixe as linhas](#baixar-as-linhas).
+
+## Gerar um conjunto de dados
+
+Uma única chamada a `datasets.invent` cria o conjunto de dados e começa a gerar linhas a partir da sua descrição e das seleções opcionais de domínio. Os exemplos pressupõem que você tenha [instalado o SDK Python e definido `ADAPTION_API_KEY`](/pt/introduction/getting-started).
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    rows=1000,
+    name="Clinical Q&A",
+)
+
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+### Descrever o conjunto de dados
+
+Para inventar um conjunto de dados, forneça **pelo menos um** dos parâmetros a seguir:
+
+| Parâmetro        | Observações                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_prompt` | Descrição dos dados a gerar. Se for omitido, uma descrição é gerada a partir das suas seleções de domínio. Máximo de 10.000 caracteres. |
+| `domains`        | Códigos de domínio a partir dos quais gerar. Consulte [Escolher domínios e subdomínios](#escolher-domínios-e-subdomínios).                                 |
+| `subdomains`     | Códigos qualificados de subdomínio que restringem a geração. Consulte [Escolher domínios e subdomínios](#escolher-domínios-e-subdomínios).              |
+
+### Parâmetros da requisição
+
+| Parâmetro            | Obrigatório | Observações                                                                                                                                                |
+| -------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rows`               | Sim      | Número de linhas a gerar. Sujeito ao limite de linhas por lançamento do seu plano.                                                                             |
+| `name`               | Não       | Nome de exibição do conjunto de dados inventado.                                                                                                               |
+| `training_type`      | Não       | `instruction_dataset` (padrão) ou `preference_pairs`. Consulte [Escolher o formato de saída](#escolher-o-formato-de-saída).                                    |
+| `language_expansion` | Não       | Traduz ou localiza uma amostra das linhas geradas. Consulte [Expandir entre idiomas e localidades](#expandir-entre-idiomas-e-localidades).             |
+| `estimate`           | Não       | Retorna uma estimativa de créditos sem criar nem lançar um conjunto de dados. O padrão é `False`.                                                              |
+| `idempotency_key`    | Não       | Torna as novas tentativas seguras. Repetir uma requisição com a mesma chave retorna o conjunto de dados original em vez de iniciar a geração novamente. Máximo de 255 caracteres. |
+
+### Precificar uma requisição primeiro
+
+Defina `estimate=True` para precificar a requisição exata. Nada é gerado nem cobrado:
+
+```python
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+    estimate=True,
+)
+
+print(f"Estimated credits: {estimate.estimated_credits}")
+print(f"Available credits: {estimate.available_credits}")
+```
+
+## Escolher domínios e subdomínios
+
+Busque os códigos atuais aceitos por `datasets.invent` em vez de codificá-los manualmente:
+
+```python
+response = client.datasets.invent_domains()
+
+for domain in response.domains:
+    print(domain.code, domain.title)
+    for subdomain in domain.subdomains:
+        print("  ", subdomain.code, subdomain.title)
+```
+
+### Campos de domínio e subdomínio
+
+| Campo        | Descrição                                                                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`       | O valor a ser enviado em `domains` ou `subdomains`. Os códigos de domínio são valores como `medical`; os códigos de subdomínio são valores qualificados como `medical.symptoms_diagnosis`. |
+| `title`      | Nome legível do domínio ou subdomínio.                                                                                                                      |
+| `subdomains` | Subdomínios disponíveis dentro de um domínio. Uma lista vazia significa que o domínio não tem subdomínios.                                                                             |
+
+### Restringir com subdomínios
+
+Passe os códigos de subdomínio exatamente como retornados por `invent_domains`. `subdomains` é uma lista simples de códigos qualificados:
+
+Aqui, a parte médica é restringida aos subdomínios selecionados. A parte jurídica é extraída de todo o domínio jurídico porque nenhum subdomínio jurídico foi fornecido.
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical", "legal"],
+    subdomains=[
+        "medical.symptoms_diagnosis",
+        "medical.preventive_care",
+    ],
+    rows=1000,
+)
+```
+
+
+### Combinar vários domínios
+
+Todo código em `domains` contribui para a mesma execução de geração. Para um domínio sem subdivisões, passe seu código de domínio e omita os subdomínios dele.
+
+## Configurar a geração
+
+Configure o formato de saída, expanda idiomas e torne as novas tentativas seguras.
+
+### Escolher o formato de saída
+
+`training_type` usa `instruction_dataset` por padrão. Defina-o como `preference_pairs` para obter pares de completions escolhidas e rejeitadas:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    training_type="preference_pairs",
+)
+```
+
+Use `instruction_dataset` para ajuste fino supervisionado padrão. Use `preference_pairs` para treinamento baseado em preferência, como o DPO. Os mesmos formatos são descritos em [Configurar o Adaptive Data](/pt/adaptive-data/configure-adaptive-data#gerar-pares-de-preferência).
+
+### Expandir entre idiomas e localidades
+
+`language_expansion` usa a mesma estrutura da [expansão de idiomas no Adaptive Data](/pt/adaptive-data/expand-data):
+
+- `translate` produz uma nova variante de linha para cada idioma de destino.
+- `localize` produz uma nova variante de linha para cada par de país e idioma, usando terminologia específica da localidade em vez de apenas uma tradução direta.
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "translate",
+        "sample_rate": 0.25,
+        "languages": ["es", "fr"],
+    },
+)
+```
+
+`sample_rate` é a fração das linhas inventadas expandida para cada destino e precisa estar entre `0.01` e `1`. Os créditos são cobrados sobre a contagem de linhas de saída expandidas.
+
+Para localização, passe pares de país e idioma:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    language_expansion={
+        "type": "localize",
+        "sample_rate": 0.25,
+        "pairs": [{"country": "ES", "language": "ca"}],
+    },
+)
+```
+
+Códigos de idioma ou de país/idioma desconhecidos retornam uma resposta `400` com uma amostra dos códigos compatíveis.
+
+### Tornar as novas tentativas seguras
+
+Forneça uma chave de idempotência quando uma falha de rede puder fazer sua aplicação repetir a requisição:
+
+```python
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=["medical"],
+    rows=1000,
+    idempotency_key="clinical-qa-2026-09-02",
+)
+```
+
+Repetir a mesma requisição com essa chave retorna o conjunto de dados original em vez de iniciar outra execução de geração.
+
+### Juntando tudo
+
+```python
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+## Verificar o status e baixar
+
+Consulte `datasets.get` com o ID do conjunto de dados inventado até que a geração reporte `succeeded` ou `failed`.
+
+### Consultar até a geração terminar
+
+```python
+import time
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+```
+
+### Baixar as linhas
+
+Baixe o conjunto de dados concluído em JSON Lines, JSON, CSV ou Parquet:
+
+```python
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+Consulte [`datasets.download`](/api/python/resources/datasets/methods/download) para todas as opções de resposta e de streaming.
+
+### Exemplo completo
+
+```python
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+
+domains = ["medical"]
+subdomains = ["medical.symptoms_diagnosis"]
+
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits}")
+
+dataset = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
+        "detailed, expert-generated response."
+    ),
+    name="Clinical Q&A",
+    domains=domains,
+    subdomains=subdomains,
+    rows=1000,
+    training_type="instruction_dataset",
+    idempotency_key="clinical-qa-2026-09-02",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+
+assert dataset_id is not None
+
+while True:
+    record = client.datasets.get(dataset_id)
+    if record.status == "succeeded":
+        break
+    if record.status == "failed":
+        error = record.error_data
+        message = (error and error.message) or "unknown error"
+        raise RuntimeError(f"Dataset generation failed: {message}")
+    time.sleep(5)
+
+print(f"Generated {record.row_count} rows")
+
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+```
+
+Para treinar com o conjunto de dados gerado, passe o ID dele para [`autoscientist.create`](/pt/autoscientist/running-autoscientist):
+
+```python
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)
+```

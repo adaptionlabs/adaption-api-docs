@@ -1,0 +1,113 @@
+---
+/**
+ * Starlight `Header` override.
+ *
+ * This is the Stainless stacked header with one change: the links row comes
+ * from the local, localized `HeaderLinks` instead of the build-time global that
+ * `@stainless-api/docs` derives from `header.links`. See that file for why.
+ *
+ * Everything that can be imported is imported rather than copied, so the only
+ * vendored parts are the ~15-line layout and the global style block. Both are
+ * lifted from `@stainless-api/docs/stl-docs/components/Header.astro` and
+ * `.../headers/StackedHeader.astro`; if that package restyles its header, this
+ * file is what needs re-checking. `Pagination.astro` vendors from the same
+ * package for the same reason.
+ *
+ * Only the stacked layout is reproduced: `astro.config.ts` pins
+ * `header.layout: "stacked"`.
+ */
+import LanguageSelect from "virtual:starlight/components/LanguageSelect";
+import Search from "virtual:starlight/components/Search";
+import SiteTitle from "virtual:starlight/components/SiteTitle";
+import ThemeSelect from "virtual:starlight/components/ThemeSelect";
+import config from "virtual:starlight/user-config";
+import SecondaryNavTabs from "../../../node_modules/@stainless-api/docs/stl-docs/components/nav-tabs/SecondaryNavTabs.astro";
+import HeaderLinks from "./HeaderLinks.tsx";
+import { toTranslationKey } from "@/i18n/locales";
+
+const lang = toTranslationKey(Astro.currentLocale);
+const shouldRenderSearch = !!(
+  config.pagefind ||
+  config.components.Search !== "@astrojs/starlight/components/Search.astro"
+);
+---
+
+<div class="header">
+  <div class="left-group">
+    <div class="title-wrapper sl-flex">
+      <SiteTitle />
+    </div>
+  </div>
+
+  {shouldRenderSearch && <Search />}
+
+  <div class="right-group">
+    <ThemeSelect />
+    <HeaderLinks lang={lang} />
+    <LanguageSelect />
+  </div>
+</div>
+
+<SecondaryNavTabs />
+
+<style is:global>
+  @layer starlight.core {
+    .header {
+      display: flex;
+      gap: var(--sl-nav-gap);
+      justify-content: space-between;
+      align-items: center;
+      height: 100%;
+      width: 100%;
+    }
+    .title-wrapper {
+      /* Prevent long titles overflowing and covering the search and menu buttons on narrow viewports. */
+      overflow: clip;
+      /* Avoid clipping focus ring around link inside title wrapper. */
+      padding: 0.25rem;
+      margin: -0.25rem;
+      min-width: 0;
+      /* Max height should match button height */
+      max-height: 32px;
+    }
+
+    .default-tabs-container {
+      justify-content: flex-end;
+    }
+
+    .split-tabs-container {
+      display: flex;
+      max-width: 480px;
+      flex: 1;
+
+      button {
+        max-width: unset;
+        width: 100%;
+        flex: 1;
+      }
+    }
+
+    .left-group {
+      display: flex;
+      align-items: center;
+      gap: var(--sl-nav-gap);
+      flex-shrink: 0;
+    }
+
+    .right-group,
+    .social-icons {
+      gap: var(--sl-nav-gap);
+      align-items: center;
+    }
+
+    .right-group > div {
+      gap: var(--sl-nav-gap);
+    }
+
+    @media (min-width: 50rem) {
+      .default-tabs-container {
+        min-width: 540px;
+      }
+    }
+  }
+</style>

@@ -1,0 +1,198 @@
+---
+title: 配置 Adaptive Data
+description: 生成指令数据或偏好数据、应用配方、限制行数，并控制适配后的输出。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+在[映射好列](/zh/adaptive-data/select-columns)之后，你可以配置 Adaptive Data 如何转换它们。你可以选择训练格式、应用配方、限制运行规模，并定义输出要求。
+
+下面的 SDK 示例假定你已经[配置好 Python SDK](/zh/introduction/getting-started)，并把 `ADAPTION_DATASET_ID` 设置为某个[已导入数据集](/zh/adaptive-data/create-a-dataset)的 ID：
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+column_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+```
+## 应用配方
+
+配方是作用于已映射数据的可选转换：
+
+- **提示词去重**会移除重复的提示词，保持样本的多样性。
+- **提示词改写**会重写提示词，使其更清晰、更贴合任务。
+- **推理轨迹**会为适配后的补全提供相应的推理过程。
+
+在 SDK 中，配方位于 `recipe_specification.recipes` 之下。同一次运行中可以启用多个配方：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    recipe_specification={
+        "recipes": {
+            "deduplication": True,
+            "prompt_rephrase": True,
+            "reasoning_traces": True,
+        },
+    },
+)
+print(f"Run started: {run.run_id}")
+```
+
+<Callout variant="note">
+  推理轨迹的具体输出取决于 API 与配方版本。
+  请检查下载到的数据集，并参阅
+  [`datasets.run` 参考](/api/python/resources/datasets/methods/run)中的 `RecipeSpecification`。
+</Callout>
+
+如果你想微调一个支持思维链推理的模型，请使用推理轨迹。
+
+## 生成偏好对
+
+默认情况下，Adaptive Data 会生成用于有监督微调的指令数据集。如果你需要的是用于 DPO 等偏好训练的「已选」与「被拒」回答，请把 `training_type` 设为 `preference_pairs`。
+
+源数据映射保持不变：提供一个 `prompt` 列，并可选地提供已有的 `completion` 列。Adaptive Data 会在输出中生成偏好对相关字段。
+
+```python
+preference_mapping = {
+    "prompt": "instruction",
+    "completion": "response",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=preference_mapping,
+    training_type="preference_pairs",
+)
+print(f"Run started: {run.run_id}")
+```
+
+若要改为生成增强后的提示词/补全对，请使用 `training_type="instruction_dataset"`，或直接省略 `training_type`。语言扩展、配方、任务限制和品牌控制都可以包含在同一次偏好对运行中。当前的结构定义请参阅 [`datasets.run` 参考](/api/python/resources/datasets/methods/run)中的 `training_type`。
+
+## 限制行数并估算运行
+
+在处理大型数据集之前，可以用 `job_specification.max_rows` 在一个子集上测试映射与控制项。请先[用 `datasets.run` 申请估算](/api/python/resources/datasets/methods/run)，以便在不启动适配的情况下校验同一份配置并获得额度报价：
+
+```python
+job_specification = {"max_rows": 500}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {run.run_id}")
+```
+
+如果想处理整个数据集，请省略 `max_rows`。所有任务级选项请参阅 [`datasets.run` 参考](/api/python/resources/datasets/methods/run)中的 `JobSpecification`。
+
+## 配置品牌控制
+
+`brand_controls` 让输出要求成为适配运行的一部分：
+
+- **`length`** 控制目标详略程度：`minimal`、`concise`、`detailed` 或 `extensive`。
+- **`safety_categories`** 指定需要强制执行的内容安全类别。
+- **`hallucination_mitigation`** 在适用时通过网络搜索为生成内容提供事实依据。
+- **`blueprint`** 提供关于语气、人设、受众、语言或产品专用措辞的自由文本指令。
+
+### 减少幻觉
+
+幻觉缓解会引导生成的补全趋向可验证的信息。对于客户支持、基于事实的问答或合规流程等对事实敏感的数据，请启用该选项：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={"hallucination_mitigation": True},
+)
+```
+
+提供事实依据可能影响延迟和额度消耗。请在扩大规模之前用 `estimate=True` 对比运行成本。
+
+### 控制长度与安全性
+
+长度与安全性约束可以组合在同一个 `brand_controls` 对象中。受支持的安全类别名称请以 [`datasets.run` 参考](/api/python/resources/datasets/methods/run)为准：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "length": "concise",
+        "safety_categories": ["harassment", "hate"],
+    },
+)
+```
+
+### 设置 Blueprint
+
+对于无法用结构化字段表达的定性要求，请使用 `blueprint`。它相当于生成补全时的系统指令，并在整次运行中保持一致：
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls={
+        "blueprint": (
+            "You are a customer-success assistant for Acme. "
+            "Answer in British English with a warm, direct tone. "
+            "Do not recommend third-party tools."
+        ),
+    },
+)
+```
+
+### 组合品牌控制
+
+结构化控制项与 Blueprint 指令可以一起使用：
+
+```python
+brand_controls = {
+    "length": "concise",
+    "safety_categories": ["harassment", "hate"],
+    "hallucination_mitigation": True,
+    "blueprint": "Answer in British English with a warm, direct tone.",
+}
+
+estimate = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+run = client.datasets.run(
+    dataset_id,
+    column_mapping=column_mapping,
+    brand_controls=brand_controls,
+    job_specification={"max_rows": 500},
+)
+print(f"Run started: {run.run_id}")
+```
+
+运行完成后，请[评估数据集质量](/zh/adaptive-data/evaluate-dataset-quality)并[下载适配后的数据行](/api/python/resources/datasets/methods/download)。

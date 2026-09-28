@@ -1,0 +1,124 @@
+---
+title: 扩展你的数据
+description: 在导入或适配之后，通过增强、翻译或本地化数据行来扩大数据集规模。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+在[导入数据集](/zh/adaptive-data/create-a-dataset)并可选地[运行 Adaptive Data](/api/python/resources/datasets/methods/run) 之后，你可以在不重跑整条适配流水线的情况下增加行数。下面每种方法都会返回一个**新数据集**，其中包含你的源数据行以及新增的数据行。
+
+以下 SDK 示例假定你已经[配置好 Python SDK](/zh/introduction/getting-started)，并把 `ADAPTION_DATASET_ID` 设置为一个可供扩展的数据集：
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+```
+
+## 数据增强
+
+[`datasets.augment`](/api/python/resources/datasets/methods/augment) 会从精选数据池中取出额外的数据行，并以新数据集的形式返回。当你想在相同主题分布下获得更多样本，或想扩大主题覆盖面时，可以使用它：
+
+- **领域数据行**与你数据集中的主题相匹配。
+- **通用数据行**来自其他主题，用于提升多样性。
+
+```python
+estimate = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+)
+print(response.dataset_id, response.status)
+```
+
+响应中带有新数据集的 ID 及其当前状态；在估算模式下两者都是 `None`。在下载新数据集或用它训练之前，请先等待它就绪：
+
+```python
+from adaption import DatasetTimeout
+
+try:
+    final = client.datasets.wait_for_completion(response.dataset_id)
+except DatasetTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+print(final.status, final.row_count)
+```
+
+`wait_for_completion` 的退避间隔从 2 秒增长到 30 秒，默认超时为一小时。超时只会停止等待，并不会停止扩展任务。用同一个数据集 ID 再次调用即可恢复跟踪。在 [`translate`](#翻译行) 与 [`localize`](#本地化行) 之后同样需要这样等待。
+
+省略其中某个行数参数即可跳过该类型的新增。数据增强按取出的数据行计费。当前的限制与请求字段请参阅 [`augment` 参考](/api/python/resources/datasets/methods/augment)。
+
+<Callout variant="note">
+  `datasets.augment` 适用于能够判定主题分布的文本数据集，
+  不支持图像数据集。它与
+  [`autoscientist.create`](/zh/autoscientist/data-augmentation) 上的
+  `augmentation_domain_rows` 和 `augmentation_general_rows`
+  是同一套精选数据池操作。区别在于 AutoScientist 这条路径会在训练时应用这些数据行，
+  而不会写出一个新数据集。
+</Callout>
+
+## 翻译行
+
+[`datasets.translate`](/api/python/resources/datasets/methods/translate) 会把现有数据行的一个样本转换为其他语言。Adaptive Data 最多支持 242 种语言。请提供 [ISO 639-1 语言代码](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes)。`sample_rate` 表示为每种目标语言扩展的源数据行比例：
+
+```python
+estimate = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+)
+print(response.dataset_id, response.status)
+```
+
+在两种目标语言、采样率为 `0.25` 的情况下，输出行数约为输入的 `1 + (0.25 × 2) = 1.5` 倍。
+
+## 本地化行
+
+[`datasets.localize`](/api/python/resources/datasets/methods/localize) 会同时针对语言和国家/地区调整数据行，除了直接翻译之外还会采用符合当地习惯的措辞。请使用 [ISO 3166-1 alpha-2 国家/地区代码](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements)和 [ISO 639-1 语言代码](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes)提供国家/地区与语言的配对：
+
+```python
+response = client.datasets.localize(
+    dataset_id,
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
+)
+print(response.dataset_id, response.status)
+```
+
+每一组配对都会生成一个针对特定国家/地区和语言的变体，而不仅仅是翻译文本。
+
+<Callout variant="note">
+  翻译和本地化按输出行数计费。在上述任一方法上设置 `estimate=True`，
+  即可在实际执行前先为请求定价。在其中任一方法上传入 `idempotency_key`，
+  可以让重试的请求返回首次请求创建的数据集，而不是启动并再次计费一次运行。
+  当前的结构定义与可选值请参阅
+  [`translate`](/api/python/resources/datasets/methods/translate) 与
+  [`localize`](/api/python/resources/datasets/methods/localize) 参考。
+</Callout>
+
+关于适配运行中的配方、偏好对、行数限制与品牌控制，请参阅[配置 Adaptive Data](/zh/adaptive-data/configure-adaptive-data)。
+
+本页面上的方法都会写出一个新数据集，并保持源数据集不变。`datasets.run` 也接受 `language_expansion` 设置；这条路径会把该设置保存在数据集上，并在它自己的适配运行内扩展数据行，而不会创建新数据集。相关结构请参阅 [`run` 参考](/api/python/resources/datasets/methods/run)。

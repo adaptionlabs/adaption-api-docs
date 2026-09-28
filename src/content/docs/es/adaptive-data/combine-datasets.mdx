@@ -1,0 +1,73 @@
+---
+title: Combinar conjuntos de datos
+description: Valida y fusiona varios conjuntos de datos de Adaptive Data en uno nuevo con el SDK de Python.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Combina conjuntos de datos cuando los ejemplos de entrenamiento relacionados están repartidos entre varios resultados de Adaptive Data. La combinación crea un conjunto de datos nuevo y deja intactos todos los conjuntos de datos de origen.
+
+Cada origen debe pertenecer a tu organización y haber completado una ejecución de Adaptive Data. Los ejemplos dan por hecho que has [configurado el SDK de Python](/es/introduction/getting-started).
+
+## Validar los conjuntos de datos de origen
+
+Valida los conjuntos de datos antes de combinarlos. La validación comprueba la compatibilidad sin escribir datos:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_ids = [
+    "dataset_abc123",
+    "dataset_def456",
+]
+
+validation = client.datasets.combine.validate(dataset_ids=dataset_ids)
+
+for issue in validation.issues:
+    print(issue.level, issue.code, issue.message)
+
+if not validation.compatible:
+    raise ValueError("The datasets cannot be combined")
+
+print(validation.training_type, validation.total_estimated_rows)
+```
+
+Cada incidencia de validación tiene un `level`, un `code` estable y un `message` orientado al usuario:
+
+- Los **errores** bloquean la combinación. Por ejemplo, un origen puede no estar listo, pertenecer a otra organización o mezclar datos de texto y multimodales.
+- Las **advertencias** describen cambios que la operación de combinación puede realizar automáticamente. Puede convertir tipos de columna incompatibles a un tipo común o resolver tipos de entrenamiento mixtos en un conjunto de datos de instrucciones.
+
+Consulta la [referencia de `combine.validate`](/api/python/resources/datasets/subresources/combine/methods/validate) para ver todos los campos de validación y los códigos de incidencia.
+
+## Combinar los conjuntos de datos
+
+Pasa los mismos ID de origen a `combine.create` y dale un nombre al conjunto de datos resultante:
+
+```python
+from uuid import uuid4
+
+idempotency_key = str(uuid4())
+
+combined = client.datasets.combine.create(
+    dataset_ids=dataset_ids,
+    name="Combined support data",
+    idempotency_key=idempotency_key,
+)
+
+print(combined.dataset_id)
+```
+
+La solicitud se ejecuta de forma síncrona y devuelve el nuevo `dataset_id` cuando termina la fusión. No existe un flujo público de sondeo del trabajo de combinación.
+
+<Callout variant="note">
+  Mantén la misma `idempotency_key` si reintentas la solicitud. Un reintento con
+  esa clave devuelve el conjunto de datos creado por la primera solicitud en
+  lugar de iniciar otra fusión. La clave es opcional, pero proporcionar una
+  resulta útil si una solicitud de larga duración pierde la conexión.
+</Callout>
+
+Los conjuntos de datos con el mismo tipo de entrenamiento conservan ese tipo. Combinar conjuntos de datos de instrucciones y de preferencia produce un conjunto de datos de instrucciones. La validación informa del resto de reconciliaciones de nivel advertencia antes de que inicies la fusión.
+
+Consulta la [referencia de `combine.create`](/api/python/resources/datasets/subresources/combine/methods/create) para conocer los requisitos de solicitud y los campos de respuesta actuales.

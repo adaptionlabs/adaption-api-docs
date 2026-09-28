@@ -1,0 +1,109 @@
+---
+title: تقييم جودة مجموعة البيانات
+description: استطلِع حالة التقييم وافحص مقاييس الجودة لمجموعة بيانات مكيّفة باستخدام حزمة Python SDK.
+---
+
+بعد نجاح [تشغيلة التكييف](/ar/adaptive-data/configure-adaptive-data)، يقارن التقييم البيانات المصدر بالبيانات المكيّفة عبر أبعاد جودة تقيسها المنصّة. ويعمل التقييم وفق جدوله الخاص، لذلك قد ينتهي التكييف قبل أن تكون نتائج الجودة جاهزة.
+
+تعرض حزمة Python SDK النتائج في شكلين:
+
+- ‏**[`datasets.get_evaluation(dataset_id)`](/api/python/resources/datasets/methods/get_evaluation)** تُعيد حالة التقييم ونتيجة `quality` الكاملة.
+- ‏**[`datasets.get(dataset_id)`](/api/python/resources/datasets/methods/get)** تُعيد سجلّ مجموعة البيانات وملخّصه المختصر `evaluation_summary`.
+
+## جلب نتائج التقييم
+
+استدعِ `get_evaluation` بالمعرّف `dataset_id` نفسه المستخدم في تشغيلة التكييف:
+
+```python
+evaluation = client.datasets.get_evaluation(dataset_id)
+
+print(evaluation.status)
+if evaluation.quality:
+    print(f"Score before: {evaluation.quality.score_before}")
+    print(f"Score after:  {evaluation.quality.score_after}")
+    print(f"Improvement:  {evaluation.quality.improvement_percent}%")
+```
+
+عند نجاح التقييم، قد يتضمّن `quality` درجات قبل التكييف وبعده على مقياس من 0 إلى 10، وتقديرات حرفية، ونسبة تحسّن، ومئينًا بعد التكييف. وبينما تكون الحالة `pending` أو `running`، قد يكون `quality` غائبًا.
+
+## الاستطلاع حتى انتهاء التقييم
+
+استطلِع حالة التقييم مع مهلة نهائية حتى لا ينتظر دفتر ملاحظات أو مهمّة تكامل مستمر إلى الأبد:
+
+```python
+import time
+
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped")
+elif evaluation.quality:
+    print(evaluation.quality.model_dump(exclude_none=True))
+```
+
+تُعيد العملاء غير المتزامنون شكل الاستجابة نفسه مع `await client.datasets.get_evaluation(dataset_id)`.
+
+## قراءة الملخّص من مجموعة البيانات
+
+إذا كان تطبيقك [يجلب مجموعة البيانات](/api/python/resources/datasets/methods/get) أصلًا، فاستخدم `evaluation_summary` للحصول على المقاييس الرئيسية دون إرسال طلب تقييم منفصل:
+
+```python
+dataset = client.datasets.get(dataset_id)
+
+if dataset.evaluation_summary:
+    summary = dataset.evaluation_summary
+    print(f"Score after: {summary.score_after}")
+    print(f"Improvement: {summary.improvement_percent}%")
+```
+
+تُبلِغ [`datasets.get_status`](/api/python/resources/datasets/methods/get_status) عن تقدّم الاستيعاب والتكييف؛ وهي لا تتضمّن نتائج التقييم.
+
+## مثال كامل
+
+يقرأ هذا السكربت معرّف مجموعة بيانات لتكييف مكتمل من البيئة، وينتظر التقييم، ثم يطبع النتيجة التفصيلية والملخّص المختصر معًا:
+
+```python
+import os
+import time
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+deadline = time.monotonic() + 600
+
+while True:
+    evaluation = client.datasets.get_evaluation(dataset_id)
+    print(f"Evaluation status: {evaluation.status}")
+
+    if evaluation.status in ("succeeded", "failed", "skipped"):
+        break
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Evaluation did not finish within 10 minutes")
+    time.sleep(5)
+
+if evaluation.status == "failed":
+    raise RuntimeError("Dataset evaluation failed")
+if evaluation.status == "skipped":
+    print("Evaluation was skipped for this dataset")
+elif not evaluation.quality:
+    raise RuntimeError("Evaluation succeeded without quality metrics")
+else:
+    print(evaluation.quality.model_dump(exclude_none=True))
+
+dataset = client.datasets.get(dataset_id)
+if dataset.evaluation_summary:
+    print(dataset.evaluation_summary.model_dump(exclude_none=True))
+```
+
+استخدم `get_evaluation` عندما تحتاج إلى حالة صريحة للمسار أو إلى تفاصيل جودة كاملة. واستخدم `evaluation_summary` عندما تكفيك نتيجة مختصرة على سجلّ مجموعة البيانات. ولتكرار التجارب على الجودة باقتصاد، [حدّد الصفوف وقدّر التشغيلة](/ar/adaptive-data/configure-adaptive-data#تحديد-الصفوف-وتقدير-التشغيلة) قبل توسيع النطاق.

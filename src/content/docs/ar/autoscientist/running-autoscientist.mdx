@@ -1,0 +1,125 @@
+---
+title: تشغيل AutoScientist
+description: أنشئ تشغيلة تدريب في AutoScientist وراقبها وتعامل معها باستخدام حزمة Python SDK.
+---
+
+## إنشاء تشغيلة
+
+تقرأ حزمة SDK المتغيّر `ADAPTION_API_KEY` من البيئة. استدعِ [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) مع مجموعة البيانات المُعدّة:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)  # pending
+```
+
+| المعامل                     | مطلوب    | ملاحظات                                                                                                                                                                            |
+| --------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_id`                | نعم      | معرّف مجموعة بيانات مكيّفة، أو [مجموعة بيانات خام](/ar/autoscientist/run-on-non-adapted-data).                                                                                      |
+| `max_iterations`            | لا       | من 1 إلى 5.                                                                                                                                                                        |
+| `target_win_rate`           | لا       | أكبر من 0.5 وبحد أقصى 1. يوقف الحلقة مبكّرًا بمجرّد بلوغه.                                                                                                                          |
+| `model`                     | لا       | معرّف تُعيده [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models). إذا أُغفل، يختار AutoScientist نموذجًا لمجموعة البيانات.              |
+| `training_method`           | لا       | `instruction` من أجل SFT أو `alignment` من أجل مسار SFT ← DPO. مرّر `alignment` صراحةً لمجموعة بيانات أزواج تفضيل.                                                                  |
+| `hyperparams`               | لا       | تجاوزات على [وصفة المنصّة](/ar/autoscientist/recommended-hyperparameters)؛ وتحتفظ المفاتيح غير المضبوطة بالقيم الافتراضية للمنصّة.                                                  |
+| `augmentation_domain_rows`  | لا       | [صفوف موجّهة للمجال](/ar/autoscientist/data-augmentation) تُضاف قبل التدريب.                                                                                                        |
+| `augmentation_general_rows` | لا       | صفوف عامّة تُضاف قبل التدريب.                                                                                                                                                       |
+| `idempotency_key`           | لا       | الطلبات المتكرّرة بالمفتاح نفسه تُعيد التشغيلة الموجودة.                                                                                                                            |
+| `column_mapping`            | لا       | يربط `prompt` و`completion` من أجل SFT، أو `prompt` و`chosen` و`rejected` من أجل DPO. أغفِله لتدع المنصّة تستنتج الربط.                                                             |
+
+يُتحقَّق من `column_mapping` مقابل **مخطّط مجموعة البيانات المكيّفة**، لا مقابل ترويسات الملف المرفوع الأصلية. فقد يضيف التكييف أعمدة مثل `enhanced_prompt`. والربط بعمود مفقود يفشل مع الرسالة `Selected column '...' for prompt is not in this dataset`.
+
+### التدريب على أزواج التفضيل
+
+أكمِل أوّلًا [تشغيلة أزواج تفضيل في Adaptive Data](/ar/adaptive-data/configure-adaptive-data#توليد-أزواج-التفضيل). ومجموعة بيانات أزواج التفضيل لا تختار المواءمة بحد ذاتها، لذا اضبط `training_method` صراحةً:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+)
+print(run.id, run.training_method)  # alignment
+```
+
+يمكن استنتاج مخرجات Adaptive Data القياسية دون `column_mapping`. أمّا إذا كان المخطّط المكيّف يعرض بدلًا من ذلك أعمدة مخصّصة منفصلة، فاربط الأدوار الثلاثة كلّها:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    column_mapping={
+        "prompt": "question",
+        "chosen": "preferred_answer",
+        "rejected": "other_answer",
+    },
+)
+```
+
+يتطلّب DPO ما لا يقلّ عن **12,000 زوج تفضيل فعّال**، بما في ذلك التعزيز المطلوب. ويتطلّب SFT ما لا يقلّ عن 1,000 صف فعّال. واختيار `alignment` لا يحوّل نوع مجموعة بيانات آخر: إذ تحوّل واجهة برمجة التطبيقات التشغيلة إلى `instruction` ما لم تكن مجموعة البيانات مُعدّة بوصفها `preference_pairs`. اقرأ `run.training_method` للتأكّد من الهدف المعتمد.
+
+يقدّم AutoScientist المواءمة بوصفها تشغيلة واحدة، لكنّه يدرّب محوّل SFT قبل مرحلة DPO. ويبقى معرّف التشغيلة العام والقيمة المعتمدة `training_method="alignment"` ثابتين عبر المرحلتين. وأثناء التسليم، تبقى التشغيلة `running`، وقد تكون المقاييس غير متاحة مؤقّتًا، وتكون `download_available` خاطئة. وقد يُعيد طلب الإلغاء أثناء هذا التسليم القصير الرمز `409`؛ أعِد المحاولة بعد أن يصبح أحد التكرارات نشطًا.
+
+## انتظار الاكتمال
+
+‏[حالة التشغيلة](/api/python/resources/autoscientist/methods/get) هي `pending` أو `running` أو `succeeded` أو `failed` أو `cancelled`.
+
+```python
+from adaption import TrainingTimeout
+
+try:
+    run = client.autoscientist.wait_for_completion(run.id)
+except TrainingTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.iterations_completed, run.max_iterations, run.best_win_rate)
+```
+
+‏`wait_for_completion` تتراجع تدريجيًا من 10 إلى 60 ثانية ولها مهلة افتراضية مدّتها أربع ساعات. وانتهاء المهلة يوقف الانتظار، لا التدريب. استدعِها مرّة أخرى بمعرّف التشغيلة نفسه لاستئناف المتابعة.
+
+وللتحكّم في جدول الاستطلاع بنفسك:
+
+```python
+import time
+
+while True:
+    run = client.autoscientist.get(run.id)
+    print(run.status, run.iterations_completed, run.best_win_rate)
+
+    if run.status == "succeeded":
+        break
+    if run.status == "failed":
+        raise RuntimeError(f"failed: {run.error}")
+    if run.status == "cancelled":
+        raise RuntimeError("Run was cancelled")
+
+    time.sleep(30)
+```
+
+التشغيلة الناجحة إمّا بلغت `target_win_rate` أو استهلكت تكرارها الأخير. [قارن `best_win_rate` بالهدف](/ar/autoscientist/interpreting-results) لتحديد أيّ الأمرين حدث. واستخدم [`client.autoscientist.cancel(run.id)`](/api/python/resources/autoscientist/methods/cancel) لإيقاف تشغيلة جارية.
+
+## تقييد حجم النموذج
+
+في التطبيق، يقصر **Tiny AutoScientist** الاختيار على النماذج التي تقلّ عن 10 مليارات معامل. أمّا في حزمة SDK، فراجع [النماذج المدعومة](/ar/autoscientist/supported-models)، واستعرض النماذج المتاحة حاليًا، ومرّر معرّفًا مؤهَّلًا صراحةً:
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+
+model_id = input("Eligible model ID: ").strip()
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model=model_id,
+)
+```
+
+قد يتغيّر توفّر النماذج وبياناتها الوصفية. تأكّد من القيم الحالية عبر [`autoscientist.list_models`](/api/python/resources/autoscientist/methods/list_models) بدلًا من استنتاج حجم النموذج من معرّفه.

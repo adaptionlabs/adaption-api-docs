@@ -1,0 +1,118 @@
+---
+title: النماذج المدعومة
+description: النماذج الأساس المتاحة لـ AutoScientist والحدود الخاصّة بكل نموذج لطول السياق وحجم الدفعة ورتبة LoRA.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+يمكن تمرير كل نموذج أدناه في الحقل `model` عند [إنشاء تشغيلة AutoScientist](/ar/autoscientist/running-autoscientist). وقائمة النماذج في وقت التشغيل هي المرجع المعتمد؛ فاستخدم هذه الصفحة مرجعًا للتخطيط.
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id, model.api_model_size, model.methods, model.training_types)
+```
+
+راجع [مرجع واجهة برمجة التطبيقات لـ `autoscientist.list_models`](/api/python/resources/autoscientist/methods/list_models) للاطّلاع على مخطّط الاستجابة الحالي.
+
+<Callout variant="note">
+  لست مضطرًّا إلى اختيار نموذج. أغفِل `model` وسيختار AutoScientist نموذجًا
+  يدعم `training_method` المطلوب. ويُعاد معرّف النموذج المعتمد مع التشغيلة.
+</Callout>
+
+## النماذج المتاحة
+
+| النموذج                                            | معرّف `model`                                                | الحجم | الطرق    | `training_type` المدعوم   | يدعم تدريب الاستدلال        | الحد الأدنى للصفوف |
+| -------------------------------------------------- | ------------------------------------------------------------ | ----- | -------- | ------------------------- | --------------------------- | --------- |
+| **SFT / Alignment**                                |                                                              |       |          |                           |                             |           |
+| Gemma 3 (4B Instruct)                              | `google/gemma-3-4b-it`                                       | 4B    | SFT, DPO | lora, full                | false                       | 1,000     |
+| Gemma 4 (31B Instruct)                             | `google/gemma-4-31B-it`                                      | 31B   | SFT, DPO | lora, full                | true                        | 10,000    |
+| gpt-oss (20B)                                      | `openai/gpt-oss-20b`                                         | 20B   | SFT, DPO | lora                      | true                        | 1,000     |
+| gpt-oss (120B)                                     | `openai/gpt-oss-120b`                                        | 120B  | SFT, DPO | lora                      | true                        | 1,000     |
+| Llama 3.3 (70B Instruct)                           | `meta-llama/Llama-3.3-70B-Instruct-Reference`                | 70B   | SFT, DPO | lora, full                | false                       | 1,000     |
+| Llama 4 Scout (17B-16E Instruct)                   | `meta-llama/Llama-4-Scout-17B-16E-Instruct`                  | 109B  | SFT, DPO | lora                      | false                       | 1,000     |
+| Meta Llama 3.2 (3B Instruct)                       | `meta-llama/Llama-3.2-3B-Instruct`                           | 3B    | SFT, DPO | lora, full                | false                       | 1,000     |
+| Mistral (7B) Instruct v0.2                         | `mistralai/Mistral-7B-Instruct-v0.2`                         | 7B    | SFT, DPO | lora                      | false                       | 1,000     |
+| Mixtral 8x7B Instruct (v0.1)                       | `mistralai/Mixtral-8x7B-Instruct-v0.1`                       | 46.7B | SFT, DPO | lora, full                | false                       | 1,000     |
+| NVIDIA Nemotron 3 Nano Omni 30B A3B Reasoning BF16 | `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16`         | 30B   | SFT, DPO | lora                      | true                        | 10,000    |
+| NVIDIA Nemotron 3 Super 120B A12B BF16             | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`              | 120B  | SFT, DPO | lora                      | false                       | 10,000    |
+| Qwen 3.5 (0.8B)                                    | `Qwen/Qwen3.5-0.8B`                                          | 0.8B  | SFT, DPO | lora                      | false                       | 1,000     |
+| Qwen 3.5 122B A10B                                 | `Qwen/Qwen3.5-122B-A10B`                                     | 122B  | SFT, DPO | lora                      | true                        | 10,000    |
+| Qwen 3.6 35B A3B                                   | `Qwen/Qwen3.6-35B-A3B`                                       | 35B   | SFT, DPO | lora                      | true                        | 10,000    |
+| **SFT / Alignment (multimodal)**                   |                                                              |       |          |                           |                             |           |
+| Gemma 3 (4B) VLM                                   | `google/gemma-3-4b-it-VLM`                                   | 4B    | SFT, DPO | lora                      | false                       | 1,000     |
+| Gemma 3 (27B) VLM                                  | `google/gemma-3-27b-it-VLM`                                  | 27B   | SFT, DPO | lora                      | false                       | 1,000     |
+| Gemma 4 (31B) VLM                                  | `google/gemma-4-31B-it-VLM`                                  | 31B   | SFT, DPO | lora                      | false                       | 1,000     |
+| Qwen 3.5 (9B)                                      | `Qwen/Qwen3.5-9B`                                            | 9B    | SFT, DPO | lora                      | false                       | 1,000     |
+
+‏**الحد الأدنى للصفوف** هو أصغر حجم فعّال لمجموعة البيانات (الصفوف الأساسية زائد [التعزيز](/ar/autoscientist/data-augmentation)) مطلوب لاختيار ذلك النموذج. ويتطلّب تدريب DPO ما لا يقلّ عن **12,000 صف** بصرف النظر عن النموذج؛ راجع [عدد الصفوف](#عدد-الصفوف).
+
+وجود القيمة `full` في `training_type` يعني أن الضبط الدقيق الكامل متاح إضافةً إلى `lora`.
+
+## حدود التدريب لكل نموذج
+
+هذه الحدود من خصائص النموذج وعتاد التدريب. ويأخذها AutoScientist في الحسبان تلقائيًا؛ وهي تهمّ أساسًا عندما [تتجاوز معاملاته الفائقة الموصى بها](/ar/autoscientist/recommended-hyperparameters).
+
+| معرّف `model`                                                | السياق (SFT)  | السياق (DPO)  | أقصى دفعة (SFT) | أقصى دفعة (DPO) | تراكم التدرّج         | أقصى `lora_r`    |
+| ------------------------------------------------------------ | ------------- | ------------- | --------------- | --------------- | --------------------- | ---------------- |
+| **SFT / Alignment**                                          |               |               |                 |                 |                       |                  |
+| `google/gemma-3-4b-it`                                       | 131072        | 65536         | 8               | 8               | 1                     | 64               |
+| `google/gemma-4-31B-it`                                      | 49152         | 24576         | 4               | 4               | 2                     | 64               |
+| `openai/gpt-oss-20b`                                         | 131072        | 65536         | 1               | 1               | 8                     | 64               |
+| `openai/gpt-oss-120b`                                        | 65536         | 32768         | 2               | 2               | 8                     | 64               |
+| `meta-llama/Llama-3.3-70B-Instruct-Reference`                | 24576         | 12288         | 8               | 8               | 1                     | 64               |
+| `meta-llama/Llama-4-Scout-17B-16E-Instruct`                  | 65536         | 12288         | 8               | 8               | 1                     | 64               |
+| `meta-llama/Llama-3.2-3B-Instruct`                           | 131072        | 65536         | 8               | 8               | 1                     | 64               |
+| `mistralai/Mistral-7B-Instruct-v0.2`                         | 32768         | 32768         | 16              | 8               | 1                     | 64               |
+| `mistralai/Mixtral-8x7B-Instruct-v0.1`                       | 32768         | 16384         | 8               | 8               | 1                     | 64               |
+| `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16`         | 65536         | 32768         | 8               | 8               | 1                     | 64               |
+| `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`              | 49152         | 24576         | 2               | 2               | 4                     | 64               |
+| `Qwen/Qwen3.5-0.8B`                                          | 131072        | 131072        | 8               | 8               | 1                     | 64               |
+| `Qwen/Qwen3.5-122B-A10B`                                     | 65536         | 32768         | 16              | 16              | 1                     | 64               |
+| `Qwen/Qwen3.6-35B-A3B`                                       | 65536         | 32768         | 8               | 8               | 1                     | 64               |
+| **SFT / Alignment (multimodal)**                             |               |               |                 |                 |                       |                  |
+| `google/gemma-3-4b-it-VLM`                                   | 32768         | 32768         | 8               | 8               | 1                     | 64               |
+| `google/gemma-3-27b-it-VLM`                                  | 32768         | 24576         | 8               | 8               | 1                     | 64               |
+| `google/gemma-4-31B-it-VLM`                                  | 24576         | 12288         | 8               | 8               | 1                     | 64               |
+| `Qwen/Qwen3.5-9B`                                            | 65536         | 49152         | 8               | 8               | 1                     | 64               |
+
+
+### حجم الدفعة
+
+لكل نموذج حجم دفعة صالح واحد. والقيمة الافتراضية لـ `batch_size` هي `"max"`، وهي تُحَلّ إلى تلك القيمة الخاصّة بالنموذج. **وتركها دون تغيير هو الخيار الصحيح في كل تشغيلة تقريبًا.** أمّا تمرير عدد صحيح آخر فيؤدّي إلى فشل الإطلاق بعد قبول المهمّة.
+
+تستخدم النماذج تراكم التدرّج عندما تكون دفعة فعّالة أكبر مفيدة.
+
+```python
+# Recommended: let AutoScientist resolve the model and batch size.
+run = client.autoscientist.create(dataset_id=dataset_id)
+
+# Advanced: pin a model and its required batch size.
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model="openai/gpt-oss-20b",
+    hyperparams={"batch_size": 1},
+)
+```
+
+### رتبة LoRA
+
+يقبل `lora_r` قيمًا من 1 إلى 64 لكل نموذج في هذه الصفحة. ويجب أن يساوي `lora_alpha` بالضبط ضعف `lora_r` أو مثله؛ وتتحقّق واجهة برمجة التطبيقات من القيمتين معًا عند تقديمهما في الطلب نفسه.
+
+## عدد الصفوف
+
+يفرض AutoScientist الحدود الدنيا التالية لحجم مجموعة البيانات الفعّال (الصفوف الأساسية + التعزيز):
+
+| طريقة التدريب     | الحد الأدنى للصفوف | تنطبق على                           |
+| ----------------- | ------------ | ----------------------------------- |
+| SFT (instruction) | **1,000**    | كل النماذج                          |
+| DPO (preference)  | **12,000**   | كل النماذج                          |
+| أي طريقة          | **10,000**   | Gemma (≥ 26B) وQwen (≥ 35B) وNVIDIA |
+
+يمكن لمجموعات البيانات النصّية استخدام التعزيز لبلوغ الحد الأدنى. أمّا مجموعات البيانات متعدّدة الوسائط فلا يمكن تعزيزها حاليًا، لذا يجب أن تحتوي أصلًا على عدد كافٍ من الصفوف المعالَجة. ويعامل AutoScientist **20,000 صف** بوصفها هدف جودة موصى به، لا شرط إطلاق إلزاميًا.
+
+## طول السياق وبياناتك
+
+سياق التدريب هو أقصى طول تسلسل يُستخدم أثناء الضبط الدقيق. وهو أقصر من سياق التقديم. والصفوف الأطول من حد التدريب تُقتطع بدلًا من أن تُرفض.
+
+قد يكون سياق DPO أقصر من سياق SFT. وقبل تثبيت نموذج من أجل DPO، تأكّد من ظهور `DPO` في قائمة `methods` الخاصّة به في وقت التشغيل واستخدم عمود سياق DPO أعلاه.

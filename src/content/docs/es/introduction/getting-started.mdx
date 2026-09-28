@@ -1,0 +1,66 @@
+---
+title: Primeros pasos
+description: Instala el SDK de Python de Adaption y autentícate con una clave de API.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+Adaption acerca a los equipos de cada día las técnicas de optimización de datos y entrenamiento de modelos normalmente reservadas a los laboratorios de frontera.
+
+- **[Adaptive Data](/es/adaptive-data/overview)** analiza y mejora los datos de entrenamiento para que puedas exportar un conjunto de datos listo para el modelo.
+- **[AutoScientist](/es/autoscientist/overview)** automatiza el bucle de investigación que hay detrás del entrenamiento y la alineación de modelos para producir un modelo adaptado a tu objetivo.
+
+Ambos productos están disponibles a través de la API de Adaption y del SDK de Python.
+
+## Instalar el SDK
+
+```shell
+pip install adaption
+```
+
+## Crear una clave de API
+
+<Steps>
+  <Step>[Inicia sesión](https://adaptionlabs.ai/app/auth) en Adaption.</Step>
+  <Step>
+    Abre [**Settings**](https://adaptionlabs.ai/app/settings) y después [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys).
+  </Step>
+  <Step>
+    Crea una clave y cópiala. No podrás volver a verla.
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  Guarda las claves de API en variables de entorno o en un gestor de secretos.
+  No las subas al control de versiones.
+</Callout>
+
+## Usar la clave en Python
+
+Para pruebas locales, puedes pasar la clave directamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+Para aplicaciones y CI, define `ADAPTION_API_KEY`:
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+El SDK lee la variable de entorno automáticamente:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## Elegir una guía rápida
+
+- [Guía rápida de Adaptive Data](/es/adaptive-data-quickstart): importa, adapta y exporta un conjunto de datos.
+- [Guía rápida de AutoScientist](/es/autoscientist-quickstart): entrena y descarga un modelo.

@@ -1,0 +1,60 @@
+---
+title: 結果を解釈する
+description: AutoScientist の実行を取得し、その勝率と学習診断を理解します。
+---
+
+## 完了した実行を取得する
+
+[実行を作成した](/api/python/resources/autoscientist/methods/create)ときに返された実行 ID を使い、[現在の結果を取得](/api/python/resources/autoscientist/methods/get)します:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+run_id = "autoscientist_run_abc123"
+run = client.autoscientist.get(run_id)
+
+if run.status in {"pending", "running"}:
+    run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(f"Iterations: {run.iterations_completed}/{run.max_iterations}")
+print(f"Training method: {run.training_method}")
+print(f"Best win rate: {run.best_win_rate}")
+print(f"Checkpoint available: {run.download_available}")
+```
+
+アプリの結果ページには、学習済みモデルの ID、**Weights export**、**AutoScientist Config** も表示されます。レスポンスのフィールドは変わることがあります。アプリ上の値に対応する正確な SDK のフィールドについては、[`get` API リファレンス](/api/python/resources/autoscientist/methods/get)を参照してください。
+
+### DPO のステージ遷移
+
+`training_method="alignment"` で返された実行には、同じ公開 ID のもとで SFT ステージとそれに続く DPO が含まれます。ステージ間の引き継ぎの間、`status` は `running` のままで、`best_win_rate` やその他の最良結果のフィールドが null になることがあり、`download_available` は false になります。ポーリングを続けてください。DPO が始まると、公開ステータス、イテレーション、指標、成果物の利用可否は、そのステージのものを表します。
+
+## 学習の勝率
+
+**Training Winrates** チャートは、データセットから導出した評価において、ベースモデルとアダプト済みモデルを比較します。アダプト済みモデルの勝率が 70% であれば、直接対決のおよそ 70% でアダプト済みモデルが勝ったことを意味します。
+
+`best_win_rate` は、全イテレーションを通じた最良の結果です。`succeeded` の実行は、早い段階で `target_win_rate` に到達した場合もあれば、単に `max_iterations` を完了しただけの場合もあります。成功を目標到達の証拠と見なさず、これらの値を比較してください。
+
+## 学習と評価の指標
+
+これらのチャートは、標準的な診断指標を学習ステップに沿ってプロットします:
+
+- **Loss（損失）**は予測誤差を測定します。学習損失と評価損失がともに下がっていれば、通常は学習が進んでいることを示します。学習損失が下がる一方で評価損失が悪化する場合は、過学習の可能性があります。DPO の場合、損失は参照ポリシーと比べて、モデルが採用レスポンスと不採用レスポンスをどれだけ強く分離しているかを反映します。単独で解釈せず、評価の勝率と合わせて比較してください。
+- **Learning rate（学習率）**は、時間の経過に伴うオプティマイザーのステップ幅を示し、設定されたウォームアップとスケジュールを反映します。
+- **Gradient norm（勾配ノルム）**は、勾配全体の大きさを測定します。急激なスパイクは更新が不安定であることを示唆し、安定した曲線は最適化が落ち着いたことを示唆します。
+
+これらの曲線は合わせて読んでください。勝率が横ばいなら損失曲線が滑らかでも十分とはいえませんし、勝率が高くても、調査に値する不安定な学習診断を伴うことがあります。
+
+## よくある問題
+
+- **勝率が横ばい、または低下する:** 十分な容量を持つモデルを使い、エポック数を増やすことを検討し、[拡張](/ja/autoscientist/data-augmentation)によってドメインデータセットを 20,000 行に近づけるべきかどうかを評価してください。
+- **ダウンロード可能なチェックポイントがない:** [モデルをダウンロードする](/ja/autoscientist/download-the-model)の手順に従ったり [`download` メソッド](/api/python/resources/autoscientist/methods/download)を呼び出したりする前に、実行が成功し `download_available` が true であることを確認してください。
+- **DPO の指標が一時的に表示されない:** 実行がまだ `running` の場合、SFT から DPO へ移行中の可能性があります。同じ実行 ID でポーリングを続けてください。
+- **実行の状態が分からない:** 実行を取得して `status` を確認してください。`pending` はキュー待ち、`running` は実行中で、`failed` の場合は `error` に理由が含まれます。
+- **アダプト済みではなく元の行が必要:** [raw データセット](/ja/autoscientist/run-on-non-adapted-data)を作成するか、実行の設定時に元の列を選択してください。

@@ -1,0 +1,231 @@
+---
+title: Seleccionar las columnas que adaptar
+description: Mapea las columnas del conjunto de datos a los roles de prompt, completion, contexto, imagen o chat antes de ejecutar Adaptive Data.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Un conjunto de datos se compone de filas y de columnas con nombre. Adaptive Data necesita saber qué columna contiene la instrucción, cuál contiene la respuesta y qué columnas aportan el material de apoyo. En el SDK de Python defines estos roles con **`column_mapping`** en [`datasets.run`](/api/python/resources/datasets/methods/run).
+
+El mapeo de columnas es la base de los pasos posteriores, como las [recetas y los controles de marca](/es/adaptive-data/configure-adaptive-data), la [evaluación](/es/adaptive-data/evaluate-dataset-quality) y la [exportación](/api/python/resources/datasets/methods/download).
+
+## Mapear un prompt o una completion
+
+Toda ejecución necesita al menos uno de estos anclajes:
+
+- **Prompt**: la pregunta, la instrucción o la tarea que hay que completar.
+- **Completion**: la respuesta esperada.
+
+Solo necesitas uno. Si falta el otro, Adaptive Data puede generarlo.
+
+Los ejemplos siguientes dan por hecho que has [instalado y configurado el SDK de Python](/es/introduction/getting-started) y [subido un conjunto de datos](/es/adaptive-data/create-a-dataset) para obtener `dataset_id`.
+
+### Prompt sin completion
+
+Si el conjunto de datos contiene prompts pero no completions, mapea solo la columna del prompt. Adaptive Data genera una completion para cada fila.
+
+Por ejemplo, un CSV con una columna `instruction` podría contener tareas reales como “Explica por qué las hojas se ven verdes” y “Convierte 15 millas a kilómetros”:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"prompt": "instruction"},
+)
+```
+
+### Completion sin prompt
+
+Si el conjunto de datos contiene respuestas de alta calidad pero no prompts, mapea solo la columna de la completion. Adaptive Data sintetiza un prompt adecuado para cada respuesta.
+
+Por ejemplo, un CSV con una columna `response` podría contener respuestas de referencia como “Las hojas se ven verdes porque la clorofila refleja las longitudes de onda verdes de la luz”:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"completion": "response"},
+)
+```
+
+### Prompt y completion
+
+La mayoría de los conjuntos de datos de instrucciones ya contienen ambos roles:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+```
+
+## Añadir columnas de contexto
+
+Las columnas de contexto contienen información de fondo, datos de referencia o metadatos de cada fila que el modelo necesita para responder al prompt. A diferencia de `prompt` y `completion`, **`context` es una lista**, así que puedes mapear varias columnas.
+
+Este ejemplo mapea un conjunto de datos de preguntas y respuestas sobre documentos con un título y un pasaje para cada pregunta:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "context": ["document_title", "document_body"],
+    },
+)
+```
+
+Algunos patrones habituales:
+
+- **Generación aumentada por recuperación (RAG)**: mapea la consulta como `prompt`, los pasajes recuperados como `context` y la respuesta de referencia como `completion`.
+- **Metadatos por fila**: aporta una audiencia, un tono, una configuración regional o una línea de producto junto a cada prompt.
+- **Prompt universal con contexto**: aplica una misma instrucción a todas las filas mientras las columnas de contexto aportan el material específico de cada fila.
+
+Para una única instrucción compartida por todas las filas, usa un prompt universal. Para el contexto visual, consulta [Mapear una columna de imagen](#mapear-una-columna-de-imagen).
+
+## Usar un prompt universal
+
+Si todas las filas deben usar la misma instrucción y el conjunto de datos no tiene una columna de prompt, define un **prompt universal**. Las columnas de contexto o de imagen aportan entonces el contenido específico de cada fila sobre el que opera esa instrucción.
+
+En el SDK de Python, define `universal_prompt` directamente en `column_mapping`. Este ejemplo clasifica reseñas usando la columna `sentiment` existente como completion esperada:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "universal_prompt": (
+            "Classify the sentiment of this review as positive, neutral, "
+            "or negative. Respond with one word."
+        ),
+        "context": ["review"],
+        "completion": "sentiment",
+    },
+)
+```
+
+Puedes configurar el mismo mapeo en la aplicación web:
+
+### 1. Selecciona "I don't have prompt"
+
+En el paso de columnas, busca la tarjeta **Prompt column** y selecciona **I don't have prompt**.
+
+![El paso de columnas del asistente con la tarjeta Prompt column y su casilla "I don't have prompt" resaltadas, junto a las tarjetas Context column y Completion column.](/universal-prompts/dont-have-prompt.png)
+
+La tarjeta del prompt muestra dos opciones:
+
+- **Let adaption create prompt** genera un prompt para cada completion.
+- **Write universal prompt** aplica una misma instrucción a todas las filas.
+
+### 2. Escribe la instrucción compartida
+
+Selecciona **Write universal prompt** y después introduce la instrucción en **Enter prompt for all entries...**.
+
+![La tarjeta de prompt expandida, con el enlace "Write universal prompt" resaltado y, debajo, un área de texto con el marcador de posición "Enter prompt for all entries...", y el conmutador "Let adaption create prompt" visible encima.](/universal-prompts/universal-prompt.png)
+
+Escribe una instrucción completa y autónoma que identifique la tarea y la salida esperada. Por ejemplo:
+
+> Clasifica el sentimiento de esta reseña como positivo, neutro o negativo. Responde con una sola palabra.
+
+El mismo valor de `universal_prompt` está disponible a través de la [API de `datasets.run`](/api/python/resources/datasets/methods/run) y del SDK de Python, de modo que las ejecuciones desde la aplicación y las programáticas pueden usar el mismo mapeo.
+
+## Mapear una columna de imagen
+
+Las imágenes usan el mapeo dedicado **`image`** en lugar de la lista `context`. El siguiente mapeo usa el conjunto de datos público [MathVision](https://huggingface.co/datasets/MathLLMs/MathVision): `question` contiene el prompt, `decoded_image` contiene la figura y `answer` contiene la respuesta esperada.
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "image": "decoded_image",
+    },
+)
+```
+
+![Mapeo de las columnas de MathVision en el paso de selección de columnas del asistente de adaptación: question como prompt, decoded_image como contexto de imagen y answer como completion.](/multimodal-context/column-selection.png)
+
+Usa columnas de imagen para respuestas a preguntas visuales, descripción de imágenes, clasificación, OCR y otras tareas multimodales.
+
+### Entradas de imagen admitidas
+
+Las representaciones admitidas dependen del origen del conjunto de datos.
+
+#### Hugging Face
+
+- **`bytes`**: bytes de imagen en bruto
+- **`hf_struct`**: una característica `Image()` de Hugging Face
+- **`list`**: un array de bytes de imagen
+- **`url`**: una URL `http(s)` absoluta
+- **`path`**: una ruta relativa, como una entrada de `imagefolder`
+
+#### Kaggle
+
+- Carpetas de imágenes sin manifiesto, como `train/<class>/*.png`
+- Un manifiesto CSV o Parquet con una columna de imagen
+- Un archivo tabular con una columna de bytes o de URL
+
+#### Subida directa de archivos
+
+Para archivos CSV, Parquet, JSON, JSONL, XLSX y similares subidos directamente:
+
+- **`bytes`**, **`hf_struct`** o **`list`**
+- **`url`**: una URL `http(s)` absoluta
+
+## Mapear una columna de chat
+
+![Mapear una columna de chat](/chat-column.png)
+
+Una columna de chat contiene una conversación de varios turnos con la misma forma que usan las API de chat al estilo de OpenAI. Cada celda es un array JSON de turnos:
+
+```json
+[
+  { "role": "system", "content": "You are a helpful assistant." },
+  { "role": "user", "content": "How do I reset my password?" },
+  {
+    "role": "assistant",
+    "content": "Open Settings, select Account, then select Reset password."
+  }
+]
+```
+
+Mapea la columna que contiene esos arrays:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"chat": "messages"},
+)
+```
+
+<Callout variant="note">
+  Un mapeo `chat` es mutuamente excluyente con los mapeos `prompt`,
+  `completion` y `context`.
+</Callout>
+
+Cuando mapeas `chat`, Adaptive Data deriva el prompt y la completion de la conversación. Usa `chat` para datos existentes de varios turnos; usa `prompt` y `completion` para pares sueltos de instrucción y respuesta.
+
+## Texto plano y arrays de turnos de chat
+
+Las celdas mapeadas como `prompt` o `completion` pueden contener:
+
+- **Texto plano**: una cadena en cada celda.
+- **Arrays de turnos de chat**: un array JSON de objetos `{"role": "...", "content": "..."}`.
+
+Por ejemplo, una completion estructurada puede conservar un intercambio dentro de una sola celda:
+
+```json
+[
+  { "role": "user", "content": "Summarize this email." },
+  {
+    "role": "assistant",
+    "content": "The customer accepted the revised delivery date."
+  }
+]
+```
+
+Adaptive Data convierte los arrays válidos en turnos de chat y trata los demás valores como texto plano. Para una conversación completa de varios turnos almacenada en una sola columna, es preferible el mapeo `chat`, creado específicamente para eso.
+
+Consulta **ColumnMapping** en la [referencia de `datasets.run`](/api/python/resources/datasets/methods/run) para conocer el esquema actual.

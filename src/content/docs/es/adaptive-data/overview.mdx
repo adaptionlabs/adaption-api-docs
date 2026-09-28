@@ -1,0 +1,32 @@
+---
+title: Descripción general
+description: Comprende qué produce Adaptive Data y cómo avanzan los datos desde la importación hasta la adaptación y la evaluación.
+---
+
+Adaptive Data analiza la estructura de tus datos de origen y después los adapta y optimiza para convertirlos en un conjunto de datos listo para entrenar modelos de IA.
+
+## Qué puedes crear
+
+- **Conjuntos de datos de instrucciones**: prompts emparejados con las completions esperadas para el ajuste fino supervisado
+- **Pares de preferencia**: dos completions que se comparan para indicar cuál es mejor, para el entrenamiento basado en preferencias
+
+## Cómo funciona
+
+Adaptive Data se desarrolla en seis etapas:
+
+1. **[Importar](/es/adaptive-data/create-a-dataset)**: incorpora datos desde un archivo local, Hugging Face o Kaggle.
+2. **[Mapear columnas](/es/adaptive-data/select-columns)**: identifica los datos de prompt, completion, contexto, imagen o chat.
+3. **[Aplicar recetas](/es/adaptive-data/configure-adaptive-data#aplicar-recetas)**: de forma opcional, deduplica o reformula los prompts y genera trazas de razonamiento.
+4. **[Expandir](/es/adaptive-data/expand-data)**: de forma opcional, aumenta, traduce o localiza filas en un nuevo conjunto de datos.
+5. **[Definir controles de marca](/es/adaptive-data/configure-adaptive-data#configurar-los-controles-de-marca)**: de forma opcional, controla la longitud, la seguridad, el anclaje, el tono y otras instrucciones de Blueprint.
+6. **[Ejecutar](/api/python/resources/datasets/methods/run) y [evaluar](/es/adaptive-data/evaluate-dataset-quality)**: inicia la adaptación y después compara las señales de calidad de los datos de origen y de los adaptados.
+
+Después de completar varias ejecuciones, puedes [combinar sus conjuntos de datos](/es/adaptive-data/combine-datasets) en un nuevo conjunto de datos de entrenamiento.
+
+## Entradas admitidas
+
+- **Formatos de archivo**: CSV, JSON, JSONL, Parquet, PDF, DOCX, PPTX, XLSX, HTML, ZIP y TXT
+- **Hugging Face**: apunta a la URL de un conjunto de datos
+- **Kaggle**: apunta a la URL de la página de un conjunto de datos
+
+Empieza por la [guía rápida de Adaptive Data](/es/adaptive-data-quickstart) o consulta la [referencia de API](/api/python) completa.

@@ -1,0 +1,53 @@
+---
+title: アダプトしていないデータで実行する
+description: 教師ありファインチューニング向けに、学習にすぐ使えるプロンプト／コンプリーションのデータをアップロードします。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+表形式のファイルにすでに学習用のプロンプト列とコンプリーション列が含まれていて、AutoScientist にそれらの行をそのまま SFT で学習させたい場合は、[raw データセット処理](/api/python/resources/datasets/methods/create)を使用します。これにより、Adaptive Data のアダプトパイプラインがスキップされます。
+
+<Callout variant="warning">
+  最良の結果を得るには、[先にデータをアダプトしてください](/ja/adaptive-data/overview)。raw 処理は、元の行のまま学習することが意図的である場合にのみ使用してください。
+</Callout>
+
+<Callout variant="note">
+  raw 処理では、データセットは `preference_pairs` としてマークされません。DPO を行うには、まず [Adaptive Data の選好ペア実行](/ja/adaptive-data/configure-adaptive-data#選好ペアを生成する)を完了し、その後 [DPO の実行を作成](/ja/autoscientist/running-autoscientist#選好ペアで学習する)してください。
+</Callout>
+
+raw 処理は CSV、JSON、JSONL、Parquet のファイルをサポートします。データセットを作成するときに、`processing_mode` を `raw` に設定し、[必要な 2 つのソース列を両方ともマッピング](/ja/adaptive-data/select-columns)してください。
+
+## アップロードして学習する
+
+次の例では、`instruction` 列と `response` 列に学習ペアが入った CSV をアップロードします:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+
+client.datasets.wait_for_completion(dataset.dataset_id)
+
+run = client.autoscientist.create(dataset_id=dataset.dataset_id)
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.id, run.best_win_rate)
+```
+
+このワークフローでは `client.datasets.run` を呼び出さないでください。raw 処理によって、アップロードしたデータセットはそのまま AutoScientist で使える状態になります。上記の `column_mapping` は元のファイルのヘッダーを指します。あとで AutoScientist の `column_mapping` を指定する場合、そちらは処理済みデータセットのスキーマを指します。
+
+ポーリング、キャンセル、ステータスの詳細については、[AutoScientist を実行する](/ja/autoscientist/running-autoscientist)を参照してください。エンドポイントの詳細については、[`datasets.create`](/api/python/resources/datasets/methods/create) と [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) のリファレンスを参照してください。

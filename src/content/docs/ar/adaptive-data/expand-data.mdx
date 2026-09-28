@@ -1,0 +1,126 @@
+---
+title: توسيع بياناتك
+description: عزّز الصفوف أو ترجمها أو وطّنها لزيادة حجم مجموعة البيانات بعد الاستيراد أو التكييف.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+بعد أن [تستورد مجموعة بيانات](/ar/adaptive-data/create-a-dataset) و[تشغّل Adaptive Data](/api/python/resources/datasets/methods/run) اختياريًا، يمكنك زيادة عدد الصفوف دون إعادة تشغيل مسار التكييف كاملًا. وتُعيد كل طريقة أدناه **مجموعة بيانات جديدة** تتضمّن صفوف المصدر إضافة إلى الصفوف المضافة.
+
+تفترض أمثلة حزمة SDK أنّك [أعددت حزمة Python SDK](/ar/introduction/getting-started) وضبطت `ADAPTION_DATASET_ID` على مجموعة بيانات جاهزة للتوسيع:
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+```
+
+## تعزيز البيانات
+
+‏[`datasets.augment`](/api/python/resources/datasets/methods/augment) تجلب صفوفًا إضافية من المجموعة المنسَّقة وتُعيدها بوصفها مجموعة بيانات جديدة. استخدمها عندما تريد أمثلة أكثر ضمن المزيج الموضوعي نفسه أو تغطية أوسع عبر الموضوعات:
+
+- **صفوف المجال** تطابق الموضوعات الموجودة في مجموعة بياناتك.
+- **الصفوف العامّة** تأتي من موضوعات أخرى لتوسيع التنوّع.
+
+```python
+estimate = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+)
+print(response.dataset_id, response.status)
+```
+
+تحمل الاستجابة معرّف مجموعة البيانات الجديدة وحالتها الراهنة؛ وكلاهما `None` في حالة التقدير. انتظر جاهزية مجموعة البيانات الجديدة قبل تنزيلها أو التدريب عليها:
+
+```python
+from adaption import DatasetTimeout
+
+try:
+    final = client.datasets.wait_for_completion(response.dataset_id)
+except DatasetTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+print(final.status, final.row_count)
+```
+
+‏`wait_for_completion` تتراجع تدريجيًا من ثانيتين إلى 30 ثانية ولها مهلة افتراضية مدّتها ساعة واحدة. وانتهاء المهلة يوقف الانتظار، لا مهمّة التوسيع. استدعِها مرّة أخرى بمعرّف مجموعة البيانات نفسه لاستئناف المتابعة. وينطبق الانتظار نفسه بعد [`translate`](#ترجمة-الصفوف) و[`localize`](#توطين-الصفوف).
+
+أغفِل أيًّا من معاملَي الصفوف لتخطّي ذلك النوع من الإضافة. ويُحتسب التعزيز على أساس الصفوف المجلوبة. راجع [مرجع `augment`](/api/python/resources/datasets/methods/augment) للاطّلاع على الحدود الحالية وحقول الطلب.
+
+<Callout variant="note">
+  تعمل `datasets.augment` على مجموعات البيانات النصّية التي يمكن تحديد مزيجها
+  الموضوعي. وهي لا تدعم مجموعات بيانات الصور. وهذه هي عملية المجموعة المنسَّقة
+  نفسها التي يوفّرها المعاملان `augmentation_domain_rows` و
+  `augmentation_general_rows` في
+  [`autoscientist.create`](/ar/autoscientist/data-augmentation). ومسار
+  AutoScientist يطبّق تلك الصفوف وقت التدريب بدلًا من كتابة مجموعة بيانات
+  جديدة.
+</Callout>
+
+## ترجمة الصفوف
+
+‏[`datasets.translate`](/api/python/resources/datasets/methods/translate) تحوّل عيّنة من الصفوف الموجودة إلى لغات أخرى. ويدعم Adaptive Data ما يصل إلى 242 لغة. وفّر [رموز اللغات وفق ISO 639-1](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). و`sample_rate` هي نسبة صفوف المصدر التي تُوسَّع لكل لغة هدف:
+
+```python
+estimate = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.translate(
+    dataset_id,
+    sample_rate=0.25,
+    languages=["es", "fr"],
+)
+print(response.dataset_id, response.status)
+```
+
+مع لغتين هدف ومعدّل عيّنة `0.25`، تحتوي المخرجات على ما يقارب `1 + (0.25 × 2) = 1.5` ضعف عدد صفوف المدخلات.
+
+## توطين الصفوف
+
+‏[`datasets.localize`](/api/python/resources/datasets/methods/localize) تكيّف الصفوف مع لغة وبلد معًا، بما يشمل الصياغة الخاصّة بالموقع لا الترجمة المباشرة وحدها. وفّر أزواج البلد/اللغة باستخدام [رموز البلدان وفق ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements) و[رموز اللغات وفق ISO 639-1](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes):
+
+```python
+response = client.datasets.localize(
+    dataset_id,
+    sample_rate=0.25,
+    pairs=[
+        {"country": "CA", "language": "fr"},
+        {"country": "MX", "language": "es"},
+    ],
+)
+print(response.dataset_id, response.status)
+```
+
+ينشئ كل زوج نسخة خاصّة ببلد ولغة بعينهما بدلًا من ترجمة النص فقط.
+
+<Callout variant="note">
+  تُحتسب الترجمة والتوطين على أساس صفوف المخرجات. اضبط `estimate=True` على أي
+  من هذه الدوال لتسعير الطلب قبل تنفيذه. ومرّر `idempotency_key` على أي منها
+  ليُعيد الطلب المعاد إرساله مجموعة البيانات التي أنشأها الطلب الأول بدلًا من
+  بدء تشغيلة ثانية ومحاسبتك عليها. راجع مرجعَي
+  [`translate`](/api/python/resources/datasets/methods/translate) و
+  [`localize`](/api/python/resources/datasets/methods/localize) للاطّلاع على
+  المخطّط الحالي والقيم المدعومة.
+</Callout>
+
+وللاطّلاع على الوصفات وأزواج التفضيل وحدود الصفوف وضوابط العلامة في تشغيلة تكييف، راجع [ضبط Adaptive Data](/ar/adaptive-data/configure-adaptive-data).
+
+تكتب كل دالة في هذه الصفحة مجموعة بيانات جديدة وتترك المصدر دون تغيير. كما تقبل `datasets.run` إعداد `language_expansion`؛ وذلك المسار يخزّن الإعداد على مجموعة البيانات ويوسّع الصفوف داخل تشغيلة التكييف الخاصّة به، دون إنشاء مجموعة بيانات جديدة. راجع [مرجع `run`](/api/python/resources/datasets/methods/run) للاطّلاع على ذلك الشكل.

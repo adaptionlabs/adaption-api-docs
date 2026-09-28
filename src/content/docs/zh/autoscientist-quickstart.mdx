@@ -1,0 +1,169 @@
+---
+title: AutoScientist 快速上手
+description: 创建可用于训练的数据集，运行 AutoScientist，并下载最佳模型检查点。
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **在 Google Colab 中试用**
+
+可参考 [AutoScientist API Colab notebook](https://colab.research.google.com/drive/16Zly8_sDqQSP86MvdgTJ1I1T6Vjq6bkJ?usp=sharing)，跟随交互式教程逐步操作。
+
+</Callout>
+
+本指南需要 `adaption >= 0.7.0`。为了让示例简短且自成一体，它使用[原始数据处理](/zh/autoscientist/run-on-non-adapted-data)。若要获得最佳效果，请先用 [Adaptive Data](/zh/adaptive-data-quickstart) 改进你的数据集，再把适配后数据集的 ID 传给 AutoScientist。关于研究循环的工作方式以及结果解读，请参阅 [AutoScientist 概览](/zh/autoscientist/overview)。
+
+## 安装 SDK
+
+```shell
+pip install "adaption>=0.7.0"
+```
+
+## 创建 API 密钥
+
+<Steps>
+  <Step>[登录](https://adaptionlabs.ai/app/auth) Adaption。</Step>
+  <Step>
+    打开 [**Settings**](https://adaptionlabs.ai/app/settings)，然后打开 [**API
+    keys**](https://adaptionlabs.ai/app/settings?tab=api_keys)。
+  </Step>
+  <Step>
+    创建一个密钥并复制它。之后将无法再次查看该密钥。
+  </Step>
+</Steps>
+
+<Callout variant="note">
+  请将 API 密钥保存在环境变量或密钥管理服务中，不要提交到版本控制系统。
+</Callout>
+
+## 在 Python 中使用密钥
+
+在本地测试时，可以直接传入密钥：
+
+```python
+from adaption import Adaption
+
+client = Adaption(api_key="pt_live_...")
+```
+
+在应用程序和 CI 中，请设置 `ADAPTION_API_KEY`：
+
+```bash
+export ADAPTION_API_KEY="pt_live_..."
+```
+
+SDK 会自动读取该环境变量：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+```
+
+## 创建可用于训练的数据集
+
+只有当本地文件本身已经包含提示词列和补全列时，才适合使用[原始数据集创建方式](/zh/autoscientist/run-on-non-adapted-data)。本示例使用带有 `instruction` 和 `response` 两列的 `training_data.csv`：
+
+```python
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+上传完成后会异步处理。在使用数据集之前，请轮询[数据集状态](/api/python/resources/datasets/methods/get_status)，直到可以获取行数：
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## 为数据集增补数据行
+
+[数据增强](/zh/autoscientist/data-augmentation)是可选的，但强烈推荐。我们的许多模型都要求数据集达到最低规模，才能保证合理的效果。具体要求请参阅[支持的模型](/zh/autoscientist/supported-models)。
+
+本示例的目标是至少 20,000 条领域数据行，然后再加入足够的通用数据行，使其占增强后数据集的 40%。
+
+<Callout variant="note">
+  **为什么要加入通用数据行？** 仅使用特定领域数据进行微调可能导致**灾难性遗忘**：
+  模型会丢失它在预训练阶段学到的通用能力。混入通用数据可以在模型学习你的领域知识的同时
+  保留这些既有优势，从而得到更稳健、更全面的微调结果。
+</Callout>
+
+```python
+import math
+
+dataset = client.datasets.get(dataset_id=dataset_id)
+
+domain_rows_to_add = max(0, 20_000 - (dataset.row_count or 0))
+total_domain_rows = (dataset.row_count or 0) + domain_rows_to_add
+
+target_general_ratio = 0.4
+general_rows_to_add = math.ceil(
+    target_general_ratio
+    * total_domain_rows
+    / (1 - target_general_ratio)
+)
+
+print(f"Domain rows to add: {domain_rows_to_add}")
+print(f"General rows to add: {general_rows_to_add}")
+```
+
+## 运行 AutoScientist
+
+用准备好的数据集创建一次 [AutoScientist 运行](/api/python/resources/autoscientist/methods/create)：
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=general_rows_to_add,
+)
+print(run.id, run.status)  # "pending"
+```
+
+要为运行指定模型，请向 `client.autoscientist.create()` 传入 `model` 参数。若省略该参数，AutoScientist 会自动为你的数据集选择最合适的模型。关于上下文限制、训练类型（LoRA 与全参数）以及多模态能力的完整说明，请参阅[支持的模型](/zh/autoscientist/supported-models)文档。
+
+## 等待运行完成
+
+等待运行结束，然后查看它的[状态与结果](/api/python/resources/autoscientist/methods/get)：
+
+```python
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status != "succeeded":
+    raise RuntimeError(f"{run.status}: {run.error}")
+
+print(f"Best win rate: {run.best_win_rate}")
+```
+
+## 下载模型
+
+`download_available` 用于确认 AutoScientist 已产出检查点。[下载接口](/api/python/resources/autoscientist/methods/download)会流式传输归档文件，不会将其整个载入内存：
+
+```python
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+该归档包含最佳迭代的检查点，不一定是最后一次迭代。所有运行参数请参阅 [`create` 参考](/api/python/resources/autoscientist/methods/create)，响应字段请参阅 [`get` 参考](/api/python/resources/autoscientist/methods/get)。

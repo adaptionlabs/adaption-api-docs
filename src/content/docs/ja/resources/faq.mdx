@@ -1,0 +1,75 @@
+---
+title: FAQ
+description: Adaptive Data、Adaption API、Python SDK に関するよくある質問。
+---
+
+## Blueprint とは何ですか?
+
+[Blueprint](https://www.adaptionlabs.ai/blog/blueprint) は、Adaptive Data における Adaption の**仕様レイヤー**です。長さ、安全性、独自ポリシーといった目標を定義すると、プラットフォームがアダプト後のデータをその目標へと導きます。その結果、要件は一回限りのプロンプト調整ではなく、**明示的で永続的**なものになります。
+
+SDK では、`datasets.run` の **`brand_controls.blueprint`** フィールドが、このレイヤーの自由記述のインターフェースです。生成されるすべてのコンプリーションに注入されるシステムプロンプトで、トーン、ペルソナ、言語、あるいは構造化された長さ／安全性／根拠づけのフィールドに収まらないあらゆるガイドラインを指定できます。[Adaptive Data を設定する](/ja/adaptive-data/configure-adaptive-data)を参照してください。
+
+## どのように認証しますか?
+
+[Adaption アプリ](https://adaptionlabs.ai/app/auth)で API キーを作成し、`Adaption(api_key=...)` に渡すか、**`ADAPTION_API_KEY`** を設定します。[API キーを作成する](/ja/introduction/create-api-keys)を参照してください。
+
+## データセットを作成する方法にはどのようなものがありますか?
+
+3 つの取り込み経路はいずれも [`datasets.create(source=...)`](/api/python/resources/datasets/methods/create) から始まります:
+
+1. **ローカルファイル** — ファイル名と形式を渡し、バイト列を `upload_instructions.url` に PUT してから、`datasets.upload.complete_by_id(...)` を呼び出します。サポートされる形式には、表形式データ、ドキュメント、スプレッドシート、スライド、HTML、ZIP、テキストが含まれます。
+2. **Hugging Face** — データセットの完全な URL と選択したファイルを渡します。サーバー側の取り込みは非同期です。アダプトする前に完了を待ってください。
+3. **Kaggle** — データセットの完全な URL と選択したファイルを渡し、[API keys の設定](https://adaptionlabs.ai/app/settings?tab=api_keys)で Kaggle の認証情報を追加します。
+
+詳細: [はじめに](/ja/introduction/getting-started)。
+
+## ファイルのアップロード、Hugging Face、Kaggle はどう使い分けますか?
+
+- **アップロード**は、ファイルがすでにローカルにある場合や、別のシステムからエクスポートした場合に使います。
+- **Hugging Face** は、正となるデータセットがそこにあり、手動でダウンロードせずに特定のファイルを取得したい場合に使います。
+- **Kaggle** は、信頼できる情報源が Kaggle のデータセットで、認証情報を [API keys の設定](https://adaptionlabs.ai/app/settings?tab=api_keys)に登録済みの場合に使います。
+
+## PDF などの非構造化ドキュメントを入力に使えますか?
+
+はい。Adaptive Data は、PDF、OCR 済みのスキャン、スプレッドシート、スライド、メールのスレッドといったドキュメント形式の生の入力を、いずれの取り込み経路（ローカルアップロード、Hugging Face、Kaggle）でも受け付けます。ドキュメント形式のデータが届くと、アプリはそれが非構造化であることを検出し、専用の前処理パイプラインなしでデータセットに変換する短いフローを案内します。この機能は Adaptive Data の **Forge** 機能によって実現されています。[非構造化ドキュメントを処理する](/ja/tutorials/processing-unstructured-documents)を参照してください。
+
+## 構造化データと非構造化データの違いは何ですか?
+
+この区別は、データを Adaption にどう取り込むかとは無関係です。**構造化データ**（CSV、JSON、JSONL、Parquet、またはそれらの形式の Hugging Face / Kaggle データセット）は、そのまま取り込みを通過し、列を直接マッピングします。**非構造化データ**（PDF、スキャン、スライド、レイアウトの複雑なスプレッドシートなど、ドキュメント形式のファイル）は、内容を抽出し、列のマッピングの前に行への分割方法を選ばせる追加のフローを起動します。どちらの種類も、ローカルアップロード、Hugging Face、Kaggle のいずれからでも取り込めます。[非構造化ドキュメントを処理する](/ja/tutorials/processing-unstructured-documents)を参照してください。
+
+## 列のマッピングとは何ですか?
+
+`column_mapping` は、どの列が**プロンプト**、任意の**コンプリーション**、**チャット**、**コンテキスト**を保持するかを Adaptive Data に伝えます。実際の実行には `prompt` が必要です。例: [はじめに](/ja/introduction/getting-started)。
+
+## クレジットと見積もりはどのように機能しますか?
+
+`datasets.run(..., estimate=True)` を呼び出すと、リクエストが検証され、完全な実行を開始**せずに** **見積もりクレジット**と所要時間を読み取れます。これにより、ジョブの予算を立てたり CI をゲートしたりできます。実際の使用量は、データ量やオプションによって変動することがあります。
+
+## データセットや実行の完了を待つにはどうすればよいですか?
+
+`datasets.wait_for_completion(dataset_id, timeout=...)`（指数バックオフ）を使うか、長時間のジョブでは `DatasetTimeout` を処理します。`get_status` / `get` を手動でポーリングすることもできます。
+
+## ハルシネーションの低減とは何ですか?
+
+`brand_controls={"hallucination_mitigation": True}` を指定すると、プラットフォームが**根拠づけ**（該当する場合はウェブ検索を含む）を適用し、作り話の内容を減らします。[Adaptive Data を設定する](/ja/adaptive-data/configure-adaptive-data)を参照してください。
+
+## 推論トレースとは何ですか?
+
+`recipe_specification={"recipes": {"reasoning_traces": True}}` は、明示的な推論を含むアダプト済みコンプリーションを要求します。監査や特定の学習構成に役立ちます。[Adaptive Data を設定する](/ja/adaptive-data/configure-adaptive-data)を参照してください。
+
+## 長さや安全性は Blueprint とどう関係しますか?
+
+`brand_controls` は、実行レベルの**仕様**の一部として、**`length`**（`minimal` | `concise` | `detailed` | `extensive`）、**`safety_categories`**、**`blueprint`**（トーン、ペルソナ、ブランドボイスのための自由記述のシステムプロンプト）を公開します。これは [Blueprint](https://www.adaptionlabs.ai/blog/blueprint) で説明されているのと同じ考え方です。[Adaptive Data を設定する](/ja/adaptive-data/configure-adaptive-data)を参照してください。
+
+## 利用規約とプライバシーポリシーはどこにありますか?
+
+- [利用規約](https://adaptionlabs.ai/terms-of-service)
+- [プライバシーポリシー](https://adaptionlabs.ai/privacy-policy)
+
+## サポートを受けるにはどうすればよいですか?
+
+[サポート](/ja/resources/support)を参照するか、[support@adaptionlabs.ai](mailto:support@adaptionlabs.ai) までメールしてください。
+
+## 非同期の Python に対応していますか?
+
+はい。[はじめに](/ja/introduction/getting-started)のとおり、`AsyncAdaption` を `await` / `async for` とともに使用します。

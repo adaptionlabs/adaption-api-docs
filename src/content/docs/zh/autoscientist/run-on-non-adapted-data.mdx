@@ -1,0 +1,56 @@
+---
+title: 在未适配的数据上运行
+description: 上传可直接用于训练的提示词/补全数据，进行有监督微调。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+当表格文件中已经包含可直接用于训练的提示词列和补全列，并且你希望 AutoScientist 原样使用这些数据行进行 SFT 训练时，请使用[原始数据集处理](/api/python/resources/datasets/methods/create)。这样会跳过 Adaptive Data 的适配流水线。
+
+<Callout variant="warning">
+  为获得最佳效果，请[先适配你的数据](/zh/adaptive-data/overview)。
+  只有在确实有意使用原始数据行进行训练时，才使用原始处理模式。
+</Callout>
+
+<Callout variant="note">
+  原始处理不会把数据集标记为 `preference_pairs`。若要进行 DPO，请先完成一次
+  [Adaptive Data 偏好对运行](/zh/adaptive-data/configure-adaptive-data#生成偏好对)，
+  然后再[创建 DPO 运行](/zh/autoscientist/running-autoscientist#基于偏好对训练)。
+</Callout>
+
+原始处理支持 CSV、JSON、JSONL 和 Parquet 文件。创建数据集时，请把 `processing_mode` 设为 `raw`，并[映射两个必需的源数据列](/zh/adaptive-data/select-columns)。
+
+## 上传并训练
+
+下面的示例上传了一个 CSV 文件，其 `instruction` 和 `response` 列包含训练数据对：
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset = client.datasets.upload_file(
+    "training_data.csv",
+    processing_mode="raw",
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+
+client.datasets.wait_for_completion(dataset.dataset_id)
+
+run = client.autoscientist.create(dataset_id=dataset.dataset_id)
+run = client.autoscientist.wait_for_completion(run.id)
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.id, run.best_win_rate)
+```
+
+在这套工作流中不要调用 `client.datasets.run`：原始处理会让上传的数据集直接可供 AutoScientist 使用。上面的 `column_mapping` 指的是原始文件的表头；而之后如果向 AutoScientist 提供 `column_mapping`，它指的则是处理后数据集的结构。
+
+关于轮询、取消和状态的细节，请参阅[运行 AutoScientist](/zh/autoscientist/running-autoscientist)。接口细节请参阅 [`datasets.create`](/api/python/resources/datasets/methods/create) 与 [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) 参考。

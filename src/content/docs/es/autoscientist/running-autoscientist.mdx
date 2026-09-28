@@ -1,0 +1,125 @@
+---
+title: Ejecutar AutoScientist
+description: Crea, supervisa y gestiona una ejecución de entrenamiento de AutoScientist con el SDK de Python.
+---
+
+## Crear una ejecución
+
+El SDK lee `ADAPTION_API_KEY` del entorno. Llama a [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) con el conjunto de datos preparado:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+dataset_id = "dataset_abc123"
+run = client.autoscientist.create(dataset_id=dataset_id)
+print(run.id, run.status)  # pending
+```
+
+| Parámetro | Obligatorio | Notas |
+| --------- | ----------- | ----- |
+| `dataset_id` | Sí | Un ID de conjunto de datos adaptado, o un [conjunto de datos en bruto](/es/autoscientist/run-on-non-adapted-data). |
+| `max_iterations` | No | De 1 a 5. |
+| `target_win_rate` | No | Mayor que 0,5 y como máximo 1. Detiene el bucle en cuanto se alcanza. |
+| `model` | No | Un ID devuelto por [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models). Si se omite, AutoScientist selecciona un modelo para el conjunto de datos. |
+| `training_method` | No | `instruction` para SFT o `alignment` para una canalización SFT → DPO. Pasa `alignment` de forma explícita con un conjunto de datos de pares de preferencia. |
+| `hyperparams` | No | Anulaciones de la [receta de la plataforma](/es/autoscientist/recommended-hyperparameters); las claves sin definir conservan los valores predeterminados de la plataforma. |
+| `augmentation_domain_rows` | No | [Filas orientadas al dominio](/es/autoscientist/data-augmentation) que se añaden antes del entrenamiento. |
+| `augmentation_general_rows` | No | Filas de propósito general que se añaden antes del entrenamiento. |
+| `idempotency_key` | No | Las solicitudes repetidas con la misma clave devuelven la ejecución existente. |
+| `column_mapping` | No | Mapea `prompt` y `completion` para SFT, o `prompt`, `chosen` y `rejected` para DPO. Omítelo para que la plataforma infiera el mapeo. |
+
+`column_mapping` se valida contra el **esquema del conjunto de datos adaptado**, no contra los encabezados originales del archivo subido. La adaptación puede añadir columnas como `enhanced_prompt`. Un mapeo a una columna inexistente falla con `Selected column '...' for prompt is not in this dataset`.
+
+### Entrenar con pares de preferencia
+
+Primero, completa una [ejecución de pares de preferencia de Adaptive Data](/es/adaptive-data/configure-adaptive-data#generar-pares-de-preferencia). Un conjunto de datos de pares de preferencia no selecciona por sí mismo la alineación, así que define `training_method` de forma explícita:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+)
+print(run.id, run.training_method)  # alignment
+```
+
+La salida estándar de Adaptive Data puede inferirse sin `column_mapping`. Si, en cambio, el esquema adaptado expone columnas personalizadas independientes, mapea los tres roles:
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    training_method="alignment",
+    column_mapping={
+        "prompt": "question",
+        "chosen": "preferred_answer",
+        "rejected": "other_answer",
+    },
+)
+```
+
+DPO requiere al menos **12.000 pares de preferencia efectivos**, incluido el aumento de datos solicitado. SFT requiere al menos 1.000 filas efectivas. Seleccionar `alignment` no convierte otro tipo de conjunto de datos: la API resuelve la ejecución como `instruction` salvo que el conjunto de datos se haya preparado como `preference_pairs`. Lee `run.training_method` para confirmar el objetivo resuelto.
+
+AutoScientist presenta la alineación como una sola ejecución, pero entrena un adaptador de SFT antes de la etapa de DPO. El ID público de la ejecución y el `training_method="alignment"` resuelto se mantienen estables en ambas etapas. Durante el traspaso, la ejecución sigue en `running`, las métricas pueden no estar disponibles temporalmente y `download_available` es falso. Una solicitud de cancelación durante ese breve traspaso puede devolver `409`; reinténtala cuando haya una iteración activa.
+
+## Esperar a que termine
+
+El [estado de la ejecución](/api/python/resources/autoscientist/methods/get) es `pending`, `running`, `succeeded`, `failed` o `cancelled`.
+
+```python
+from adaption import TrainingTimeout
+
+try:
+    run = client.autoscientist.wait_for_completion(run.id)
+except TrainingTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+if run.status == "failed":
+    raise RuntimeError(f"failed: {run.error}")
+if run.status != "succeeded":
+    raise RuntimeError(f"Run ended with status: {run.status}")
+
+print(run.iterations_completed, run.max_iterations, run.best_win_rate)
+```
+
+`wait_for_completion` aplica un retroceso de 10 a 60 segundos y tiene un tiempo de espera predeterminado de cuatro horas. Que se agote el tiempo detiene la espera, no el entrenamiento. Vuelve a llamarlo con el mismo ID de ejecución para retomar el seguimiento.
+
+Para controlar tú mismo el ritmo de sondeo:
+
+```python
+import time
+
+while True:
+    run = client.autoscientist.get(run.id)
+    print(run.status, run.iterations_completed, run.best_win_rate)
+
+    if run.status == "succeeded":
+        break
+    if run.status == "failed":
+        raise RuntimeError(f"failed: {run.error}")
+    if run.status == "cancelled":
+        raise RuntimeError("Run was cancelled")
+
+    time.sleep(30)
+```
+
+Una ejecución correcta alcanzó `target_win_rate` o agotó su última iteración. [Compara `best_win_rate` con el objetivo](/es/autoscientist/interpreting-results) para determinar cuál de las dos cosas ocurrió. Usa [`client.autoscientist.cancel(run.id)`](/api/python/resources/autoscientist/methods/cancel) para detener una ejecución en curso.
+
+## Restringir el tamaño del modelo
+
+En la aplicación, **Tiny AutoScientist** limita la selección a modelos de menos de 10.000 millones de parámetros. Con el SDK, revisa los [modelos admitidos](/es/autoscientist/supported-models), lista los modelos disponibles actualmente y pasa un ID elegible de forma explícita:
+
+```python
+response = client.autoscientist.list_models()
+for model in response.models:
+    print(model.id)
+
+model_id = input("Eligible model ID: ").strip()
+run = client.autoscientist.create(
+    dataset_id=dataset_id,
+    model=model_id,
+)
+```
+
+La disponibilidad y los metadatos de los modelos pueden cambiar. Confirma los valores actuales con [`autoscientist.list_models`](/api/python/resources/autoscientist/methods/list_models) en lugar de deducir el tamaño del modelo a partir de su ID.

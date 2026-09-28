@@ -1,0 +1,230 @@
+---
+title: アダプトする列を選ぶ
+description: Adaptive Data を実行する前に、データセットの列をプロンプト、コンプリーション、コンテキスト、画像、チャットの各ロールにマッピングします。
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+データセットは行と名前付きの列で構成されています。Adaptive Data は、どの列に指示が入っていて、どの列に回答が入っていて、どの列が補足資料を提供するのかを知る必要があります。Python SDK では、[`datasets.run`](/api/python/resources/datasets/methods/run) の **`column_mapping`** でこれらのロールを定義します。
+
+列のマッピングは、[レシピとブランドコントロール](/ja/adaptive-data/configure-adaptive-data)、[評価](/ja/adaptive-data/evaluate-dataset-quality)、[エクスポート](/api/python/resources/datasets/methods/download)といった後続のステップの土台になります。
+
+## プロンプトまたはコンプリーションをマッピングする
+
+どの実行でも、次のアンカーのうち少なくとも 1 つが必要です:
+
+- **プロンプト** — 質問、指示、または実行すべきタスク。
+- **コンプリーション** — 期待されるレスポンスまたは回答。
+
+必要なのは一方だけです。もう一方が欠けている場合は、Adaptive Data が生成できます。
+
+以下の例は、[Python SDK をインストールして設定済み](/ja/introduction/getting-started)で、[データセットをアップロード](/ja/adaptive-data/create-a-dataset)して `dataset_id` を取得していることを前提としています。
+
+### コンプリーションのないプロンプト
+
+データセットにプロンプトはあるがコンプリーションがない場合は、プロンプト列だけをマッピングします。Adaptive Data が各行のコンプリーションを生成します。
+
+たとえば、`instruction` 列を持つ CSV には、「Explain why leaves appear green」や「Convert 15 miles to kilometres」といった実際のタスクが含まれているかもしれません:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"prompt": "instruction"},
+)
+```
+
+### プロンプトのないコンプリーション
+
+データセットに高品質な回答はあるがプロンプトがない場合は、コンプリーション列だけをマッピングします。Adaptive Data が各回答に適したプロンプトを合成します。
+
+たとえば、`response` 列を持つ CSV には、「Leaves appear green because chlorophyll reflects green wavelengths of light」のような参照回答が含まれているかもしれません:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"completion": "response"},
+)
+```
+
+### プロンプトとコンプリーション
+
+ほとんどのインストラクションデータセットには、すでに両方のロールが含まれています:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "instruction",
+        "completion": "response",
+    },
+)
+```
+
+## コンテキスト列を追加する
+
+コンテキスト列は、モデルがプロンプトに答えるために必要な行ごとの背景情報、参照データ、メタデータを保持します。`prompt` や `completion` とは異なり、**`context` はリスト**なので、複数の列をマッピングできます。
+
+次の例は、各質問にタイトルと本文が付いたドキュメント質問応答データセットをマッピングしています:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "context": ["document_title", "document_body"],
+    },
+)
+```
+
+よくあるパターンは次のとおりです:
+
+- **検索拡張生成（RAG）** — クエリを `prompt`、検索された文章を `context`、参照回答を `completion` にマッピングします。
+- **行ごとのメタデータ** — 各プロンプトとあわせて、対象読者、トーン、ロケール、製品ラインなどを与えます。
+- **コンテキスト付きのユニバーサルプロンプト** — すべての行に 1 つの指示を適用し、行ごとの素材はコンテキスト列が提供します。
+
+すべての行で共通の指示を 1 つ使う場合は、ユニバーサルプロンプトを使用します。視覚的なコンテキストについては、[画像列をマッピングする](#画像列をマッピングする)を参照してください。
+
+## ユニバーサルプロンプトを使う
+
+すべての行で同じ指示を使い、データセットにプロンプト列がない場合は、**ユニバーサルプロンプト**を定義します。その指示が対象とする行ごとの内容は、コンテキスト列または画像列が提供します。
+
+Python SDK では、`column_mapping` の中で `universal_prompt` を直接設定します。次の例では、既存の `sentiment` 列を期待されるコンプリーションとして使いながら、レビューを分類しています:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "universal_prompt": (
+            "Classify the sentiment of this review as positive, neutral, "
+            "or negative. Respond with one word."
+        ),
+        "context": ["review"],
+        "completion": "sentiment",
+    },
+)
+```
+
+同じマッピングは Web アプリでも設定できます:
+
+### 1. 「I don't have prompt」を選択する
+
+列のステップで **Prompt column** カードを見つけ、**I don't have prompt** を選択します。
+
+![ウィザードの列ステップ。Prompt column カードとその「I don't have prompt」チェックボックスがハイライトされ、隣に Context column カードと Completion column カードが表示されています。](/universal-prompts/dont-have-prompt.png)
+
+プロンプトのカードには 2 つの選択肢が表示されます:
+
+- **Let adaption create prompt** は、各コンプリーションに対してプロンプトを生成します。
+- **Write universal prompt** は、すべての行に 1 つの指示を適用します。
+
+### 2. 共通の指示を書く
+
+**Write universal prompt** を選択し、**Enter prompt for all entries...** に指示を入力します。
+
+![展開されたプロンプトカード。「Write universal prompt」リンクと、その下にあるプレースホルダー「Enter prompt for all entries...」付きのテキストエリアがハイライトされ、上部には「Let adaption create prompt」トグルが見えています。](/universal-prompts/universal-prompt.png)
+
+タスクと期待される出力が分かる、完結した自己完結型の指示を書いてください。例:
+
+> Classify the sentiment of this review as positive, neutral, or negative. Respond with one word.
+
+同じ `universal_prompt` の値は [`datasets.run` API](/api/python/resources/datasets/methods/run) と Python SDK からも利用できるため、アプリでの実行とプログラムからの実行で同じマッピングを使えます。
+
+## 画像列をマッピングする
+
+画像は `context` リストではなく、専用の **`image`** マッピングを使います。次のマッピングは、公開されている [MathVision データセット](https://huggingface.co/datasets/MathLLMs/MathVision)を使用しています。`question` がプロンプト、`decoded_image` が図、`answer` が期待される回答を含みます。
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={
+        "prompt": "question",
+        "completion": "answer",
+        "image": "decoded_image",
+    },
+)
+```
+
+![アダプトウィザードの列選択ステップで MathVision の列をマッピングしているところ: question をプロンプト、decoded_image を画像コンテキスト、answer をコンプリーションにしています。](/multimodal-context/column-selection.png)
+
+画像列は、視覚的質問応答、キャプション生成、分類、OCR など、マルチモーダルなタスクで使用します。
+
+### サポートされる画像入力
+
+サポートされる表現形式は、データセットのソースによって異なります。
+
+#### Hugging Face
+
+- **`bytes`** — 生の画像バイト列
+- **`hf_struct`** — Hugging Face の `Image()` フィーチャー
+- **`list`** — 画像バイト列の配列
+- **`url`** — 絶対 `http(s)` URL
+- **`path`** — `imagefolder` のエントリーなどの相対パス
+
+#### Kaggle
+
+- `train/<class>/*.png` のような、マニフェストのない画像フォルダー
+- 画像列を含む CSV または Parquet のマニフェスト
+- バイト列または URL の列を持つ表形式ファイル
+
+#### ファイルの直接アップロード
+
+直接アップロードした CSV、Parquet、JSON、JSONL、XLSX などのファイルの場合:
+
+- **`bytes`**、**`hf_struct`**、**`list`**
+- **`url`** — 絶対 `http(s)` URL
+
+## チャット列をマッピングする
+
+![チャット列をマッピングする](/chat-column.png)
+
+チャット列には、OpenAI 形式のチャット API と同じ形のマルチターン会話が含まれます。各セルはターンの JSON 配列です:
+
+```json
+[
+  { "role": "system", "content": "You are a helpful assistant." },
+  { "role": "user", "content": "How do I reset my password?" },
+  {
+    "role": "assistant",
+    "content": "Open Settings, select Account, then select Reset password."
+  }
+]
+```
+
+それらの配列を含む列をマッピングします:
+
+```python
+run = client.datasets.run(
+    dataset_id,
+    column_mapping={"chat": "messages"},
+)
+```
+
+<Callout variant="note">
+  `chat` のマッピングは、`prompt`、`completion`、`context` のマッピングとは排他的です。
+</Callout>
+
+`chat` をマッピングすると、Adaptive Data は会話からプロンプトとコンプリーションを導出します。既存のマルチターンデータには `chat` を、単一の指示と回答のペアには `prompt` と `completion` を使ってください。
+
+## プレーンテキストとチャットターンの配列
+
+`prompt` または `completion` としてマッピングされたセルには、次のいずれかを含められます:
+
+- **プレーンテキスト** — 各セルの文字列。
+- **チャットターンの配列** — `{"role": "...", "content": "..."}` オブジェクトの JSON 配列。
+
+たとえば、構造化されたコンプリーションでは、1 つのセルの中にやり取りを保持できます:
+
+```json
+[
+  { "role": "user", "content": "Summarize this email." },
+  {
+    "role": "assistant",
+    "content": "The customer accepted the revised delivery date."
+  }
+]
+```
+
+Adaptive Data は、有効な配列をチャットターンとして解析し、それ以外の値はプレーンテキストとして扱います。1 つの列に完全なマルチターン会話を格納する場合は、専用の `chat` マッピングを使うほうが適しています。
+
+現在のスキーマについては、[`datasets.run` リファレンス](/api/python/resources/datasets/methods/run)の **ColumnMapping** を参照してください。
