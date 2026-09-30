@@ -1434,12 +1434,80 @@
           "leaderboard"
         ]
       }
+    },
+    "/api/v1/responses": {
+      "post": {
+        "description": "Creates a Responses API response through the inference gateway.",
+        "operationId": "ResponsesController_create",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "traceparent",
+            "in": "header",
+            "description": "W3C trace context used to parent this Responses API trace to a caller span.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The upstream Responses API response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The endpoint is not available."
+          },
+          "502": {
+            "description": "The model provider could not complete the request."
+          },
+          "503": {
+            "description": "Model inference is not configured for this environment."
+          }
+        },
+        "summary": "Generate a model response",
+        "tags": [
+          "responses"
+        ]
+      }
     }
   },
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.4.51",
+    "version": "0.1.5",
     "contact": {}
   },
   "tags": [],
@@ -4563,6 +4631,150 @@
           "pagination",
           "data",
           "generated_at"
+        ]
+      },
+      "ResponseInputMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system",
+              "developer"
+            ],
+            "example": "user"
+          },
+          "content": {
+            "type": "string",
+            "example": "What was my previous question?"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "CreateResponseDto": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Hosted model identifier.",
+            "example": "qwen3.5-397b"
+          },
+          "input": {
+            "description": "Text input, or an ordered array of messages and items replayed from earlier responses.",
+            "oneOf": [
+              {
+                "type": "string",
+                "example": "Explain why the sky appears blue."
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ResponseInputMessageDto"
+                    },
+                    {
+                      "type": "object",
+                      "description": "An item replayed from an earlier response: message, reasoning, mcp_list_tools, mcp_call, mcp_approval_request, or mcp_approval_response.",
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "instructions": {
+            "type": "string",
+            "description": "System-level instructions for the model.",
+            "example": "Answer clearly and concisely."
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "description": "Maximum number of tokens the model may generate.",
+            "minimum": 1,
+            "example": 1024
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature.",
+            "minimum": 0,
+            "maximum": 2,
+            "example": 0.7
+          },
+          "stream": {
+            "type": "boolean",
+            "description": "Whether to stream semantic response events using server-sent events.",
+            "default": false,
+            "example": true
+          },
+          "tools": {
+            "type": "array",
+            "description": "Responses API tools. Catalog MCP entries without server_url/connector_id are run by Adaption; file_search runs over authorized adapted datasets; all other entries are forwarded unchanged to the model provider.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "max_tool_calls": {
+            "type": "integer",
+            "description": "Maximum number of first-party and MCP tool calls to run for this response. Once reached, the model is asked to answer without calling more tools.",
+            "minimum": 1,
+            "maximum": 64,
+            "example": 8
+          },
+          "store": {
+            "type": "boolean",
+            "description": "Provider-side storage is incompatible with the synthetic hosted-tool response. Only false is accepted.",
+            "example": false,
+            "default": false
+          },
+          "background": {
+            "type": "boolean",
+            "description": "Background execution is incompatible with the hosted-tool loop. Only false is accepted.",
+            "example": false,
+            "default": false
+          },
+          "tool_choice": {
+            "description": "How the model may use the attached tools. Omitted or `auto`, the model decides whether to search and how to word the query. `none` forbids tools entirely. Naming a function demands that call: use `{ \"type\": \"function\", \"name\": \"file_search\" }` when an answer must be grounded in the attached datasets, and the response fails rather than answering unsearched.",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "none"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "function"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "name"
+                ]
+              }
+            ],
+            "example": "auto"
+          }
+        },
+        "required": [
+          "model",
+          "input"
         ]
       }
     }
