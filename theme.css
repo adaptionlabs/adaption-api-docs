@@ -295,6 +295,27 @@ a.sl-social-link[data-social="blog"] {
   box-shadow: inset 0 0 0 0.5px var(--hairline-color, var(--color-stroke-secondary));
 }
 
+/* ─── MCP client accordion labels ───────────────────────────────────────── */
+
+.sl-markdown-content .stl-ui-accordion__summary .mcp-client-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.sl-markdown-content .stl-ui-accordion__summary .mcp-client-label p {
+  margin: 0;
+}
+
+.sl-markdown-content .stl-ui-accordion__summary .mcp-client-logo {
+  display: block;
+  width: 1.125rem;
+  height: 1.125rem;
+  min-width: 1.125rem;
+  max-width: none;
+  flex: none;
+}
+
 /* ─── Heading anchor links: "Copied" tooltip after click ─────────────────── */
 
 .sl-markdown-content .sl-anchor-link[data-copied] {

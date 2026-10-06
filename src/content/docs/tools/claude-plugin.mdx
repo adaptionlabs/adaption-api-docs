@@ -1,0 +1,32 @@
+---
+title: Claude plugin
+description: Connect Claude Desktop to Adaption with MCP tools and skills for dataset and model-training workflows.
+---
+
+The Adaption plugin for Claude Desktop connects the [Adaption MCP server](/tools/mcp) and adds workflow skills for datasets, synthetic data generation, and AutoScientist.
+
+The plugin supports Claude Desktop on macOS and Windows.
+
+## Install the plugin
+
+1. Download `adaption.mcpb` from the [Adaption Claude plugin releases](https://github.com/adaptionlabs/adaption-claude-plugin/releases).
+2. Open the downloaded file to install it in Claude Desktop.
+3. When prompted, enter your [Adaption API key](/introduction/create-api-keys).
+
+## Verify the connection
+
+Restart Claude Desktop if prompted, then ask:
+
+> List my Adaption datasets.
+
+Claude should use `list_datasets` from the Adaption MCP server.
+
+## What the plugin adds
+
+The plugin configures the hosted MCP connection and includes three skills:
+
+- `adaption-dataset` — Guides dataset import, adaptation, augmentation, translation, localization, combination, and export workflows.
+- `adaption-invent` — Guides synthetic dataset generation from natural-language requirements.
+- `adaption-training` — Guides AutoScientist model selection, hyperparameter recommendations, training, and monitoring.
+
+Skills give Claude workflow guidance for chaining tools and handling asynchronous operations. See [MCP](/tools/mcp) for the shared server configuration and complete tool catalog.

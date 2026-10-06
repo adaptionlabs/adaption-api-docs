@@ -174,6 +174,10 @@ export default defineConfig({
           ],
         },
         {
+          label: "Tools",
+          items: ["tools/mcp", "tools/cursor-plugin", "tools/claude-plugin"],
+        },
+        {
           label: "Resources",
           items: ["resources/faq", "resources/support"],
         },
