@@ -53,6 +53,6 @@ if run.status != "succeeded":
 print(run.id, run.best_win_rate)
 ```
 
-Do not call `client.datasets.run` for this workflow: raw processing makes the uploaded dataset ready for AutoScientist directly. The `column_mapping` above refers to the original file headers; an AutoScientist `column_mapping`, if supplied later, refers to the processed dataset schema.
+Do not call `client.datasets.adapt` for this workflow: raw processing makes the uploaded dataset ready for AutoScientist directly. The `column_mapping` above refers to the original file headers; an AutoScientist `column_mapping`, if supplied later, refers to the processed dataset schema.
 
 See [Running AutoScientist](/autoscientist/running-autoscientist) for polling, cancellation, and status details. For endpoint details, see the [`datasets.create`](/api/python/resources/datasets/methods/create) and [`autoscientist.create`](/api/python/resources/autoscientist/methods/create) references.

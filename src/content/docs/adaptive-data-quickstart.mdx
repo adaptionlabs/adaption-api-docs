@@ -148,7 +148,7 @@ column_mapping = {
 }
 job_specification = {"max_rows": 5_000}
 
-estimate = client.datasets.run(
+estimate = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     job_specification=job_specification,
@@ -160,7 +160,7 @@ print(f"Estimated credits: {estimate.estimated_credits_consumed}")
 When you are ready to proceed, submit the same configuration without `estimate=True`:
 
 ```python
-run = client.datasets.run(
+run = client.datasets.adapt(
     dataset_id,
     column_mapping=column_mapping,
     job_specification=job_specification,

@@ -7,7 +7,7 @@ description: Frequently asked questions about Adaptive Data, the Adaption API, a
 
 [Blueprint](https://www.adaptionlabs.ai/blog/blueprint) is Adaption’s **specification layer** for Adaptive Data: you define goals—length, safety, custom policies—and the platform steers adapted data toward those objectives so requirements are **explicit and persistent**, not one-off prompt tweaks.
 
-In the SDK, the **`brand_controls.blueprint`** field on `datasets.run` is the freeform-prose surface for that layer: a system prompt injected into every generated completion for tone, persona, language, or any guideline that does not fit the structured length/safety/grounding fields. See [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
+In the SDK, the **`brand_controls.blueprint`** field on `datasets.adapt` is the freeform-prose surface for that layer: a system prompt injected into every generated completion for tone, persona, language, or any guideline that does not fit the structured length/safety/grounding fields. See [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
 
 ## How do I authenticate?
 
@@ -43,7 +43,7 @@ This distinction is independent of how you bring data into Adaption. **Structure
 
 ## How do credits and estimates work?
 
-Call `datasets.run(..., estimate=True)` to validate the request and read **estimated credits** and duration **without** starting a full run—so you can budget jobs and gate CI. Actual usage can still vary with data volume and options.
+Call `datasets.adapt(..., estimate=True)` to validate the request and read **estimated credits** and duration **without** starting a full run—so you can budget jobs and gate CI. Actual usage can still vary with data volume and options.
 
 ## How do I wait for a dataset or run to finish?
 

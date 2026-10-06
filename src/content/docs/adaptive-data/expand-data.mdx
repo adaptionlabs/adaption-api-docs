@@ -5,7 +5,7 @@ description: Augment, translate, or localize rows to increase dataset size after
 
 import { Callout } from "@stainless-api/docs/components";
 
-After you [import a dataset](/adaptive-data/create-a-dataset) and optionally [run Adaptive Data](/api/python/resources/datasets/methods/run), you can increase row count without re-running the full adaptation pipeline. Each method below returns a **new dataset** that includes your source rows plus the added ones.
+After you [import a dataset](/adaptive-data/create-a-dataset) and optionally [run Adaptive Data](/api/python/resources/datasets/methods/adapt), you can increase row count without re-running the full adaptation pipeline. Each method below returns a **new dataset** that includes your source rows plus the added ones.
 
 The SDK examples assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to a dataset that is ready to expand:
 
@@ -98,7 +98,7 @@ With two target languages and a `0.25` sample rate, the output contains approxim
 ```python
 response = client.datasets.localize(
     dataset_id,
-    sample_rate=0.25,
+    sample_rate=1.0,
     pairs=[
         {"country": "CA", "language": "fr"},
         {"country": "MX", "language": "es"},
@@ -119,6 +119,57 @@ Each pair creates a country- and language-specific variant rather than only tran
   the current schema and supported values.
 </Callout>
 
+## Match translations to their source rows
+
+A dataset created by `translate` or `localize` holds each sampled source row alongside its variants. When you [download](/api/python/resources/datasets/methods/download) it, three extra columns tell you which rows belong together:
+
+| Column                 | Value                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `target_language`      | Name of the language the row was translated or localized into: `Spanish` after `translate`, `Spanish (Mexico)` after `localize`. `original` for a source row. |
+| `target_language_code` | Code for that language: `es` after `translate`, or a full locale tag such as `es-Latn-MX` after `localize`. `original` for a source row.                      |
+| `translation_join_id`  | ID shared by a source row and every variant produced from it.                                                                                                 |
+
+For example, here are four rows from the `localize` call above, in file order. Each source row shares its ID with the Spanish variant made from it:
+
+| `original_prompt`                              | `target_language`  | `target_language_code` | `translation_join_id`                  |
+| ---------------------------------------------- | ------------------ | ---------------------- | -------------------------------------- |
+| ¿Qué hacen las abejas?                         | `Spanish (Mexico)` | `es-Latn-MX`           | `847c6b29-0287-4f8a-9f6b-5b7ed555d21b` |
+| What color is the sky on a clear day?          | `original`         | `original`             | `48b7feb6-0c31-4402-9078-81932756debb` |
+| What do bees make?                             | `original`         | `original`             | `847c6b29-0287-4f8a-9f6b-5b7ed555d21b` |
+| ¿De qué color es el cielo en un día despejado? | `Spanish (Mexico)` | `es-Latn-MX`           | `48b7feb6-0c31-4402-9078-81932756debb` |
+
+Rows in a group are not guaranteed to be adjacent in the file. Pivot on `translation_join_id` to put each source row next to its variants, for example to build parallel text or to keep a row and its translations in the same train or evaluation split:
+
+```python
+import pandas as pd
+
+client.datasets.download(response.dataset_id, file_format="csv").write_to_file(
+    "localized.csv"
+)
+
+rows = pd.read_csv("localized.csv")
+
+parallel = rows.pivot(
+    index="translation_join_id",
+    columns="target_language_code",
+    values="original_prompt",
+)
+print(parallel)
+```
+
+The result has one row per source row and one column per language or locale, with the source text under `original`:
+
+```text
+target_language_code                                                      es-Latn-MX                                         fr-Latn-CA                               original
+translation_join_id
+48b7feb6-0c31-4402-9078-81932756debb  ¿De qué color es el cielo en un día despejado?  De quelle couleur est le ciel par une journée ...  What color is the sky on a clear day?
+847c6b29-0287-4f8a-9f6b-5b7ed555d21b                          ¿Qué hacen las abejas?            Qu'est-ce que les abeilles produisent ?                     What do bees make?
+96df9709-b201-4203-913c-3a201e6d4d98                 ¿Cuántos días tiene una semana?       Combien de jours y a-t-il dans une semaine ?           How many days are in a week?
+ae0e0cd4-672f-4fda-afd4-52597412ca94                 ¿Cuál es la capital de Francia?              Quelle est la capitale de la France ?         What is the capital of France?
+```
+
+`translation_join_id` carries through [`datasets.combine`](/adaptive-data/combine-datasets): rows that came from a translated or localized dataset keep their value, and rows from other sources have none.
+
 For recipes, preference pairs, row limits, and brand controls on an adaptation run, see [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
 
-The methods on this page each write a new dataset and leave the source unchanged. `datasets.run` also accepts a `language_expansion` setting; that path stores the setting on the dataset and expands rows inside its own adaptation run, without creating a new dataset. See the [`run` reference](/api/python/resources/datasets/methods/run) for that shape.
+The methods on this page each write a new dataset and leave the source unchanged. `datasets.adapt` also accepts a `language_expansion` setting; that path stores the setting on the dataset and expands rows inside its own adaptation run, without creating a new dataset. See the [`adapt` reference](/api/python/resources/datasets/methods/adapt) for that shape.
