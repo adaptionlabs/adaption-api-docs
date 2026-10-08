@@ -14,6 +14,7 @@ Runs in CI on every pull request that touches the guide; see
 """
 from __future__ import annotations
 
+import importlib
 import re
 import subprocess
 import sys
@@ -56,14 +57,20 @@ GATED_CODES = {
 PREAMBLE = 'from adaption import Adaption\nclient = Adaption(api_key="")\n'
 PREAMBLE_LINES = PREAMBLE.count("\n")
 
-# A dict built on its own line infers as `dict[str, str]` and no longer matches
-# the TypedDict a parameter declares, even though the call runs fine -- mypy
-# only narrows dict literals passed inline. Docs legitimately name their
-# mappings before using them, so this pattern is not a defect to report.
-# `Omit` marks an SDK parameter type, which keeps ordinary argument mismatches
-# (expected "str", expected "int") reportable. Both spellings must match: mypy
-# 1.x prints `ColumnMapping | Omit`, mypy 2.x prints `Union[ColumnMapping, Omit]`.
-TYPED_DICT_PARAM = re.compile(r'expected "[^"]*\bOmit\b[^"]*"')
+# Named dictionaries infer as dict[...] rather than an SDK TypedDict. Keep
+# that fragment tolerance, but do not suppress every optional parameter merely
+# because its expected type contains Omit (for example, max_iterations="many").
+# Support mypy's union spellings in both 1.x and 2.x.
+TYPED_DICT_PARAM = re.compile(
+    r'has incompatible type "(?:dict|Dict)\[[^"]+\]"; '
+    r'expected "(?:Union\[)?[A-Z]\w*(?: \| None)?'
+    r'(?: \| Omit|, (?:None, )?Omit\])"'
+)
+DIAGNOSTIC = re.compile(r"^.+?:(\d+): ((?:error|note): .*)$")
+
+
+class CheckerError(RuntimeError):
+    """The checker could not validate the snippets."""
 
 
 def extract(tmp: Path) -> dict[Path, str]:
@@ -94,34 +101,57 @@ def check(path: Path) -> list[str]:
         capture_output=True,
         text=True,
     )
+    if proc.returncode not in (0, 1) or (proc.returncode == 1 and not proc.stdout.strip()):
+        detail = proc.stderr.strip() or proc.stdout.strip() or "no diagnostic output"
+        raise CheckerError(f"mypy could not complete (exit {proc.returncode}): {detail}")
+
     found = []
     for raw in proc.stdout.splitlines():
-        code = raw.rsplit("[", 1)[-1].rstrip("]") if raw.endswith("]") else ""
+        if not raw.strip():
+            continue
+        diagnostic = DIAGNOSTIC.match(raw)
+        if diagnostic is None:
+            raise CheckerError(f"Unexpected mypy output: {raw}")
+        number, message = diagnostic.groups()
+        code = message.rsplit("[", 1)[-1].rstrip("]") if message.endswith("]") else ""
         if code in IGNORED_CODES or code not in GATED_CODES:
             continue
-        rest = raw.split(":", 1)[-1].strip()
-        if code == "arg-type" and TYPED_DICT_PARAM.search(rest):
+        if code == "arg-type" and TYPED_DICT_PARAM.search(message):
             continue
-        # Report the line the author wrote, not the one the preamble shifted it
-        # to. A non-positive number means the error is in the preamble itself,
-        # which is our code, not the docs'.
-        number, _, message = rest.partition(":")
-        if number.isdigit():
-            shifted = int(number) - PREAMBLE_LINES
-            if shifted < 1:
-                continue
-            rest = f"{shifted}:{message}"
-        found.append(rest)
+        # Parse the line separately from the path, which may include a Windows
+        # drive colon. The preamble is checker code, not a documentation fence.
+        shifted = int(number) - PREAMBLE_LINES
+        if shifted < 1:
+            raise CheckerError(f"mypy rejected the checker preamble: {message}")
+        found.append(f"{shifted}: {message}")
+
     return found
 
 
 def main() -> int:
+    for dependency in ("adaption", "mypy"):
+        try:
+            importlib.import_module(dependency)
+        except ImportError as exc:
+            print(
+                f"Cannot check snippets: {dependency} is unavailable ({exc}).\n"
+                "Run: uv run --no-project --with adaption --with mypy "
+                "python3 scripts/check_snippets.py",
+                file=sys.stderr,
+            )
+            return 2
+
     with tempfile.TemporaryDirectory() as raw_tmp:
         tmp = Path(raw_tmp)
         origin = extract(tmp)
         failures = 0
         for path in sorted(origin):
-            for problem in check(path):
+            try:
+                problems = check(path)
+            except CheckerError as exc:
+                print(f"Cannot check {origin[path]}: {exc}", file=sys.stderr)
+                return 2
+            for problem in problems:
                 print(f"{origin[path]}\n    {problem}")
                 failures += 1
         print(f"\nchecked {len(origin)} snippets, {failures} problem(s)")

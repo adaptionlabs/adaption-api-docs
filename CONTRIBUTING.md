@@ -18,6 +18,7 @@ is wrong, open an issue naming the endpoint and what it should say.
 ## Set up the site
 
 You need Node.js 22.12 or newer and [pnpm](https://pnpm.io/).
+
 ```sh
 pnpm install
 pnpm dev
@@ -46,12 +47,19 @@ uv run --no-project --with adaption --with mypy \
   python3 scripts/check_snippets.py
 ```
 
+If you change the snippet checker, also run its regression tests. They type-check
+small examples without making API requests:
+
+```sh
+uv run --no-project --with adaption --with mypy \
+  python3 scripts/test_check_snippets.py
+```
+
 You can enable the same check as a pre-push hook once per clone:
 
 ```sh
 git config core.hooksPath .githooks
 ```
-
 
 ## Submit a pull request
 
