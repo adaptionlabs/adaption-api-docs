@@ -32,6 +32,8 @@ The development site runs at [localhost:4321](http://localhost:4321/).
 - Prefer short sections, direct language, and examples readers can run.
 - Use relative links for repository files and root-relative links for docs
   pages.
+- External HTTP links open in a new tab by default. To keep one in the current
+  tab, write it as `<a href="https://example.com" data-same-tab>Example</a>`.
 - Update the sidebar in `astro.config.ts` when a new page should appear in the
   main navigation.
 - Never include real API keys, credentials, customer data, or other secrets.
