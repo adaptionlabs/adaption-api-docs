@@ -40,7 +40,9 @@ dataset = client.datasets.upload_file(
     },
 )
 
-client.datasets.wait_for_completion(dataset.dataset_id)
+status = client.datasets.wait_for_completion(dataset.dataset_id)
+if status.status != "succeeded":
+    raise RuntimeError(f"Dataset processing failed: {status.error_data}")
 
 run = client.autoscientist.create(dataset_id=dataset.dataset_id)
 run = client.autoscientist.wait_for_completion(run.id)
@@ -52,6 +54,8 @@ if run.status != "succeeded":
 
 print(run.id, run.best_win_rate)
 ```
+
+`datasets.wait_for_completion` returns when processing succeeds or fails. Check the returned status before creating a training run. A timeout raises `DatasetTimeout` and stops this script; it does not cancel dataset processing.
 
 Do not call `client.datasets.adapt` for this workflow: raw processing makes the uploaded dataset ready for AutoScientist directly. The `column_mapping` above refers to the original file headers; an AutoScientist `column_mapping`, if supplied later, refers to the processed dataset schema.
 

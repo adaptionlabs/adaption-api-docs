@@ -53,10 +53,13 @@ except DatasetTimeout as exc:
     print(exc.resource_id, exc.last_status)
     raise
 
+if final.status != "succeeded":
+    raise RuntimeError(f"Dataset expansion failed: {final.error_data}")
+
 print(final.status, final.row_count)
 ```
 
-`wait_for_completion` backs off from 2 to 30 seconds and has a one-hour default timeout. A timeout stops waiting, not the expansion job. Call it again with the same dataset ID to resume tracking. The same wait applies after [`translate`](#translate-rows) and [`localize`](#localize-rows).
+`wait_for_completion` backs off from 2 to 30 seconds and has a one-hour default timeout. A timeout stops waiting, not the expansion job. Call it again with the same dataset ID to resume tracking. The helper returns for both `succeeded` and `failed`, so check the returned status before using the result. The same wait applies after [`translate`](#translate-rows) and [`localize`](#localize-rows).
 
 Omit either row parameter to skip that type of addition. Augmentation is billed on the rows retrieved. See the [`augment` reference](/api/python/resources/datasets/methods/augment) for current limits and request fields.
 
@@ -139,6 +142,8 @@ For example, here are four rows from the `localize` call above, in file order. E
 | ¿De qué color es el cielo en un día despejado? | `Spanish (Mexico)` | `es-Latn-MX`           | `48b7feb6-0c31-4402-9078-81932756debb` |
 
 Rows in a group are not guaranteed to be adjacent in the file. Pivot on `translation_join_id` to put each source row next to its variants, for example to build parallel text or to keep a row and its translations in the same train or evaluation split:
+
+Before downloading, [wait for the expanded dataset](#data-augmentation) and confirm that its status is `succeeded`.
 
 ```python
 import pandas as pd
