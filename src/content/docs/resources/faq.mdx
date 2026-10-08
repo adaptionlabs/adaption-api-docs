@@ -39,7 +39,7 @@ This distinction is independent of how you bring data into Adaption. **Structure
 
 ## What is column mapping?
 
-`column_mapping` tells Adaptive Data which columns hold the **prompt**, optional **completion**, **chat**, or **context**. `prompt` is required for a real run. Examples: [Getting started](/introduction/getting-started).
+`column_mapping` assigns dataset columns to roles such as **prompt**, **completion**, **context**, **image**, or **chat**. A prompt column is not required: you can map a completion column and let Adaptive Data generate prompts, map a chat column, or use a shared `universal_prompt` with per-row context or images. See [Select columns to adapt](/adaptive-data/select-columns) for examples and the rules for combining mappings.
 
 ## How do credits and estimates work?
 
@@ -47,7 +47,9 @@ Call `datasets.adapt(..., estimate=True)` to validate the request and read **est
 
 ## How do I wait for a dataset or run to finish?
 
-Use `datasets.wait_for_completion(dataset_id, timeout=...)` (exponential backoff) or handle `DatasetTimeout` for long jobs. You can also poll `get_status` / `get` manually.
+For an **import**, poll `datasets.get_status(dataset_id)` until `row_count` is available, checking for failures and setting a polling deadline. See [Wait for the import](/adaptive-data/create-a-dataset#wait-for-the-import). An imported dataset can be `awaiting_input`: it is waiting for you to start adaptation and will not advance by itself.
+
+After **launching adaptation or expansion**, use `datasets.wait_for_completion(dataset_id, timeout=...)` to wait for `succeeded` or `failed`, then check the returned status. Catch `DatasetTimeout` if the wait expires; it stops waiting, not the job. Resume tracking the same dataset ID rather than submitting another job. [Quality evaluation has its own wait helper](/adaptive-data/evaluate-dataset-quality).
 
 ## What is hallucination mitigation?
 

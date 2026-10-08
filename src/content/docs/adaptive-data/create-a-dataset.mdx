@@ -84,7 +84,9 @@ Imports run asynchronously. Poll the [dataset status](/api/python/resources/data
 ```python
 import time
 
-while True:
+timeout_seconds = 600  # Adjust the polling window for your dataset.
+deadline = time.monotonic() + timeout_seconds
+while time.monotonic() < deadline:
     status = client.datasets.get_status(dataset_id)
     if status.status == "failed":
         error = status.error_data
@@ -94,6 +96,13 @@ while True:
         print(f"Imported {status.row_count} rows")
         break
     time.sleep(5)
+else:
+    raise TimeoutError(
+        f"Import still pending for dataset {dataset_id}; "
+        "check its status again before starting adaptation."
+    )
 ```
+
+This deadline stops polling; it does not cancel the import. If it expires, resume checking the same `dataset_id` rather than uploading the data again. Once the row count is available, `awaiting_input` means the dataset is waiting for you to start adaptation.
 
 Next, [map the imported columns](/adaptive-data/select-columns), then [configure the adaptation run](/adaptive-data/configure-adaptive-data). For endpoint details, see the [`create`](/api/python/resources/datasets/methods/create) and [`get_status`](/api/python/resources/datasets/methods/get_status) references. The `datasets.upload_file` helper handles the create, upload, and completion steps for local files.
