@@ -254,6 +254,7 @@ export default defineConfig({
       ],
       experimental: {
         starlightCompat: {
+          routeMiddleware: "./src/route-data.ts",
           components: {
             PageTitle: "./src/components/PageTitle/PageTitle.astro",
             Pagination: "./src/components/Pagination/Pagination.astro",
