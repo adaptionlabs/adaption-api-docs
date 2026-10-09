@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
 import { generateAPIReferenceItems, stainlessDocs } from "@stainless-api/docs";
 import tailwindcss from "@tailwindcss/vite";
+import rehypeExternalLinks from "rehype-external-links";
 
 const srcDir = fileURLToPath(new URL("./src", import.meta.url));
 
@@ -20,6 +21,19 @@ process.env.STAINLESS_CONFIG_PATH ??= fileURLToPath(
 export default defineConfig({
   // Canonical origin. The sitemap integration skips itself without this.
   site: "https://docs.adaptionlabs.ai",
+  markdown: {
+    rehypePlugins: [
+      [
+        rehypeExternalLinks,
+        {
+          target: "_blank",
+          rel: ["noopener", "noreferrer"],
+          test: (element) =>
+            !Object.hasOwn(element.properties ?? {}, "dataSameTab"),
+        },
+      ],
+    ],
+  },
   vite: {
     plugins: [tailwindcss()],
     resolve: {
@@ -126,6 +140,10 @@ export default defineConfig({
           {
             label: "Login",
             link: "https://adaptionlabs.ai/app/auth",
+            attrs: {
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
           },
         ],
       },
@@ -172,6 +190,10 @@ export default defineConfig({
             "tutorials/processing-unstructured-documents",
             "tutorials/autoscientist-app-walkthrough",
           ],
+        },
+        {
+          label: "Tools",
+          items: ["tools/mcp", "tools/cursor-plugin", "tools/claude-plugin"],
         },
         {
           label: "Resources",
@@ -232,6 +254,7 @@ export default defineConfig({
       ],
       experimental: {
         starlightCompat: {
+          routeMiddleware: "./src/route-data.ts",
           components: {
             PageTitle: "./src/components/PageTitle/PageTitle.astro",
             Pagination: "./src/components/Pagination/Pagination.astro",

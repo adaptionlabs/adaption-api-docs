@@ -35,6 +35,9 @@ function sidebarHasEntry(
 
 const { entry, editUrl, sidebar } = Astro.locals.starlightRoute;
 const currentPath = Astro.url.pathname;
+// The rendered SDK signature joins method names to adjacent code. Index the
+// route's method name separately so exact searches such as get_status work.
+const methodName = /\/methods\/([^/]+)\/?$/.exec(currentPath)?.[1];
 const skipTitle =
   Astro.locals._stlStarlightPage?.skipRenderingStarlightTitle ?? false;
 const hasMarkdownRoute =
@@ -52,7 +55,19 @@ const description = entry.data.description;
 ---
 
 {
-  skipTitle ? null : (
+  skipTitle ? (
+    // Generated reference pages render their own heading, but the shared skip
+    // link still needs its destination before the reference content.
+    <span
+      id="_top"
+      tabindex="-1"
+      class="sr-only"
+      data-api-method={methodName}
+      data-pagefind-index-attrs={methodName ? "data-api-method" : undefined}
+    >
+      {entry.data.title}
+    </span>
+  ) : (
     <>
       <div
         class="stl-ui-not-prose stl-page-nav-container stl-prose-page-nav-container"

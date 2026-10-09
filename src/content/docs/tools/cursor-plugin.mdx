@@ -1,0 +1,33 @@
+---
+title: Cursor plugin
+description: Connect Cursor to Adaption with MCP tools and skills for dataset and model-training workflows.
+---
+
+The Adaption plugin for Cursor connects the [Adaption MCP server](/tools/mcp) and adds workflow skills for datasets, synthetic data generation, and AutoScientist.
+
+## Install the plugin
+
+1. Open **Customize** in the Cursor sidebar.
+2. Search for **Adaption**.
+3. Select **Install**.
+4. Open **Configure** and set `ADAPTION_API_KEY` to your [Adaption API key](/introduction/create-api-keys).
+
+## Verify the connection
+
+Open **Cursor Settings → Tools & MCP** and confirm that the `adaption` server is connected. Then ask the agent:
+
+> List my Adaption datasets.
+
+The agent should use `list_datasets` from the Adaption MCP server.
+
+If the server exposes no tools and reports `403 Only API keys are permitted on this endpoint`, check that `ADAPTION_API_KEY` contains an Adaption API key rather than a session or OAuth token.
+
+## What the plugin adds
+
+The plugin configures the hosted MCP connection and includes three skills:
+
+- `adaption-dataset` — Guides dataset import, adaptation, augmentation, translation, localization, combination, and export workflows.
+- `adaption-invent` — Guides synthetic dataset generation from natural-language requirements.
+- `adaption-training` — Guides AutoScientist model selection, hyperparameter recommendations, training, and monitoring.
+
+Skills give the agent workflow guidance for chaining tools and handling asynchronous operations. See [MCP](/tools/mcp) for the shared server configuration and complete tool catalog.
