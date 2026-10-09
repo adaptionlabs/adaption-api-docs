@@ -133,6 +133,9 @@ resources:
   training_models:
     methods:
       list: get /api/v1/training-models
+  responses:
+    methods:
+      create: post /api/v1/responses
 settings:
   disable_mock_tests: true
   license: Apache-2.0
