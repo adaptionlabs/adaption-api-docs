@@ -45,6 +45,10 @@ This distinction is independent of how you bring data into Adaption. **Structure
 
 Call `datasets.adapt(..., estimate=True)` to validate the request and read **estimated credits** and duration **without** starting a full run—so you can budget jobs and gate CI. Actual usage can still vary with data volume and options.
 
+## Do unused credits expire?
+
+Unused credits stay on the organization balance. Each month, new credits are added on top of what is already there. Nothing expires or zeroes the balance at the end of a period.
+
 ## How do I wait for a dataset or run to finish?
 
 Use `datasets.wait_for_completion(dataset_id, timeout=...)` (exponential backoff) or handle `DatasetTimeout` for long jobs. You can also poll `get_status` / `get` manually.
