@@ -122,7 +122,9 @@ Poll the [dataset status](/api/python/resources/datasets/methods/get_status) unt
 ```python
 import time
 
-while True:
+timeout_seconds = 600  # Adjust the polling window for your dataset.
+deadline = time.monotonic() + timeout_seconds
+while time.monotonic() < deadline:
     status = client.datasets.get_status(dataset_id)
     if status.status == "failed":
         err = status.error_data
@@ -132,7 +134,14 @@ while True:
         print(f"Imported {status.row_count} rows")
         break
     time.sleep(5)
+else:
+    raise TimeoutError(
+        f"Import still pending for dataset {dataset_id}; "
+        "check its status again before starting adaptation."
+    )
 ```
+
+This deadline stops polling; it does not cancel the import. If it expires, resume checking the same `dataset_id` rather than uploading the data again. Once the row count is available, `awaiting_input` means the dataset is waiting for you to start adaptation.
 
 ## Adapt the dataset
 
