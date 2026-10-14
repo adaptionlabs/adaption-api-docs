@@ -87,6 +87,9 @@ resources:
       # would make each call carry a field the other rejects.
       translate: post /api/v1/datasets/{dataset_id}/translate
       localize: post /api/v1/datasets/{dataset_id}/localize
+      # Generates each conversation's next user turn and returns it as a new
+      # dataset; on an adapted dataset it builds on the adapted download.
+      extend_trajectories: post /api/v1/datasets/{dataset_id}/extend-trajectories
       get_evaluation: get /api/v1/datasets/{dataset_id}/evaluation
       # Generate a dataset from scratch. A method rather than an `invent`
       # subresource on purpose: a subresource would be needed to hang
@@ -133,6 +136,9 @@ resources:
   training_models:
     methods:
       list: get /api/v1/training-models
+  responses:
+    methods:
+      create: post /api/v1/responses
 settings:
   disable_mock_tests: true
   license: Apache-2.0
