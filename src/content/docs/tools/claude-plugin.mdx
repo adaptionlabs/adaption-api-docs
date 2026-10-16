@@ -1,25 +1,66 @@
 ---
 title: Claude plugin
-description: Connect Claude Desktop to Adaption with MCP tools and skills for dataset and model-training workflows.
+description: Connect Claude to Adaption with MCP tools and skills for dataset and model-training workflows in chat, Cowork, and Claude Code.
 ---
 
-The Adaption plugin for Claude Desktop connects the [Adaption MCP server](/tools/mcp) and adds workflow skills for datasets, synthetic data generation, and AutoScientist.
+The Adaption plugin for Claude connects the [Adaption MCP server](/tools/mcp) and adds workflow skills for datasets, synthetic data generation, and AutoScientist. You sign in with your Adaption account in the browser; no API key is needed.
 
-The plugin supports Claude Desktop on macOS and Windows.
+The plugin is saved to your Claude account, so after you add it once it is available in chat on claude.ai and in the Claude desktop app, in Cowork, and in Claude Code.
 
 ## Install the plugin
 
-1. Download `adaption.mcpb` from the [Adaption Claude plugin releases](https://github.com/adaptionlabs/adaption-claude-plugin/releases).
-2. Open the downloaded file to install it in Claude Desktop.
-3. When prompted, enter your [Adaption API key](/introduction/create-api-keys).
+1. In claude.ai or the Claude desktop app, open **Customize** in the left sidebar.
+2. Open the **Plugins** tab, then **Discover**.
+3. Select **Adaption**, then **Add**.
+
+Plugins from the directory are available on Pro, Max, Team, and Enterprise plans. On Team and Enterprise plans, an Owner chooses whether members see the directory. In Cowork, open the **Cowork** tab first, then **Customize**.
+
+## Connect your Adaption account
+
+Adding the plugin loads its skills but does not connect the MCP server. To connect it:
+
+1. Open the plugin from **Customize → Plugins** and select its **Connectors** tab.
+2. Next to `adaption`, select **Add**, then **Connect**. On Team and Enterprise plans, an Owner adds the connector for the organization first, and each member then connects their own account.
+3. The Adaption sign-in page opens in your browser. Sign in, choose the organization, and select **Authorize**.
+
+The connector then also appears under **Customize → Connectors**.
+
+## Use the plugin in Claude Code
+
+Plugins on your Claude account sync to Claude Code v2.1.273 or later when you sign in with the same account. In a running session, run `/reload-plugins` to load the plugin.
+
+Then run `/mcp`, select the Adaption server, and choose **Authenticate**. Claude Code opens the Adaption sign-in page in your browser.
+
+To install the plugin from the command line instead:
+
+```bash
+claude plugin marketplace add adaptionlabs/adaption-claude-plugin
+claude plugin install adaption@adaption
+```
 
 ## Verify the connection
 
-Restart Claude Desktop if prompted, then ask:
+Start a new chat and ask:
 
 > List my Adaption datasets.
 
 Claude should use `list_datasets` from the Adaption MCP server.
+
+## Other ways to connect
+
+### Connector only
+
+To add the Adaption tools without the plugin's skills, add the server as a custom connector. Open **Customize → Connectors → Add → Custom → Web**, enter `https://api.prod.adaptionlabs.ai/api/v1/mcp`, keep the detected authentication settings, and select **Add**, then **Connect**.
+
+### Desktop bundle with an API key
+
+For a Claude desktop app setup that cannot use OAuth, the `adaption.mcpb` bundle connects with an [Adaption API key](/introduction/create-api-keys) instead. The bundle supports the desktop app on macOS and Windows.
+
+1. Download `adaption.mcpb` from the [Adaption Claude plugin releases](https://github.com/adaptionlabs/adaption-claude-plugin/releases).
+2. Open the downloaded file to install it in the Claude desktop app.
+3. When prompted, enter your API key.
+
+Do not install the bundle alongside the plugin. Both register a server named `adaption`.
 
 ## What the plugin adds
 

@@ -1,0 +1,110 @@
+---
+title: Hermes plugin
+description: Connect Hermes Agent to Adaption with the hosted MCP server and skills for dataset and model-training workflows.
+---
+
+The Adaption plugin for [Hermes Agent](https://hermes-agent.nousresearch.com) adds workflow skills for datasets, synthetic data generation, and AutoScientist. The tools come from the [Adaption MCP server](/tools/mcp), which you add to Hermes separately and sign in to with your Adaption account in the browser.
+
+The setup has two parts because the plugin format Hermes installs cannot request OAuth for an MCP server. Hermes signs in only to servers configured with `auth: oauth`, so the server is added with those settings and the plugin carries only the skills.
+
+The plugin requires Hermes Agent with Agent Plugins support. Run `hermes update` to get the latest version.
+
+## Hermes Desktop
+
+### 1. Add the MCP server
+
+Open this link in Hermes Desktop. It pre-fills the server for you to confirm:
+
+```text
+hermes://mcp/install?name=adaption&config=eyJ1cmwiOiJodHRwczovL2FwaS5wcm9kLmFkYXB0aW9ubGFicy5haS9hcGkvdjEvbWNwP3NvdXJjZT1oZXJtZXMtcGx1Z2luIiwiaGVhZGVycyI6eyJYLUFkYXB0aW9uLVNvdXJjZSI6Imhlcm1lcy1wbHVnaW4ifSwiYXV0aCI6Im9hdXRoIiwib2F1dGgiOnsiY2xpZW50X2lkIjoiYWRhcHRpb24taGVybWVzLXBsdWdpbiJ9fQ
+```
+
+Or open **Capabilities → Connectors → Add your own**, choose **Edit mcp.json**, and add:
+
+```json
+{
+  "mcpServers": {
+    "adaption": {
+      "url": "https://api.prod.adaptionlabs.ai/api/v1/mcp?source=hermes-plugin",
+      "headers": {
+        "X-Adaption-Source": "hermes-plugin"
+      },
+      "auth": "oauth",
+      "oauth": {
+        "client_id": "adaption-hermes-plugin"
+      }
+    }
+  }
+}
+```
+
+The `oauth` block is required. Adaption does not support dynamic client registration, which Hermes falls back to without it.
+
+### 2. Sign in
+
+Select **Authenticate** on the `adaption` server, then **Open in browser**. Sign in, choose the organization, and select **Authorize**.
+
+### 3. Install the skills
+
+Open **Capabilities → Plugins → Install from Git**, enter `adaptionlabs/adaption-hermes-plugin`, keep the agent plugin checked, and confirm. Then enable **adaption** in the plugins list.
+
+Or open this link:
+
+```text
+hermes://plugin/install?repo=adaptionlabs/adaption-hermes-plugin&enable=1
+```
+
+Both links only open a confirmation dialog in Hermes Desktop. Nothing is installed until you confirm.
+
+## Hermes CLI
+
+### 1. Add the MCP server
+
+```bash
+hermes config set mcp_servers.adaption.url 'https://api.prod.adaptionlabs.ai/api/v1/mcp?source=hermes-plugin'
+hermes config set mcp_servers.adaption.headers.x-adaption-source hermes-plugin
+hermes config set mcp_servers.adaption.auth oauth
+hermes config set mcp_servers.adaption.oauth.client_id adaption-hermes-plugin
+hermes mcp login adaption
+```
+
+Hermes opens the Adaption sign-in page. Choose the organization and select **Authorize**. Hermes caches the tokens and refreshes them automatically. To sign in again later, for example to switch organizations, run `hermes mcp login adaption`.
+
+On a remote host, follow the Hermes guide for OAuth over SSH, or use an API key as described below.
+
+### 2. Install the skills
+
+```bash
+hermes plugins install adaptionlabs/adaption-hermes-plugin --no-enable
+hermes plugins enable adaption
+```
+
+Start a new session, or run `/reload-mcp` in a running one, to load the tools.
+
+## Verify the connection
+
+Ask Hermes:
+
+> List my Adaption datasets.
+
+Hermes should use `list_datasets` from the Adaption MCP server.
+
+## Headless use with an API key
+
+For CI or a gateway with no one to complete a browser sign-in, use an [Adaption API key](/introduction/create-api-keys) instead of OAuth:
+
+```bash
+hermes mcp add adaption --url 'https://api.prod.adaptionlabs.ai/api/v1/mcp?source=hermes-plugin' --auth header
+```
+
+Answer yes when Hermes asks whether the server requires authentication, then paste the API key when it asks for a bearer token. Hermes stores it in your profile's `.env` as `MCP_ADAPTION_API_KEY`, not in `config.yaml`. To skip the prompt, set `MCP_ADAPTION_API_KEY` in that `.env` before running the command.
+
+## What the plugin adds
+
+The plugin contains three skills and no code:
+
+- `adaption-dataset` — Guides dataset import, adaptation, augmentation, translation, localization, combination, and export workflows.
+- `adaption-invent` — Guides synthetic dataset generation from natural-language requirements.
+- `adaption-training` — Guides AutoScientist model selection, hyperparameter recommendations, training, and monitoring.
+
+The skills tell Hermes to request a cost estimate before launching an operation that spends credits. Hermes does not enforce this. See [MCP](/tools/mcp) for the complete tool catalog.
