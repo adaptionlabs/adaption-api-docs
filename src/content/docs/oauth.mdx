@@ -1,0 +1,49 @@
+---
+title: OAuth
+description: How MCP clients sign in to the Adaption MCP server with OAuth 2.1, and what the authorization server supports.
+---
+
+The [Adaption MCP server](/tools/mcp) accepts OAuth access tokens, so an MCP client can sign users in through the browser instead of asking for an API key. This page describes the authorization server for developers of MCP clients. To connect a client as a user, see [MCP](/tools/mcp).
+
+## Discovery
+
+A request to the MCP server without a token returns `401` with a `WWW-Authenticate` header that points to the protected resource metadata:
+
+- **MCP server:** `https://api.prod.adaptionlabs.ai/api/v1/mcp`
+- **Protected resource metadata (RFC 9728):** `https://api.prod.adaptionlabs.ai/.well-known/oauth-protected-resource/api/v1/mcp`
+- **Authorization server metadata (RFC 8414):** `https://api.prod.adaptionlabs.ai/.well-known/oauth-authorization-server`
+
+The authorization server metadata lists these endpoints:
+
+- **Authorization:** `https://api.prod.adaptionlabs.ai/api/v1/oauth/authorize`
+- **Token:** `https://api.prod.adaptionlabs.ai/api/v1/oauth/token`
+- **Revocation:** `https://api.prod.adaptionlabs.ai/api/v1/oauth/revoke`
+
+## Supported flows
+
+- Authorization code grant with PKCE. The only code challenge method is `S256`.
+- Refresh token grant. Each refresh returns a new refresh token and revokes the old one.
+- Resource indicators (RFC 8707). When a client sends `resource`, it must name the MCP server URL or the API origin.
+- The authorization response includes the `iss` parameter.
+
+## Client registration
+
+The server does not support dynamic client registration. A client identifies itself in one of two ways:
+
+- **Client ID Metadata Document.** The `client_id` is an HTTPS URL that serves the client's metadata, including its redirect URIs. The server fetches and caches the document. Clients such as Claude and ChatGPT use this method.
+- **Pre-registered client.** Adaption's own plugins use fixed client IDs registered with the server.
+
+Public clients authenticate to the token endpoint with `none` and PKCE. Redirect URIs must match a registered URI exactly, except for `http` loopback URIs on `localhost`, `127.0.0.1`, or `[::1]`: for those the port is ignored, so native clients can bind an ephemeral port.
+
+## Scopes
+
+- `adaption-mcp:read` — Read datasets, evaluations, export links, models, and AutoScientist runs.
+- `adaption-mcp:write` — Create datasets and launch jobs that spend credits. Includes `adaption-mcp:read`.
+
+## Consent and tokens
+
+On the consent screen, the user signs in to Adaption and chooses one organization. Tokens grant access to that organization only, and stop working when the user leaves it.
+
+- Authorization codes expire after five minutes.
+- Access tokens expire after one hour.
+- Refresh tokens expire after 30 days.

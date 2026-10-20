@@ -193,7 +193,14 @@ export default defineConfig({
         },
         {
           label: "Tools",
-          items: ["tools/mcp", "tools/cursor-plugin", "tools/claude-plugin"],
+          items: [
+            "tools/mcp",
+            "tools/cursor-plugin",
+            "tools/claude-plugin",
+            "tools/codex-plugin",
+            "tools/hermes-plugin",
+            "oauth",
+          ],
         },
         {
           label: "Resources",

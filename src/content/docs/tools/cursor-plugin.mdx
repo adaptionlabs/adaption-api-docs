@@ -3,24 +3,56 @@ title: Cursor plugin
 description: Connect Cursor to Adaption with MCP tools and skills for dataset and model-training workflows.
 ---
 
-The Adaption plugin for Cursor connects the [Adaption MCP server](/tools/mcp) and adds workflow skills for datasets, synthetic data generation, and AutoScientist.
+The Adaption plugin for Cursor connects the [Adaption MCP server](/tools/mcp) and adds workflow skills for datasets, synthetic data generation, and AutoScientist. You sign in with your Adaption account in the browser; no API key is needed.
 
 ## Install the plugin
 
 1. Open **Customize** in the Cursor sidebar.
 2. Search for **Adaption**.
 3. Select **Install**.
-4. Open **Configure** and set `ADAPTION_API_KEY` to your [Adaption API key](/introduction/create-api-keys).
+
+The plugin is listed in the [Cursor Marketplace](https://cursor.com/marketplace/adaption).
+
+## Sign in
+
+1. Open **Customize → MCPs**. The `adaption` server shows **Needs authentication**.
+2. Select **Authenticate**. Cursor opens the Adaption sign-in page in your browser.
+3. Sign in, choose the organization, and select **Authorize**.
+
+The server switches to connected and lists its tools.
+
+### Cursor CLI
+
+The Cursor CLI signs in with OAuth too. In an `agent` session, run `/mcp`, select the `adaption` server, and authenticate. The CLI opens the same sign-in page in your browser.
 
 ## Verify the connection
 
-Open **Cursor Settings → Tools & MCP** and confirm that the `adaption` server is connected. Then ask the agent:
+In **Customize → MCPs**, confirm that the `adaption` server is connected. Then ask the agent:
 
 > List my Adaption datasets.
 
 The agent should use `list_datasets` from the Adaption MCP server.
 
-If the server exposes no tools and reports `403 Only API keys are permitted on this endpoint`, check that `ADAPTION_API_KEY` contains an Adaption API key rather than a session or OAuth token.
+If Cursor does not show the plugin's server, check your own `~/.cursor/mcp.json`. When the same MCP URL is configured there, Cursor shows only that entry and hides the plugin's server.
+
+## Use an API key instead
+
+For an environment with no browser to complete the sign-in, such as a CI runner, add the server with an [Adaption API key](/introduction/create-api-keys) to `~/.cursor/mcp.json` instead of using the plugin's server:
+
+```json
+{
+  "mcpServers": {
+    "adaption": {
+      "url": "https://api.prod.adaptionlabs.ai/api/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:ADAPTION_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Set `ADAPTION_API_KEY` in the environment Cursor runs in. Do not commit a configuration file containing a real key.
 
 ## What the plugin adds
 
