@@ -133,7 +133,7 @@
     },
     "/api/v1/datasets": {
       "post": {
-        "description": "Unified ingest endpoint. Pass source.url to start an async import — the provider is inferred from the URL host (HuggingFace, Kaggle, or Google Sheets). Omit it to get upload instructions for a presigned S3 PUT. Adapt the result with [POST /datasets/{dataset_id}/run](/api/python/resources/datasets/methods/run), or send it straight to training with [POST /autoscientist](/api/python/resources/autoscientist/methods/create) when it already holds prompt and completion columns.",
+        "description": "Unified ingest endpoint. Pass source.url to start an async import — the provider is inferred from the URL host (HuggingFace, Kaggle, or Google Sheets). Omit it to get upload instructions for a presigned S3 PUT. Adapt the result with [POST /datasets/{dataset_id}/adapt](/api/python/resources/datasets/methods/adapt), or send it straight to training with [POST /autoscientist](/api/python/resources/autoscientist/methods/create) when it already holds prompt and completion columns.",
         "operationId": "DatasetController_createDatasetPublic",
         "parameters": [],
         "requestBody": {
@@ -502,7 +502,7 @@
     },
     "/api/v1/datasets/{dataset_id}/augment": {
       "post": {
-        "description": "Retrieves additional rows matching this dataset and returns them as a new dataset, leaving this one unchanged. The new dataset carries this dataset’s rows alongside the retrieved ones, so it can be trained on or downloaded directly. Poll GET /datasets/{dataset_id}/status on the returned id until it reaches `succeeded`. Set estimate=true to price the request without starting a run.",
+        "description": "Retrieves additional rows matching this dataset and returns them as a new dataset, leaving this one unchanged. The new dataset carries this dataset’s rows alongside the retrieved ones, so it can be trained on or downloaded directly. Omit both row counts to receive the recommended fill and its cost as a quote; a run needs explicit row counts, or fill_to_recommended=true to fill any count you leave out with its recommended value. Poll GET /datasets/{dataset_id}/status on the returned id until it reaches `succeeded`. Set estimate=true to price the request without starting a run.",
         "operationId": "DatasetController_augmentDataset",
         "parameters": [
           {
@@ -536,7 +536,14 @@
             }
           },
           "400": {
-            "description": "Validation failed: no rows requested, the dataset contains images (the pool is text-only), or its topic mix cannot be determined."
+            "description": "Validation failed: the recommended fill has nothing to add, the dataset contains images (the pool is text-only), or its topic mix cannot be determined (domain_rows / general_rows only). A request that named no row counts also gets 400, with the recommended fill and its cost as a quote in the body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAugmentQuoteErrorDto"
+                }
+              }
+            }
           },
           "402": {
             "description": "Insufficient credits"
@@ -756,6 +763,60 @@
         ]
       }
     },
+    "/api/v1/datasets/{dataset_id}/extend-trajectories": {
+      "post": {
+        "description": "For each row's conversation, generates the user's next message: a single question or request that can only be answered correctly by remembering details from earlier in the conversation, written in the conversation's language. No completion is generated for it. Each request creates a new dataset for the result, returned as `dataset_id`; the dataset in the path is left unchanged. Poll GET /datasets/{dataset_id}/status and download from GET /datasets/{dataset_id}/download with the new id. If the dataset has been adapted (POST /datasets/{dataset_id}/adapt finished), the extension builds on its adapted download: `column_mapping` names columns of that download, so `column_mapping.completion` can be `enhanced_completion`, and the result keeps the adapted columns next to `extended_prompt`. Only `prompt` + `completion` applies there, since adapt splits a chat column into `original_prompt` and `original_completion`. Otherwise the extension reads the uploaded file, with one of two mappings. `column_mapping.chat`: a column of `{\"role\", \"content\"}` turns (or a JSON string of that list), ending on the assistant's reply. Or `column_mapping.prompt` with `column_mapping.completion`: the conversation up to the user's last turn (a turn list, or a plain string), plus the final reply as plain text. Each row of the result carries the conversation (split as for /adapt) plus an `extended_prompt` column. `context`, `universal_prompt` and `image` mappings are not currently supported. Credits and status polling behave as for /adapt; an `idempotency_key` replays the extension it first created, returning its `dataset_id` and `run_id` with zero estimates, since the replay starts and charges nothing (as for /translate). Set estimate=true to validate and get a cost quote without starting a run.",
+        "operationId": "DatasetController_extendTrajectories",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicExtendTrajectoriesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicExtendTrajectoriesResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: `column_mapping` must be `chat` alone, or `prompt` with `completion`, naming columns the input has (an adapted dataset takes `prompt` + `completion` only). Any other `column_mapping` field (such as `context`, `universal_prompt` or `image`) is not currently supported. Also returned for datasets this endpoint cannot read: another extension, a combined, invented, augmented, translated or localized dataset, or one adapted into preference pairs, from a universal prompt, or with images."
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "409": {
+            "description": "Conflict — dataset is launching or still importing, row_count is not yet available, or another request holds this idempotency_key. Poll GET /datasets/{dataset_id}/status until row_count is populated."
+          },
+          "422": {
+            "description": "Estimate without `column_mapping` on a dataset that has not been adapted and whose saved mapping is neither a chat column nor a prompt + completion pair."
+          }
+        },
+        "summary": "Extend trajectories with a next user turn (or estimate cost)",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
     "/api/v1/datasets/{dataset_id}/download": {
       "get": {
         "description": "Streams the processed rows in the requested file format. Works on datasets with status `ready` (full output) and also on datasets with status `failed` — in the failed case the stream contains only the rows that were successfully processed before the run aborted, which is useful for recovering partial output from interrupted jobs. Returns 422 only when no run has ever started on this dataset.\n\n**Image columns (JSON / JSONL):** Rows may include `original_image` only when the mapped image column is also in `configured_column_mapping.context`. Read `image_column_formats` from `GET /datasets/{dataset_id}` and look up the active image column to determine encoding: `embedded_bytes` → `{ bytes, path: null }` with base64 bytes; `url` or `file_reference` → presigned HTTPS URL string. When images are not surfaced, `original_image` is omitted and internal `s3://` URIs are never returned. See schema `ProcessedDatasetExportOriginalImageFieldDto`. In CSV and Parquet, embedded bytes appear as a JSON string in the cell.\n\n**Response body:** binary in every format. `fileFormat=parquet` returns a gzipped tar archive of one or more Parquet shards (`.tar.gz`), not a single `.parquet` file — extract it before reading. CSV, JSON and JSONL bodies are UTF-8 text and can be decoded directly.",
@@ -965,7 +1026,7 @@
     },
     "/api/v1/autoscientist": {
       "post": {
-        "description": "Starts an iterative AutoScientist loop on a dataset you own. The loop runs up to max_iterations training cycles, stopping early when target_win_rate is achieved. Omitted parameters are resolved to platform defaults for the selected model and returned in the response. Poll GET /autoscientist/{experiment_id} for status, then GET /autoscientist/{experiment_id}/download once it succeeds. The dataset must have finished processing: adapt it first with [POST /datasets/{dataset_id}/run](/api/python/resources/datasets/methods/run), or ingest it raw with [POST /datasets](/api/python/resources/datasets/methods/create) when it already holds prompt and completion columns.",
+        "description": "Starts an iterative AutoScientist loop on a dataset you own. The loop runs up to max_iterations training cycles, stopping early when target_win_rate is achieved. Omitted parameters are resolved to platform defaults for the selected model and returned in the response. Poll GET /autoscientist/{experiment_id} for status, then GET /autoscientist/{experiment_id}/download once it succeeds. The dataset must have finished processing: adapt it first with [POST /datasets/{dataset_id}/adapt](/api/python/resources/datasets/methods/adapt), or ingest it raw with [POST /datasets](/api/python/resources/datasets/methods/create) when it already holds prompt and completion columns.",
         "operationId": "AutoScientistPublicController_create",
         "parameters": [],
         "requestBody": {
@@ -1434,12 +1495,80 @@
           "leaderboard"
         ]
       }
+    },
+    "/api/v1/responses": {
+      "post": {
+        "description": "Creates a Responses API response through the inference gateway.",
+        "operationId": "ResponsesController_create",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "traceparent",
+            "in": "header",
+            "description": "W3C trace context used to parent this Responses API trace to a caller span.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The upstream Responses API response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The endpoint is not available."
+          },
+          "502": {
+            "description": "The model provider could not complete the request."
+          },
+          "503": {
+            "description": "Model inference is not configured for this environment."
+          }
+        },
+        "summary": "Generate a model response",
+        "tags": [
+          "responses"
+        ]
+      }
     }
   },
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.4.51",
+    "version": "0.1.10",
     "contact": {}
   },
   "tags": [],
@@ -1547,11 +1676,6 @@
             "example": 1048576,
             "minimum": 0,
             "maximum": 2147483648
-          },
-          "defer_adaption": {
-            "type": "boolean",
-            "default": false,
-            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
           }
         },
         "required": [
@@ -1626,11 +1750,6 @@
             "items": {
               "$ref": "#/components/schemas/InitiateBatchFileDto"
             }
-          },
-          "defer_adaption": {
-            "type": "boolean",
-            "default": false,
-            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
           }
         },
         "required": [
@@ -1731,11 +1850,6 @@
             "items": {
               "$ref": "#/components/schemas/CompleteBatchFileDto"
             }
-          },
-          "defer_adaption": {
-            "type": "boolean",
-            "default": false,
-            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
           }
         },
         "required": [
@@ -1893,11 +2007,6 @@
                 "$ref": "#/components/schemas/DatasetSourceDto"
               }
             ]
-          },
-          "defer_adaption": {
-            "type": "boolean",
-            "default": false,
-            "description": "When true, the upload is stored but Adaptive Data does not start. The dataset stays in `awaiting_preprocessing` until POST /datasets/:id/start-adaption."
           }
         },
         "required": [
@@ -2268,15 +2377,16 @@
               "invented",
               "augmented",
               "translated",
-              "localized"
+              "localized",
+              "extended"
             ],
-            "description": "How this dataset came about. `uploaded` was supplied by you, `combined` merges several datasets, `invented` was generated from a prompt, `augmented` adds rows retrieved from the curated pool to another dataset, and `translated` / `localized` add translated copies of another dataset’s rows.",
+            "description": "How this dataset came about. `uploaded` was supplied by you, `combined` merges several datasets, `invented` was generated from a prompt, `augmented` adds rows retrieved from the curated pool to another dataset, `translated` / `localized` add translated copies of another dataset’s rows, and `extended` adds a next user turn to each of another dataset’s conversations.",
             "example": "augmented"
           },
           "source_dataset_id": {
             "type": "string",
             "nullable": true,
-            "description": "The dataset this one was derived from. Set when `kind` is `augmented`, `translated` or `localized`. Null for `uploaded` and `invented`, and for `combined`, which has several sources rather than one.",
+            "description": "The dataset this one was derived from. Set when `kind` is `augmented`, `translated`, `localized` or `extended`. Null for `uploaded` and `invented`, and for `combined`, which has several sources rather than one.",
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           "name": {
@@ -2572,17 +2682,29 @@
         "properties": {
           "domain_rows": {
             "type": "number",
-            "description": "How many additional rows to retrieve from topics matching this dataset. Defaults to 0.",
+            "description": "How many additional rows to retrieve from topics matching this dataset. Omit domain_rows and general_rows to receive the recommended fill and its cost as a quote; a run needs a count, or fill_to_recommended=true.",
             "minimum": 0,
             "maximum": 100000,
             "example": 3000
           },
           "general_rows": {
             "type": "number",
-            "description": "How many additional rows to retrieve from other topics, to broaden the dataset. Defaults to 0.",
+            "description": "How many additional rows to retrieve from other topics, to broaden the dataset. Omit domain_rows and general_rows to receive the recommended fill and its cost as a quote; a run needs a count, or fill_to_recommended=true.",
             "minimum": 0,
             "maximum": 100000,
             "example": 1000
+          },
+          "similar_rows": {
+            "type": "number",
+            "description": "How many new rows to generate in the style of this dataset. A sample of its rows is analysed for topic, language and prompt/completion conventions, and new rows are generated to match. Combines with domain_rows and general_rows in one run, and is never filled from the recommendation. Naming it makes the request explicit rather than a quote. Defaults to 0.",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 500
+          },
+          "fill_to_recommended": {
+            "type": "boolean",
+            "description": "When true, fills every count you leave out (domain_rows, general_rows) with its recommended value; a count you name is used as given. Omit every count (including similar_rows) and leave this false to receive the recommended fill as a quote instead.",
+            "default": false
           },
           "training_type": {
             "type": "string",
@@ -2627,6 +2749,16 @@
             ],
             "example": "running"
           },
+          "domain_rows": {
+            "type": "number",
+            "description": "Rows this run retrieves from topics matching the dataset, or the recommended fill an estimate priced.",
+            "example": 17000
+          },
+          "general_rows": {
+            "type": "number",
+            "description": "Rows this run retrieves from other topics, to broaden the dataset, or the recommended fill an estimate priced.",
+            "example": 0
+          },
           "estimated_credits_consumed": {
             "type": "number",
             "description": "Credits this run consumes, charged against the requested rows.",
@@ -2640,8 +2772,63 @@
         "required": [
           "dataset_id",
           "status",
+          "domain_rows",
+          "general_rows",
           "estimated_credits_consumed",
           "estimate"
+        ]
+      },
+      "PublicAugmentQuoteDetailsDto": {
+        "type": "object",
+        "properties": {
+          "domain_rows": {
+            "type": "number",
+            "example": 17000
+          },
+          "general_rows": {
+            "type": "number",
+            "example": 8000
+          },
+          "estimated_credits_consumed": {
+            "type": "number",
+            "example": 250
+          },
+          "estimate": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "domain_rows",
+          "general_rows",
+          "estimated_credits_consumed",
+          "estimate"
+        ]
+      },
+      "PublicAugmentQuoteErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string",
+            "description": "Explains how to accept the recommended fill or request an estimate."
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublicAugmentQuoteDetailsDto"
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message",
+          "details"
         ]
       },
       "PublicTranslateDto": {
@@ -3048,6 +3235,97 @@
           "multimodalPricingApplied"
         ]
       },
+      "PublicExtendTrajectoriesColumnMappingDto": {
+        "type": "object",
+        "properties": {
+          "chat": {
+            "type": "string",
+            "description": "Column holding each row's conversation as a list of `{\"role\", \"content\"}` turns (or a JSON string encoding that list), ending on the assistant's reply. The full conversation is the trajectory the next user message is generated from. Send `chat` alone, or `prompt` with `completion` instead. Not available on an adapted dataset: adapt splits the chat column into `original_prompt` and `original_completion`, so map those with `prompt` and `completion`.",
+            "example": "messages"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Column holding the conversation up to and including the user's last turn: a list of `{\"role\", \"content\"}` turns (or a JSON string encoding that list), or a plain string read as a single user turn. Requires `completion`; not allowed with `chat`. On an adapted dataset, a column of its download: `original_prompt` if it was adapted from a chat column, otherwise the dataset's own prompt column.",
+            "example": "prompt"
+          },
+          "completion": {
+            "type": "string",
+            "description": "Column holding the assistant's final reply to `prompt`, as plain text. It becomes the last turn of the trajectory. Requires `prompt`; not allowed with `chat`. On an adapted dataset, a column of its download: `enhanced_completion` extends the adapted reply, the original completion column extends the reply as uploaded.",
+            "example": "response"
+          }
+        }
+      },
+      "PublicExtendTrajectoriesDto": {
+        "type": "object",
+        "properties": {
+          "column_mapping": {
+            "description": "Column role assignments. Required for real runs, optional for estimate-only requests.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicExtendTrajectoriesColumnMappingDto"
+              }
+            ]
+          },
+          "job_specification": {
+            "description": "Job execution parameters",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicJobSpecDto"
+              }
+            ]
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "When true, validates the request and returns the estimated credit cost without starting a run.",
+            "default": false
+          }
+        }
+      },
+      "PublicExtendTrajectoriesResponseDto": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "description": "Unique identifier for this pipeline run. Null for estimate-only requests.",
+            "example": "dataset-550e8400-e29b-41d4-a716-446655440000-1712234567890",
+            "nullable": true
+          },
+          "estimatedMinutes": {
+            "type": "number",
+            "description": "Estimated processing time in minutes"
+          },
+          "estimatedCreditsConsumed": {
+            "type": "number",
+            "description": "Estimated number of credits that will be consumed by this run"
+          },
+          "estimate": {
+            "type": "boolean",
+            "description": "Whether this was an estimate-only request (no run started)"
+          },
+          "multimodalPricingApplied": {
+            "type": "boolean",
+            "description": "True when an image column is mapped and also listed in context_columns; each output row is billed at a higher rate."
+          },
+          "creditMultiplier": {
+            "type": "number",
+            "description": "10 credits per 100 output rows when multimodalPricingApplied is true. Omitted for text-only pricing."
+          },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The new dataset holding the extended trajectories. Poll GET /datasets/{dataset_id}/status and download from GET /datasets/{dataset_id}/download with this id, not the source dataset's. Null for estimate-only requests.",
+            "example": "7d1f3c2a-9b4e-4f60-8a1d-2e5c6b7a8f90",
+            "nullable": true
+          }
+        },
+        "required": [
+          "estimatedMinutes",
+          "estimatedCreditsConsumed",
+          "estimate",
+          "multimodalPricingApplied",
+          "dataset_id"
+        ]
+      },
       "OriginalImageEmbeddedDto": {
         "type": "object",
         "properties": {
@@ -3378,7 +3656,7 @@
           },
           "reasoning_trace": {
             "type": "string",
-            "description": "Optional source column holding a reasoning trace to train on."
+            "description": "Optional source column holding a reasoning trace to train on. Supported on instruction runs with a model whose GET /autoscientist/models entry reports `train_with_reasoning: true`; naming it with any other model on such a run is rejected."
           },
           "chosen": {
             "type": "string",
@@ -3456,8 +3734,7 @@
             "type": "string",
             "enum": [
               "linear",
-              "cosine",
-              "constant"
+              "cosine"
             ]
           },
           "min_lr_ratio": {
@@ -3468,11 +3745,12 @@
           },
           "scheduler_num_cycles": {
             "type": "number",
+            "exclusiveMinimum": true,
             "minimum": 0,
             "maximum": 4,
             "example": 0.5,
             "default": 0.5,
-            "description": "Number of cosine decay cycles across training. Defaults to 0.5, a single half-cycle decay from the peak learning rate down to the floor."
+            "description": "Number of cosine decay cycles across training. Must be greater than 0. Defaults to 0.5, a single half-cycle decay from the peak learning rate down to the floor."
           },
           "warmup_ratio": {
             "type": "number",
@@ -3726,7 +4004,7 @@
           },
           "model": {
             "type": "string",
-            "description": "Base model id from GET /autoscientist/models to tune for. Omit to size the recommendation against the model POST /autoscientist selects for this dataset; the resolved id is returned in the response `model` field. That pick reads the columns already selected for the dataset, so a create request supplying `column_mapping.reasoning_trace` can resolve a different model. Pass the returned `model` back on create to pin it."
+            "description": "Base model id from GET /autoscientist/models to tune for. Omit to size the recommendation against the model POST /autoscientist selects for this dataset; the resolved id is returned in the response `model` field. That pick assumes no `column_mapping`, so a create request supplying `column_mapping.reasoning_trace` can resolve a different model. Pass the returned `model` back on create to pin it."
           },
           "augmentation_domain_rows": {
             "type": "number",
@@ -3802,13 +4080,18 @@
             "items": {
               "type": "string"
             }
+          },
+          "train_with_reasoning": {
+            "type": "boolean",
+            "description": "Whether this model trains on reasoning traces. When false, mapping a `column_mapping.reasoning_trace` on this model is rejected rather than trained without the trace."
           }
         },
         "required": [
           "id",
           "display_name",
           "methods",
-          "training_types"
+          "training_types",
+          "train_with_reasoning"
         ]
       },
       "PublicTrainingModelListDto": {
@@ -4563,6 +4846,308 @@
           "pagination",
           "data",
           "generated_at"
+        ]
+      },
+      "ResponseInputMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system",
+              "developer"
+            ],
+            "example": "user"
+          },
+          "content": {
+            "type": "string",
+            "example": "What was my previous question?"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "McpRequestToolDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "mcp"
+            ],
+            "example": "mcp"
+          },
+          "server_label": {
+            "type": "string",
+            "description": "Label used to identify this MCP server in tool calls. For hosted tools, use a catalog id from GET /tools.",
+            "example": "slack"
+          },
+          "authorization": {
+            "type": "string",
+            "description": "Authorization for this request. For server_url tools, this exact value is forwarded as the Authorization header. For hosted tools, it is the connector credential used instead of the stored connection. Never stored, logged or echoed back.",
+            "writeOnly": true
+          },
+          "server_url": {
+            "type": "string",
+            "description": "Caller-provided public HTTPS MCP endpoint. Adaption calls it directly.",
+            "example": "https://mcp.example.com/mcp"
+          },
+          "server_description": {
+            "type": "string",
+            "description": "Description of a caller-provided remote MCP server.",
+            "maxLength": 4096
+          },
+          "allowed_tools": {
+            "description": "Narrow the connector's tools: an array of tool names, or { tool_names?, read_only? }. Every name must be a tool the connector exposes.",
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "tool_names": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "read_only": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            ]
+          },
+          "require_approval": {
+            "description": "Which calls wait for your approval: 'always', 'never', or { always?, never? } tool filters. Unset uses the tool's `default_require_approval` from GET /tools. A call that needs approval ends the response with an `mcp_approval_request` item; replay the output with an `mcp_approval_response` input item to continue.",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "always",
+                  "never"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "always": {
+                    "type": "object",
+                    "properties": {
+                      "tool_names": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "read_only": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "never": {
+                    "type": "object",
+                    "properties": {
+                      "tool_names": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "read_only": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "server_label"
+        ]
+      },
+      "FileSearchToolDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "file_search"
+            ],
+            "example": "file_search"
+          },
+          "dataset_ids": {
+            "description": "Adapted dataset identifiers to search. Omit with `model: stack:<id>` to use the datasets configured on that stack.",
+            "minItems": 1,
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "CreateResponseDto": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Hosted model identifier, or `stack:<slug>` to call one of your inference stacks. A stack supplies its model and authorizes explicitly requested MCP/file_search tools against its configured connections and datasets.",
+            "example": "qwen3.5-397b"
+          },
+          "input": {
+            "description": "Text input, or an ordered array of messages and items replayed from earlier responses. May be omitted when previous_response_id supplies stored conversation history.",
+            "oneOf": [
+              {
+                "type": "string",
+                "example": "Explain why the sky appears blue."
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ResponseInputMessageDto"
+                    },
+                    {
+                      "type": "object",
+                      "description": "An item replayed from an earlier response: message, reasoning, mcp_list_tools, mcp_call, mcp_approval_request, or mcp_approval_response.",
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "instructions": {
+            "type": "string",
+            "description": "System-level instructions for the model.",
+            "example": "Answer clearly and concisely."
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "description": "Maximum number of tokens the model may generate.",
+            "minimum": 1,
+            "example": 1024
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Sampling temperature.",
+            "minimum": 0,
+            "maximum": 2,
+            "example": 0.7
+          },
+          "stream": {
+            "type": "boolean",
+            "description": "Whether to stream semantic response events using server-sent events.",
+            "default": false,
+            "example": true
+          },
+          "tools": {
+            "type": "array",
+            "description": "Responses API tools. Catalog MCP entries are hosted by Adaption; MCP entries with server_url are called by Adaption with caller-owned authorization; file_search runs over authorized adapted datasets. With `model: stack:<id>`, omitted or empty tools means no tools; requested hosted MCP labels must be enabled on the stack, and file_search uses the stack dataset scope when dataset_ids is omitted. connector_id MCP tools are not supported.",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/McpRequestToolDto"
+                },
+                {
+                  "$ref": "#/components/schemas/FileSearchToolDto"
+                },
+                {
+                  "type": "object",
+                  "description": "Another OpenAI-compatible Responses tool forwarded to the model provider.",
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "not": {
+                        "enum": [
+                          "mcp",
+                          "file_search"
+                        ]
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              ]
+            }
+          },
+          "max_tool_calls": {
+            "type": "integer",
+            "description": "Maximum number of first-party and MCP tool calls to run for this response. Once reached, the model is asked to answer without calling more tools.",
+            "minimum": 1,
+            "maximum": 64,
+            "example": 8
+          },
+          "store": {
+            "type": "boolean",
+            "description": "Whether Adaption should retain this response for later use with previous_response_id. Adaption defaults to false, unlike OpenAI, so retention requires explicitly setting store to true.",
+            "example": false,
+            "default": false
+          },
+          "previous_response_id": {
+            "type": "string",
+            "description": "A previously stored response whose input and output should precede this turn."
+          },
+          "background": {
+            "type": "boolean",
+            "description": "Background execution is incompatible with the hosted-tool loop. Only false is accepted.",
+            "example": false,
+            "default": false
+          },
+          "tool_choice": {
+            "description": "How the model may use the attached tools. Omitted or `auto`, the model decides whether to search and how to word the query. `none` forbids tools entirely. Naming a function demands that call: use `{ \"type\": \"function\", \"name\": \"file_search\" }` when an answer must be grounded in the attached datasets, and the response fails rather than answering unsearched.",
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "none"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "function"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "name"
+                ]
+              }
+            ],
+            "example": "auto"
+          }
+        },
+        "required": [
+          "model"
         ]
       }
     }
