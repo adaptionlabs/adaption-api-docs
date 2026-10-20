@@ -165,6 +165,7 @@ export default defineConfig({
             "adaptive-data/invent-a-dataset",
             "adaptive-data/select-columns",
             "adaptive-data/expand-data",
+            "adaptive-data/extend-trajectories",
             "adaptive-data/configure-adaptive-data",
             "adaptive-data/evaluate-dataset-quality",
             "adaptive-data/combine-datasets",

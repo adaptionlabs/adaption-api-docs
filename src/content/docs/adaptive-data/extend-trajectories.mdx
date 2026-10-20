@@ -1,0 +1,153 @@
+---
+title: Extend your trajectories
+description: Generate a next user turn for each conversation to build multi-turn training data that depends on earlier context.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Extend your trajectories when you want multi-turn training data that tests whether a model remembers what was said earlier in a conversation. For each row's conversation, [`datasets.extend_trajectories`](/api/python/resources/datasets/methods/extend_trajectories) generates the user's next message: a single question or request that can only be answered correctly by recalling details from earlier turns, written in the conversation's language.
+
+Each request creates a **new dataset** that holds the extended trajectories and leaves the source dataset unchanged. Only the next user turn is generated; no completion is generated for it.
+
+The SDK examples assume you have [configured the Python SDK](/introduction/getting-started) and set `ADAPTION_DATASET_ID` to an [imported dataset](/adaptive-data/create-a-dataset) whose import has finished:
+
+```python
+import os
+
+from adaption import Adaption
+
+client = Adaption()
+dataset_id = os.environ["ADAPTION_DATASET_ID"]
+```
+
+### How it works
+
+1. **Map the conversation.** Point `column_mapping` at a chat column, or at a prompt and completion pair. See [Map the conversation](#map-the-conversation).
+2. **Estimate (optional).** Price the exact request with `estimate=True`. Nothing is created or charged.
+3. **Extend.** Call `datasets.extend_trajectories` to create the new dataset and start the run.
+4. **Wait and download.** Wait for the new dataset, then [download the rows](#download-the-extended-dataset).
+
+## Map the conversation
+
+The trajectory is the conversation up to and including the assistant's final reply. Provide it with **one** of two mappings:
+
+| Mapping                 | Use when                                                                                                                                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat`                  | One column holds each row's conversation as a list of `{"role", "content"}` turns, or a JSON string encoding that list, ending on the assistant's reply. Send `chat` alone.                                                                                      |
+| `prompt` + `completion` | `prompt` holds the conversation up to and including the user's last turn, as a list of turns or a plain string read as a single user turn. `completion` holds the assistant's final reply as plain text, and becomes the last turn of the trajectory. Send both. |
+
+For a chat dataset:
+
+```python
+response = client.datasets.extend_trajectories(
+    dataset_id,
+    column_mapping={"chat": "messages"},
+)
+```
+
+For a prompt and completion dataset:
+
+```python
+response = client.datasets.extend_trajectories(
+    dataset_id,
+    column_mapping={"prompt": "prompt", "completion": "response"},
+)
+```
+
+<Callout variant="note">
+  `chat` cannot be combined with `prompt` or `completion`, and `prompt` and
+  `completion` must be sent together. `context`, `universal_prompt`, and `image`
+  mappings are not currently supported; a request that includes them is rejected
+  rather than run without them.
+</Callout>
+
+## Extend the trajectories
+
+Set `estimate=True` to validate the mapping and price the request before it runs:
+
+```python
+estimate = client.datasets.extend_trajectories(
+    dataset_id,
+    column_mapping={"chat": "messages"},
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+print(f"Estimated minutes: {estimate.estimated_minutes}")
+```
+
+Then start the run. Use `job_specification` to cap the number of rows processed or to make retries safe. Row counts are subject to your plan's per-launch row limit:
+
+```python
+from uuid import uuid4
+
+response = client.datasets.extend_trajectories(
+    dataset_id,
+    column_mapping={"chat": "messages"},
+    job_specification={
+        "max_rows": 1_000,
+        "idempotency_key": str(uuid4()),
+    },
+)
+print(response.dataset_id, response.run_id)
+```
+
+The response carries the new dataset's `dataset_id` and the `run_id` of its run; both are `None` for an estimate. Use the new `dataset_id`, not the source dataset's, for status and download:
+
+```python
+from adaption import DatasetTimeout
+
+try:
+    final = client.datasets.wait_for_completion(response.dataset_id)
+except DatasetTimeout as exc:
+    print(exc.resource_id, exc.last_status)
+    raise
+
+print(final.status, final.row_count)
+```
+
+`wait_for_completion` backs off from 2 to 30 seconds and has a one-hour default timeout. A timeout stops waiting, not the run. Call it again with the same dataset ID to resume tracking.
+
+<Callout variant="note">
+  Credits are billed as for an [Adaptive Data
+  run](/api/python/resources/datasets/methods/adapt). Keep the same
+  `idempotency_key` if you retry the request. A retry with that key returns the
+  `dataset_id` and `run_id` the first request created, with zero estimates,
+  instead of starting and charging for a second run.
+</Callout>
+
+## Extend an adapted dataset
+
+If the dataset has finished an [Adaptive Data run](/api/python/resources/datasets/methods/adapt), the extension builds on its adapted download instead of the uploaded file. `column_mapping` then names columns of that download, so you can extend the adapted replies with `enhanced_completion`:
+
+```python
+response = client.datasets.extend_trajectories(
+    dataset_id,
+    column_mapping={
+        "prompt": "prompt",
+        "completion": "enhanced_completion",
+    },
+)
+```
+
+Map the original completion column instead, such as `response`, to extend the replies as they were uploaded.
+
+Only the `prompt` + `completion` mapping applies to an adapted dataset. Adaptation splits a chat column into `original_prompt` and `original_completion`, so map `original_prompt` as `prompt` instead of sending `chat`.
+
+## Download the extended dataset
+
+When you [download](/api/python/resources/datasets/methods/download) the new dataset, each row carries its conversation plus an `extended_prompt` column holding the generated next user turn. The conversation columns follow the same naming as an adaptation run's download:
+
+| Mapping                 | Conversation columns                                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `chat`                  | `original_prompt` holds the conversation up to the user's last turn, and `original_completion` the final reply. |
+| `prompt` + `completion` | Your own column names, such as `prompt` and `response`.                                                         |
+
+An extension of an adapted dataset also keeps the adapted columns, such as `enhanced_completion`, next to `extended_prompt`.
+
+```python
+client.datasets.download(response.dataset_id, file_format="jsonl").write_to_file(
+    "extended.jsonl"
+)
+```
+
+See the [`extend_trajectories` reference](/api/python/resources/datasets/methods/extend_trajectories) for the current request and response fields.
