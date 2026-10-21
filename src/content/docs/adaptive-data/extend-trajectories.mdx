@@ -29,12 +29,19 @@ dataset_id = os.environ["ADAPTION_DATASET_ID"]
 
 ## Map the conversation
 
-The trajectory is the conversation up to and including the assistant's final reply. Provide it with **one** of two mappings:
+The trajectory is the conversation up to and including the assistant's final reply, and the new user turn is generated after that reply. A row whose conversation has no user turn, or does not end on a non-empty assistant reply, is skipped and left out of the new dataset. Provide the trajectory with **one** of two mappings:
 
-| Mapping                 | Use when                                                                                                                                                                                                                                                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `chat`                  | One column holds each row's conversation as a list of `{"role", "content"}` turns, or a JSON string encoding that list, ending on the assistant's reply. Send `chat` alone.                                                                                      |
-| `prompt` + `completion` | `prompt` holds the conversation up to and including the user's last turn, as a list of turns or a plain string read as a single user turn. `completion` holds the assistant's final reply as plain text, and becomes the last turn of the trajectory. Send both. |
+| Mapping                 | Use when                                                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat`                  | One column holds each row's whole conversation as a list of turns, ending on the assistant's reply. Send `chat` alone.                             |
+| `prompt` + `completion` | `prompt` holds the conversation up to and including the user's last turn. `completion` holds the assistant's final reply as plain text. Send both. |
+
+A list of turns is an array of `{"role": ..., "content": ...}` objects, such as a column of arrays in JSONL or Parquet, or a JSON string encoding that array. `prompt` also accepts a plain string, read as a single user turn, so a single-turn prompt and completion dataset works as is:
+
+```json
+{"prompt": [{"role": "user", "content": "I'm planning a trip to Kyoto in April."}, {"role": "assistant", "content": "April is cherry blossom season..."}, {"role": "user", "content": "Which temples should I visit?"}], "response": "Kiyomizu-dera and Fushimi Inari..."}
+{"prompt": "What's a good first houseplant?", "response": "A pothos is hard to kill..."}
+```
 
 For a chat dataset:
 
@@ -107,6 +114,8 @@ print(final.status, final.row_count)
 
 `wait_for_completion` backs off from 2 to 30 seconds and has a one-hour default timeout. A timeout stops waiting, not the run. Call it again with the same dataset ID to resume tracking.
 
+The new dataset can have fewer rows than the source. Rows that are [skipped](#map-the-conversation) or can't be extended are left out of it.
+
 <Callout variant="note">
   Credits are billed as for an [Adaptive Data
   run](/api/python/resources/datasets/methods/adapt). Keep the same
@@ -117,7 +126,7 @@ print(final.status, final.row_count)
 
 ## Extend an adapted dataset
 
-If the dataset has finished an [Adaptive Data run](/api/python/resources/datasets/methods/adapt), the extension builds on its adapted download instead of the uploaded file. `column_mapping` then names columns of that download, so you can extend the adapted replies with `enhanced_completion`:
+If the dataset has finished an [Adaptive Data run](/api/python/resources/datasets/methods/adapt), the extension builds on its adapted dataset instead of the original uploaded file. `column_mapping` then names columns of the adapted dataset, so you can extend the adapted replies with `enhanced_completion`:
 
 ```python
 response = client.datasets.extend_trajectories(
