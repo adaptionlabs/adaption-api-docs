@@ -59,6 +59,35 @@ pagination:
         type: array
         x-stainless-pagination-property:
           purpose: items
+  - name: cursor_after
+    type: cursor
+    request:
+      after:
+        type: string
+        x-stainless-pagination-property:
+          purpose: next_cursor_param
+    response:
+      last_id:
+        type: string
+        nullable: true
+        x-stainless-pagination-property:
+          purpose: next_cursor_field
+      has_more:
+        type: boolean
+        x-stainless-pagination-property:
+          purpose: has_next_page
+      data:
+        type: array
+        x-stainless-pagination-property:
+          purpose: items
+streaming:
+  on_event:
+    - data_starts_with: "[DONE]"
+      handle: done
+    - event_type: error
+      handle: error
+    - kind: fallthrough
+      handle: yield
 environments:
   production: https://api.prod.adaptionlabs.ai
 resources:
@@ -116,6 +145,13 @@ resources:
         methods:
           create: post /api/v1/datasets/combine
           validate: post /api/v1/datasets/combine/validate
+      custom_evals:
+        models:
+          custom_eval: "#/components/schemas/CustomEvalResponseDto"
+        methods:
+          create: post /api/v1/datasets/{dataset_id}/custom-evals
+          list: get /api/v1/datasets/{dataset_id}/custom-evals
+          get: get /api/v1/datasets/{dataset_id}/custom-evals/{custom_eval_id}
   autoscientist:
     models:
       autoscientist_run: "#/components/schemas/PublicAutoScientistRunDto"
@@ -138,7 +174,26 @@ resources:
       list: get /api/v1/training-models
   responses:
     methods:
-      create: post /api/v1/responses
+      create:
+        endpoint: post /api/v1/responses
+        streaming:
+          param_discriminator: stream
+      retrieve: get /api/v1/responses/{response_id}
+      delete: delete /api/v1/responses/{response_id}
+    subresources:
+      input_items:
+        methods:
+          list:
+            endpoint: get /api/v1/responses/{response_id}/input_items
+            paginated: cursor_after
+  tools:
+    methods:
+      list: get /api/v1/tools
+  models:
+    methods:
+      list:
+        endpoint: get /api/v1/models
+        paginated: false
 settings:
   disable_mock_tests: true
   license: Apache-2.0
