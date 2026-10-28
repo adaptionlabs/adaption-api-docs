@@ -51,6 +51,10 @@ The same pattern applies to **`AsyncAdaption`** for async code.
 
 Most MCP clients sign in to Adaption with OAuth and need no key. Use a key for an MCP client that runs without a browser, such as a CI runner, by sending it as `Authorization: Bearer YOUR_ADAPTION_API_KEY`. Keys created in the app have full access, including the MCP server. See [MCP](/tools/mcp#use-an-api-key) for client configuration.
 
+## Use the key with inference stacks
+
+The same key calls your [inference stacks](/inference-stacks/overview) through `client.responses.create`. A key restricted to specific scopes also needs the scope of each tool a stack uses; see [API keys and scopes](/inference-stacks/call-a-stack#api-keys-and-scopes).
+
 ## Next step
 
 Continue to **[Getting started](/introduction/getting-started)** to install the SDK and run your first **ingest → adapt → download** workflow.

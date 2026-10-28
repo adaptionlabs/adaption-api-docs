@@ -1,0 +1,171 @@
+---
+title: Call a stack
+description: Send requests to an inference stack through the Responses API, continue conversations, stream replies, and control its tools, datasets, and memory.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Every example below calls a stack with `client.responses.create` and `model="stack:<slug>"`. Replace `stack:support-bot` with the model id shown on your stack's page; see [Model id](/inference-stacks/overview#model-id).
+
+## Send a request
+
+```python
+from adaption import Adaption
+
+client = Adaption()  # reads ADAPTION_API_KEY
+
+response = client.responses.create(
+    model="stack:support-bot",
+    input="How do I reset my password?",
+)
+print(response["output_text"])
+```
+
+The response follows the shape of the OpenAI Responses API. `output_text` is the text of the reply; `output` lists every item the model produced, including reasoning, tool calls, and the message itself.
+
+The same request over HTTP:
+
+```bash
+curl -X POST https://api.prod.adaptionlabs.ai/api/v1/responses \
+  -H "Authorization: Bearer $ADAPTION_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "stack:support-bot",
+    "input": "How do I reset my password?"
+  }'
+```
+
+## Continue a conversation
+
+Pass the previous response's id as `previous_response_id` to continue from it. The previous response must have been stored: unlike OpenAI, Adaption defaults `store` to `false`, so set `store=True` on every turn you want to continue from.
+
+```python
+first = client.responses.create(
+    model="stack:support-bot",
+    input="How do I reset my password?",
+    store=True,
+)
+
+follow_up = client.responses.create(
+    model="stack:support-bot",
+    input="And if I no longer have access to my email?",
+    previous_response_id=str(first["id"]),
+    store=True,
+)
+print(follow_up["output_text"])
+```
+
+To start from your own history instead, pass `input` as a list of messages:
+
+```python
+response = client.responses.create(
+    model="stack:support-bot",
+    input=[
+        {"role": "user", "content": "How do I reset my password?"},
+        {"role": "assistant", "content": "Select Forgot password on the sign-in page."},
+        {"role": "user", "content": "And if I no longer have access to my email?"},
+    ],
+)
+```
+
+## Stream the reply
+
+Set `stream=True` to receive server-sent events as the model generates. Text arrives in `response.output_text.delta` events; the last event is `response.completed`.
+
+```python
+stream = client.responses.create(
+    model="stack:support-bot",
+    input="How do I reset my password?",
+    stream=True,
+)
+for event in stream:
+    if event["type"] == "response.output_text.delta":
+        print(event["delta"], end="", flush=True)
+```
+
+## Tools and datasets
+
+A stack brings the tools and datasets configured on it. What a request gets depends on `tools` and `tool_choice`:
+
+| Request              | Tools the model can use                                                       |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `tools` omitted      | Every tool enabled on the stack, plus `file_search` over the stack's datasets |
+| `tools=[...]`        | Only the tools listed                                                         |
+| `tools=[]`           | None                                                                          |
+| `tool_choice="none"` | None                                                                          |
+
+To narrow a request to some of the stack's tools, list them by label. A tool that is not enabled on the stack is rejected with `400`:
+
+```python
+response = client.responses.create(
+    model="stack:support-bot",
+    input="Which open issues mention password resets?",
+    tools=[
+        {"type": "mcp", "server_label": "github"},
+        {"type": "file_search"},
+    ],
+)
+```
+
+`file_search` always searches the stack's own datasets that are ready for retrieval; the stack decides the dataset scope, not the request. To require an answer grounded in those datasets, demand the search. The request then fails rather than answering without searching:
+
+```python
+response = client.responses.create(
+    model="stack:support-bot",
+    input="What is our refund policy?",
+    tool_choice={"type": "function", "name": "file_search"},
+)
+```
+
+Use `max_tool_calls` to cap how many tool calls one response may run. Once it is reached, the model answers without calling more tools.
+
+## Agentic memory
+
+When agentic memory is on, Adaption adds relevant memories from your earlier requests to this stack to the model's instructions, and may store new memories from the turn. A request without `agentic_memory` follows the stack's default, set in the app. Override it for a single request:
+
+```python
+response = client.responses.create(
+    model="stack:support-bot",
+    input="Summarize this ticket without using what you know about me.",
+    agentic_memory=False,
+)
+```
+
+Memories are per user and per stack. Review, edit, or delete them under **View detail** on the stack page.
+
+## List your stacks
+
+`client.models.list()` returns every model you can call, including your stacks under their `stack:<slug>` ids:
+
+```python
+models = client.models.list()
+stacks = [model.id for model in models.data if model.id.startswith("stack:")]
+print(stacks)
+```
+
+Pass `type="hosted"` to list only the hosted models a stack can be built on.
+
+## API keys and scopes
+
+Keys created in the app have full access, including every stack you own. A key restricted to specific scopes needs:
+
+- `inference:write` to call a stack, and `inference:read` to list models.
+- The scope of each tool the stack uses, such as `mcp:slack`, `mcp:github`, or `tools:mcp_custom` for a custom MCP server.
+
+<Callout variant="warning">
+  A missing tool scope does not fail a request that omits `tools`: the stack
+  answers without that tool. A request that lists the tool explicitly fails with
+  `400`.
+</Callout>
+
+## Errors
+
+| Status | Message                                                                   | What to do                                                                                                     |
+| ------ | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `404`  | `Model not found`                                                         | Check the model id. The stack may have been renamed or deleted, or it belongs to another user or organization. |
+| `400`  | `Inference stack is draft; finish configuring it before sending requests` | Finish the stack in the app; it has no model yet.                                                              |
+| `400`  | `Inference stack is inactive; activate it before sending requests`        | Switch the stack to **Live**.                                                                                  |
+| `400`  | `MCP tool "<label>" is not available for this stack`                      | Enable the tool on the stack, or remove it from `tools`.                                                       |
+| `400`  | `file_search is not available for this stack`                             | Link a dataset to the stack and wait for its retrieval index to be ready.                                      |
+
+See the [`responses.create` API reference](/api/python/resources/responses/methods/create) for every request field.

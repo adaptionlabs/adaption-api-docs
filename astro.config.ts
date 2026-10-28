@@ -185,6 +185,10 @@ export default defineConfig({
           ],
         },
         {
+          label: "Inference Stacks",
+          items: ["inference-stacks/overview", "inference-stacks/call-a-stack"],
+        },
+        {
           label: "Tutorials",
           items: [
             "tutorials/adaptive-data-app-walkthrough",
