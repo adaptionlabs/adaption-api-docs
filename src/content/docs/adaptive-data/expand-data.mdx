@@ -1,6 +1,6 @@
 ---
 title: Expand your data
-description: Augment, translate, or localize rows to increase dataset size after import or adaptation.
+description: Augment, generate similar, translate, or localize rows to increase dataset size after import or adaptation.
 ---
 
 import { Callout } from "@stainless-api/docs/components";
@@ -56,17 +56,49 @@ except DatasetTimeout as exc:
 print(final.status, final.row_count)
 ```
 
-`wait_for_completion` backs off from 2 to 30 seconds and has a one-hour default timeout. A timeout stops waiting, not the expansion job. Call it again with the same dataset ID to resume tracking. The same wait applies after [`translate`](#translate-rows) and [`localize`](#localize-rows).
+`wait_for_completion` backs off from 2 to 30 seconds and has a one-hour default timeout. A timeout stops waiting, not the expansion job. Call it again with the same dataset ID to resume tracking. The same wait applies after [similar rows](#generate-similar-rows), [`translate`](#translate-rows) and [`localize`](#localize-rows).
 
 Omit either row parameter to skip that type of addition. Augmentation is billed on the rows retrieved. See the [`augment` reference](/api/python/resources/datasets/methods/augment) for current limits and request fields.
 
 <Callout variant="note">
-  `datasets.augment` works on text datasets whose topic mix can be determined.
-  It does not support image datasets. This is the same curated-pool operation as
-  `augmentation_domain_rows` and `augmentation_general_rows` on
+  Domain and general rows work on text datasets whose topic mix can be
+  determined. `datasets.augment` does not support image datasets. Domain and
+  general rows are the same curated-pool operation as `augmentation_domain_rows`
+  and `augmentation_general_rows` on
   [`autoscientist.create`](/autoscientist/data-augmentation). The AutoScientist
   path applies those rows at training time instead of writing a new dataset.
 </Callout>
+
+## Generate similar rows
+
+Pass `similar_rows` to [`datasets.augment`](/api/python/resources/datasets/methods/augment) to generate new rows in the style of your dataset instead of retrieving them from the pool. Adaptive Data reads a sample of your rows, works out their topics, language, and prompt and completion conventions, and generates new rows to match. Use it when the pool has little that looks like your data, or when you want more rows that follow your own format closely:
+
+```python
+estimate = client.datasets.augment(
+    dataset_id,
+    similar_rows=500,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits_consumed}")
+
+response = client.datasets.augment(dataset_id, similar_rows=500)
+print(response.dataset_id, response.status)
+```
+
+The new dataset holds your source rows plus the generated ones.
+
+`similar_rows` combines with `domain_rows` and `general_rows` in one call, and the new dataset holds all three kinds of row:
+
+```python
+response = client.datasets.augment(
+    dataset_id,
+    domain_rows=3_000,
+    general_rows=1_000,
+    similar_rows=500,
+)
+```
+
+Similar rows are billed at the same rate as pool rows, on the rows actually generated, up to `similar_rows`. A run that generates fewer rows than requested is charged only for those it delivers. Your plan may cap `similar_rows` per request; a request above the cap returns `400` with the limit in the body.
 
 ## Translate rows
 
