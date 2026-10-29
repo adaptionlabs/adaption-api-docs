@@ -1,6 +1,29 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/api/v1/tools": {
+      "get": {
+        "description": "Lists the tools the orchestrator can run inside a turn, each annotated with whether this caller can use it. Tools the caller cannot use are returned with a reason rather than hidden.",
+        "operationId": "ToolsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListToolsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List host-side tools",
+        "tags": [
+          "tools"
+        ]
+      }
+    },
     "/api/v1/datasets/upload/initiate": {
       "post": {
         "operationId": "DatasetController_initiateUpload",
@@ -133,7 +156,7 @@
     },
     "/api/v1/datasets": {
       "post": {
-        "description": "Unified ingest endpoint. Pass source.url to start an async import — the provider is inferred from the URL host (HuggingFace, Kaggle, or Google Sheets). Omit it to get upload instructions for a presigned S3 PUT. Adapt the result with [POST /datasets/{dataset_id}/adapt](/api/python/resources/datasets/methods/adapt), or send it straight to training with [POST /autoscientist](/api/python/resources/autoscientist/methods/create) when it already holds prompt and completion columns.",
+        "description": "Unified ingest endpoint. Pass source.url to start an async import — the provider is inferred from the URL host (HuggingFace, Kaggle, Google Sheets, or one public S3 or Cloud Storage object ending in .csv, .json, .jsonl, or .parquet). Omit it to get upload instructions for a presigned S3 PUT. Adapt the result with [POST /datasets/{dataset_id}/adapt](/api/python/resources/datasets/methods/adapt), or send it straight to training with [POST /autoscientist](/api/python/resources/autoscientist/methods/create) when it already holds prompt and completion columns.",
         "operationId": "DatasetController_createDatasetPublic",
         "parameters": [],
         "requestBody": {
@@ -158,7 +181,7 @@
             }
           }
         },
-        "summary": "Create a dataset from file upload, HuggingFace, Kaggle, or Google Sheets",
+        "summary": "Create a dataset from file upload, HuggingFace, Kaggle, Google Sheets, or a public S3 or Cloud Storage object",
         "tags": [
           "Dataset"
         ]
@@ -188,7 +211,7 @@
             "name": "status",
             "required": false,
             "in": "query",
-            "description": "Filter by status: pending | running | succeeded | failed",
+            "description": "Filter by status. Omit or leave empty for no status filter. Cursor list: pending | running | awaiting_input | succeeded | failed. Offset list (page/perPage): failed | in_progress (or inprogress) | complete, or a legacy exact dataset status. complete is status ready.",
             "schema": {
               "type": "string"
             }
@@ -197,7 +220,7 @@
             "name": "q",
             "required": false,
             "in": "query",
-            "description": "Search by dataset name (case-insensitive contains).",
+            "description": "Case-insensitive search. A dataset matches when the text is in its name or its description.",
             "schema": {
               "type": "string"
             }
@@ -243,6 +266,15 @@
             "required": false,
             "in": "query",
             "description": "Filter datasets by creator. The user must belong to the same team as the caller.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Filter by how the dataset was created: original | combined | augmented | invented. Omit or leave empty for no type filter.",
             "schema": {
               "type": "string"
             }
@@ -1024,6 +1056,132 @@
         ]
       }
     },
+    "/api/v1/datasets/{dataset_id}/custom-evals": {
+      "post": {
+        "operationId": "CustomEvalController_create",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomEvalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomEvalResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The judge prompt failed rubric validation (`code: invalid_judge_prompt`, with per-issue feedback), or the request body is invalid or the dataset is not ready (generic error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InvalidJudgePromptErrorDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicApiErrorDto"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Start a custom-rubric evaluation for an adapted dataset",
+        "tags": [
+          "datasets"
+        ]
+      },
+      "get": {
+        "operationId": "CustomEvalController_list",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomEvalListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List custom-rubric evaluations for a dataset, newest first",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/custom-evals/{custom_eval_id}": {
+      "get": {
+        "operationId": "CustomEvalController_get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "custom_eval_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomEvalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a single custom-rubric evaluation",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
     "/api/v1/autoscientist": {
       "post": {
         "description": "Starts an iterative AutoScientist loop on a dataset you own. The loop runs up to max_iterations training cycles, stopping early when target_win_rate is achieved. Omitted parameters are resolved to platform defaults for the selected model and returned in the response. Poll GET /autoscientist/{experiment_id} for status, then GET /autoscientist/{experiment_id}/download once it succeeds. The dataset must have finished processing: adapt it first with [POST /datasets/{dataset_id}/adapt](/api/python/resources/datasets/methods/adapt), or ingest it raw with [POST /datasets](/api/python/resources/datasets/methods/create) when it already holds prompt and completion columns.",
@@ -1496,6 +1654,60 @@
         ]
       }
     },
+    "/api/v1/models": {
+      "get": {
+        "description": "Lists the models currently available to the caller through the responses endpoint: hosted models, harnesses and inference stacks. Pass `type=hosted` for the hosted models alone: what the caller's key grants, minus the `-direct` ids, which are omitted rather than listed under the public name they serve. The catalogue only supplies the `display_name` when it carries the model. An approved inference provider key receives the provider catalog representation instead.",
+        "operationId": "ModelsController_list",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Narrows the list to the hosted models the caller's key grants, leaving out harnesses and stacks. A `-direct` id is omitted rather than listed under the public name it serves, and a granted model the catalogue does not carry is still listed, without a `display_name`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hosted"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The available models.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListModelsResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The endpoint is not available."
+          },
+          "502": {
+            "description": "The model provider could not complete the request."
+          },
+          "503": {
+            "description": "Model inference is not configured for this environment."
+          }
+        },
+        "summary": "List supported models",
+        "tags": [
+          "models"
+        ]
+      }
+    },
     "/api/v1/responses": {
       "post": {
         "description": "Creates a Responses API response through the inference gateway.",
@@ -1563,12 +1775,240 @@
           "responses"
         ]
       }
+    },
+    "/api/v1/responses/{response_id}/input_items": {
+      "get": {
+        "description": "Lists the materialized input items used to generate a stored response.",
+        "operationId": "ResponsesController_listInputItems",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_id",
+            "required": true,
+            "in": "path",
+            "description": "Identifier of the stored response.",
+            "schema": {
+              "example": "resp_123",
+              "type": "string"
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "description": "Sort input items in conversation or reverse order.",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of input items to return.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "after",
+            "required": false,
+            "in": "query",
+            "description": "Return items after this input-item ID in the requested order.",
+            "schema": {
+              "example": "msg_123",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A cursor-paginated list of response input items.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "object",
+                    "data",
+                    "first_id",
+                    "last_id",
+                    "has_more"
+                  ],
+                  "properties": {
+                    "object": {
+                      "type": "string",
+                      "enum": [
+                        "list"
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "first_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "last_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The stored response was not found."
+          }
+        },
+        "summary": "List response input items",
+        "tags": [
+          "responses"
+        ]
+      }
+    },
+    "/api/v1/responses/{response_id}": {
+      "get": {
+        "description": "Retrieves a tenant-scoped stored Responses API response.",
+        "operationId": "ResponsesController_retrieve",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_id",
+            "required": true,
+            "in": "path",
+            "description": "Identifier of the stored response.",
+            "schema": {
+              "example": "resp_123",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored Responses API response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The stored response was not found."
+          }
+        },
+        "summary": "Retrieve a model response",
+        "tags": [
+          "responses"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a stored response and its input and output items. Responses that chain from it stay retrievable. A create request whose `previous_response_id` chain passes through the deleted response still works, but the replayed history starts after the deleted response. A response that is still in progress is not stored yet and returns 404.",
+        "operationId": "ResponsesController_delete",
+        "parameters": [
+          {
+            "name": "X-Organization-Id",
+            "in": "header",
+            "description": "Required for JWT authentication. API keys are already bound to an organization.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_id",
+            "required": true,
+            "in": "path",
+            "description": "Identifier of the stored response.",
+            "schema": {
+              "example": "resp_123",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The response was deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "object",
+                    "deleted"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "object": {
+                      "type": "string",
+                      "enum": [
+                        "response.deleted"
+                      ]
+                    },
+                    "deleted": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The stored response was not found."
+          }
+        },
+        "summary": "Delete a model response",
+        "tags": [
+          "responses"
+        ]
+      }
     }
   },
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.1.10",
+    "version": "0.1.13",
     "contact": {}
   },
   "tags": [],
@@ -1592,6 +2032,140 @@
         },
         "required": [
           "message"
+        ]
+      },
+      "HostedToolDto": {
+        "type": "object",
+        "properties": {
+          "server_label": {
+            "type": "string",
+            "description": "The `server_label` to reference this connector by in a request, e.g. `{ \"type\": \"mcp\", \"server_label\": \"slack\" }`.",
+            "example": "slack"
+          },
+          "type": {
+            "type": "string",
+            "description": "Responses API tool type to send in the `tools` array.",
+            "enum": [
+              "mcp"
+            ],
+            "example": "mcp"
+          },
+          "name": {
+            "type": "string",
+            "example": "Slack"
+          },
+          "description": {
+            "type": "string"
+          },
+          "auth": {
+            "type": "string",
+            "description": "Where the outbound credential comes from. `connection` tools use a connection you authorise once, or an `authorization` passed on the request; `caller` tools always take it from the request.",
+            "enum": [
+              "none",
+              "platform",
+              "caller",
+              "connection"
+            ],
+            "example": "connection"
+          },
+          "connect": {
+            "type": "string",
+            "description": "How a `connection` tool is connected: `oauth` through the browser flow at `connect_path`, `secret` by storing one with POST /connections. Null for tools that use no stored connection.",
+            "enum": [
+              "oauth",
+              "secret"
+            ],
+            "nullable": true,
+            "example": "oauth"
+          },
+          "connect_path": {
+            "type": "object",
+            "description": "For an `oauth` tool, the GET path (under the API prefix) that starts its browser connect flow — usually /oauth/{server_label}/connect; Google Drive uses /oauth/google/connect, the shared \"Connect Google\". Null for tools not connected through OAuth.",
+            "nullable": true,
+            "example": "/oauth/slack/connect"
+          },
+          "logo_url": {
+            "type": "string",
+            "description": "URL of the connector's logo, for showing it in a UI. Null for tools without one.",
+            "nullable": true,
+            "example": "https://proteus-prod-public.s3.us-east-1.amazonaws.com/connectors/slack.svg"
+          },
+          "mode": {
+            "type": "string",
+            "description": "How the tool connects. `hosted_proxy`: we run the MCP server against the provider API. `remote_mcp`: we connect as a client to the vendor-hosted MCP server.",
+            "enum": [
+              "hosted_proxy",
+              "remote_mcp"
+            ],
+            "example": "remote_mcp"
+          },
+          "default_require_approval": {
+            "type": "string",
+            "description": "Approval posture applied when the request's tool entry does not set `require_approval`. Defaults to `never`; callers may require approval for all tools or specific write tools.",
+            "enum": [
+              "always",
+              "never"
+            ],
+            "example": "never"
+          },
+          "required_scope": {
+            "type": "string",
+            "description": "Scope a scoped API key must hold to use this tool.",
+            "example": "mcp:slack"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "Whether this caller can use the tool right now.",
+            "example": false
+          },
+          "unavailable_reason": {
+            "type": "string",
+            "description": "Why the tool is unavailable. Returned rather than omitting the tool, so a caller can tell \"not on your plan\" from \"does not exist\".",
+            "enum": [
+              "not_implemented",
+              "disabled",
+              "requires_plan",
+              "requires_scope"
+            ],
+            "nullable": true,
+            "example": "not_implemented"
+          }
+        },
+        "required": [
+          "server_label",
+          "type",
+          "name",
+          "description",
+          "auth",
+          "connect",
+          "connect_path",
+          "logo_url",
+          "mode",
+          "default_require_approval",
+          "required_scope",
+          "available"
+        ]
+      },
+      "ListToolsResponseDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "enum": [
+              "list"
+            ],
+            "example": "list"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostedToolDto"
+            }
+          }
+        },
+        "required": [
+          "object",
+          "data"
         ]
       },
       "InitiateDto": {
@@ -1692,6 +2266,11 @@
             "type": "string",
             "description": "ID of the newly created dataset",
             "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "status": {
+            "type": "string",
+            "description": "Dataset status after `POST /upload/complete`. `preprocessing_failed` when the uploaded files do not share one column schema. Omitted by provider initiate endpoints, which finish in the background.",
+            "example": "awaiting_preprocessing"
           }
         },
         "required": [
@@ -1917,11 +2496,11 @@
         "properties": {
           "url": {
             "type": "string",
-            "description": "HuggingFace, Kaggle, or Google Sheets URL. Provide it to import from that provider; omit it to upload a local file instead.",
+            "description": "HuggingFace, Kaggle, Google Sheets, or public S3 or Cloud Storage object URL. Provide it to import from that source; omit it to upload a local file instead. An object URL is one https file ending in .csv, .json, .jsonl, or .parquet.",
             "example": "https://huggingface.co/datasets/owner/name"
           },
           "files": {
-            "description": "File paths to download from the source. Required with HuggingFace/Kaggle `url`. Not used for Google Sheets — use `sheet_names` (or `sheet_name`) instead.",
+            "description": "File paths to download from the source. Required with HuggingFace/Kaggle `url`. Not used for Google Sheets — use `sheet_names` (or `sheet_name`) instead — or for a public S3 or Cloud Storage object URL.",
             "example": [
               "train.csv"
             ],
@@ -2001,7 +2580,7 @@
         "type": "object",
         "properties": {
           "source": {
-            "description": "Dataset source. Pass `url` to import from HuggingFace, Kaggle, or Google Sheets, or `name` + `file_format` to upload a file. For Sheets, optional `sheet_names` selects tabs (omit or `[]` for all).",
+            "description": "Dataset source. Pass `url` to import from HuggingFace, Kaggle, Google Sheets, or a public S3 or Cloud Storage object (.csv, .json, .jsonl, or .parquet), or `name` + `file_format` to upload a file. For Sheets, optional `sheet_names` selects tabs (omit or `[]` for all).",
             "allOf": [
               {
                 "$ref": "#/components/schemas/DatasetSourceDto"
@@ -3643,6 +4222,226 @@
           "dataset_id"
         ]
       },
+      "InvalidJudgePromptIssueDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "not_a_judge_prompt",
+              "scale_not_zero_to_ten",
+              "scores_not_integer",
+              "missing_rubric"
+            ],
+            "description": "Which of the rubric rules the prompt broke."
+          },
+          "detail": {
+            "type": "string",
+            "description": "User-facing sentence describing the problem and the fix."
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ]
+      },
+      "InvalidJudgePromptDetailsDto": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvalidJudgePromptIssueDto"
+            }
+          },
+          "suggested_prompt": {
+            "type": "string",
+            "nullable": true,
+            "description": "A corrected rewrite the user can accept, or null when none could be produced."
+          }
+        },
+        "required": [
+          "issues",
+          "suggested_prompt"
+        ]
+      },
+      "InvalidJudgePromptErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string",
+            "description": "All issue details joined into one line."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_judge_prompt"
+            ],
+            "description": "Discriminates this from the other 400s on the route."
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvalidJudgePromptIssueDto"
+            }
+          },
+          "suggested_prompt": {
+            "type": "string",
+            "nullable": true,
+            "description": "A corrected rewrite the user can accept, or null when none could be produced."
+          },
+          "details": {
+            "$ref": "#/components/schemas/InvalidJudgePromptDetailsDto"
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message",
+          "code",
+          "issues",
+          "details"
+        ]
+      },
+      "PublicApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message"
+        ]
+      },
+      "CreateCustomEvalDto": {
+        "type": "object",
+        "properties": {
+          "judge_prompt": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 20000,
+            "description": "The judge rubric. Scored per sample against the original and adapted pairs.",
+            "example": "Rate how factually accurate the response is, from 0 (fabricated) to 10 (fully supported)."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Optional label so a history of rubrics stays legible."
+          }
+        },
+        "required": [
+          "judge_prompt"
+        ]
+      },
+      "CustomEvalResponseDto": {
+        "type": "object",
+        "properties": {
+          "custom_eval_id": {
+            "type": "string"
+          },
+          "dataset_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "pending | running | succeeded | failed",
+            "example": "running"
+          },
+          "judge_prompt": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "score_before": {
+            "type": "number",
+            "nullable": true,
+            "description": "Mean rubric score on the original pairs. Null until the eval succeeds."
+          },
+          "score_after": {
+            "type": "number",
+            "nullable": true,
+            "description": "Mean rubric score on the adapted pairs. Null until the eval succeeds."
+          },
+          "improvement_percent": {
+            "type": "number",
+            "nullable": true,
+            "description": "Percentage change from score_before to score_after. Null until the eval succeeds."
+          },
+          "scored_rows": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Rows the judge scored. A rubric score is an average over this sample, not the whole dataset."
+          },
+          "error_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "custom_eval_id",
+          "dataset_id",
+          "status",
+          "judge_prompt",
+          "name",
+          "score_before",
+          "score_after",
+          "improvement_percent",
+          "scored_rows",
+          "error_message",
+          "created_at",
+          "completed_at"
+        ]
+      },
+      "CustomEvalListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomEvalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "PublicTrainingColumnMappingDto": {
         "type": "object",
         "properties": {
@@ -3692,7 +4491,7 @@
             "example": 0.00005
           },
           "batch_size": {
-            "description": "Either the literal 'max' or an integer of 1 or more. No fixed upper bound: the ceiling depends on the model and hardware, and a larger value is rejected at launch. Defaults to 'max'.",
+            "description": "Either the literal 'max' or an integer of 1 or more. The allowed range depends on the base model, the training type (LoRA or full) and the training method (DPO is often lower than SFT); a launch with a value outside it is rejected with a 400 that names the range. 'max' always fits. Defaults to 'max'.",
             "example": "max",
             "oneOf": [
               {
@@ -4848,6 +5647,73 @@
           "generated_at"
         ]
       },
+      "HostedModelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Model identifier accepted by the responses endpoint.",
+            "example": "qwen3.5-397b"
+          },
+          "created": {
+            "type": "integer",
+            "description": "Unix timestamp when the model was created.",
+            "example": 1750000000
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "model"
+            ],
+            "example": "model"
+          },
+          "owned_by": {
+            "type": "string",
+            "description": "Organization that owns the model.",
+            "example": "platform"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Human-readable name, when the model is one the platform catalogues.",
+            "nullable": true,
+            "example": "Qwen 3.5 397B"
+          },
+          "shutdown_date": {
+            "type": "string",
+            "description": "Date when the model will be shut down, if announced.",
+            "nullable": true,
+            "example": null
+          }
+        },
+        "required": [
+          "id",
+          "created",
+          "object",
+          "owned_by"
+        ]
+      },
+      "ListModelsResponseDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "enum": [
+              "list"
+            ],
+            "example": "list"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostedModelDto"
+            }
+          }
+        },
+        "required": [
+          "object",
+          "data"
+        ]
+      },
       "ResponseInputMessageDto": {
         "type": "object",
         "properties": {
@@ -4927,7 +5793,7 @@
             ]
           },
           "require_approval": {
-            "description": "Which calls wait for your approval: 'always', 'never', or { always?, never? } tool filters. Unset uses the tool's `default_require_approval` from GET /tools. A call that needs approval ends the response with an `mcp_approval_request` item; replay the output with an `mcp_approval_response` input item to continue.",
+            "description": "Which calls wait for your approval: 'always', 'never', or { always?, never? } tool filters. Unset uses the saved tool permission, which defaults to allow without approval. A call that needs approval ends the response with an `mcp_approval_request` item; replay the output with an `mcp_approval_response` input item to continue.",
             "oneOf": [
               {
                 "type": "string",
@@ -5039,6 +5905,11 @@
             "description": "System-level instructions for the model.",
             "example": "Answer clearly and concisely."
           },
+          "agentic_memory": {
+            "type": "boolean",
+            "description": "Use agentic memory for this request: relevant memories from earlier turns with this stack are added to the model instructions, and the turn may be used to build new memories. Omitted or null uses the stack's agentic memory setting; requests that do not name a stack default to false.",
+            "example": true
+          },
           "max_output_tokens": {
             "type": "integer",
             "description": "Maximum number of tokens the model may generate.",
@@ -5060,7 +5931,7 @@
           },
           "tools": {
             "type": "array",
-            "description": "Responses API tools. Catalog MCP entries are hosted by Adaption; MCP entries with server_url are called by Adaption with caller-owned authorization; file_search runs over authorized adapted datasets. With `model: stack:<id>`, omitted or empty tools means no tools; requested hosted MCP labels must be enabled on the stack, and file_search uses the stack dataset scope when dataset_ids is omitted. connector_id MCP tools are not supported.",
+            "description": "Responses API tools. Catalog MCP entries are hosted by Adaption; MCP entries with server_url are called by Adaption with caller-owned authorization; file_search runs over authorized adapted datasets. With `model: stack:<id>`, omitted tools means the stack's configured tools (none when tool_choice is \"none\"), and an empty array means no tools; requested hosted MCP labels must be enabled on the stack, and file_search uses the stack dataset scope when dataset_ids is omitted. connector_id MCP tools are not supported.",
             "items": {
               "oneOf": [
                 {
@@ -5100,7 +5971,7 @@
           },
           "store": {
             "type": "boolean",
-            "description": "Whether Adaption should retain this response for later use with previous_response_id. Adaption defaults to false, unlike OpenAI, so retention requires explicitly setting store to true.",
+            "description": "Whether Adaption should retain this response for later use with previous_response_id. Adaption defaults to false, unlike OpenAI, so retention requires explicitly setting store to true. A stored response is kept for 30 days from its creation, then deleted. When an ancestor was deleted, previous_response_id still works, but the replayed history starts at the oldest response still stored. To keep the full context, resend it with previous_response_id set to null.",
             "example": false,
             "default": false
           },
