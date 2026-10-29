@@ -163,6 +163,7 @@ export default defineConfig({
             "responses/quickstart",
             "responses/key-concepts",
             "responses/generate-a-model-response",
+            "responses/models",
           ],
         },
         {
