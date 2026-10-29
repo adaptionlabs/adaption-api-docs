@@ -158,12 +158,12 @@ export default defineConfig({
           ],
         },
         {
-          label: "Responses API",
+          label: "Inference Stacks",
           items: [
-            "responses/quickstart",
-            "responses/key-concepts",
-            "responses/generate-a-model-response",
-            "responses/models",
+            "inference-stacks/quickstart",
+            "inference-stacks/key-concepts",
+            "inference-stacks/generate-a-model-response",
+            "inference-stacks/models",
           ],
         },
         {
