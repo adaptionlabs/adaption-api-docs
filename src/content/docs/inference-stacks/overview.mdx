@@ -1,0 +1,65 @@
+---
+title: Overview
+description: Bundle a hosted model with your datasets, tools, and memory, and call it through the Responses API under one model id.
+---
+
+import { Callout, Steps, Step } from "@stainless-api/docs/components";
+
+An inference stack packages a hosted model with what it answers from and what it can act through:
+
+- **Model** — the hosted chat model that answers requests, such as GLM 5.2 or Qwen 3.5 397B.
+- **Datasets** — adapted, invented, or uploaded datasets the model searches with `file_search` and cites in its answers.
+- **Tools** — connectors such as Slack, GitHub, Notion, or a custom MCP server that the model can call.
+- **Memory** — agentic memory, which carries what the model learned in earlier requests into later ones.
+
+You call a stack like any other model, by passing `model="stack:<slug>"` to the [Responses API](/inference-stacks/call-a-stack). Adaption substitutes the stack's model and attaches its datasets and tools on the server, so the request body stays the same however the stack is configured.
+
+## Create a stack in the app
+
+<Steps>
+  <Step>
+    Open [**Inference stacks**](https://adaptionlabs.ai/app/inference-stacks) in
+    the app and create a stack.
+  </Step>
+  <Step>**Select model.** Pick the model that answers requests.</Step>
+  <Step>
+    **Select datasets.** Choose an existing adapted or invented dataset, or
+    upload one. A dataset becomes searchable once its retrieval index is ready;
+    the stack page shows the index status of each dataset.
+  </Step>
+  <Step>
+    **Tools and memory.** Turn on the connectors the model may call, and choose
+    whether agentic memory is on by default. A connector must be connected to
+    your account before the stack can use it.
+  </Step>
+  <Step>
+    Review the stack and select **Deploy**. There is no deployment to wait for:
+    the stack answers requests as soon as it is deployed.
+  </Step>
+</Steps>
+
+The deployed page shows the stack's model id and ready-to-copy Python and cURL examples. From there you can:
+
+- **Test in chat** to try the stack in the app before calling it from code.
+- Switch **Live** off to stop the stack from answering, and back on to resume. Requests to a stack that is not live fail with `400`.
+- Open **View detail** for usage, linked datasets, chats, and the memories the stack has stored.
+
+## Model id
+
+A stack is called as `stack:<slug>`. The slug is derived from the stack's name and is unique within your organization; for example, a stack named "Support bot" is called as `stack:support-bot`. Copy the id from the stack page or from the [models list](/inference-stacks/call-a-stack#list-your-stacks) rather than building it from the name.
+
+<Callout variant="warning">
+  Renaming a stack changes its slug, and with it the model id. Requests that
+  still send the old id fail with `404 Model not found`, so update your callers
+  after a rename.
+</Callout>
+
+## Who can call a stack
+
+A stack answers only to the user who created it, with a key for the organization the stack belongs to. Any other caller receives `404 Model not found`, the same response as for a stack that does not exist.
+
+## Next steps
+
+- [Call a stack from code](/inference-stacks/call-a-stack)
+- [Create an API key](/introduction/create-api-keys)
+- Browse every request field in the [`responses.create` API reference](/api/python/resources/responses/methods/create)
