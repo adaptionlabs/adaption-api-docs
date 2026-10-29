@@ -158,6 +158,10 @@ export default defineConfig({
           ],
         },
         {
+          label: "Responses API",
+          items: ["responses/quickstart"],
+        },
+        {
           label: "Adaptive Data",
           items: [
             "adaptive-data/overview",
