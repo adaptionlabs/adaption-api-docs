@@ -215,7 +215,7 @@ response = client.responses.create(
 history += response.output
 for item in response.output:
     if item.type == "function_call":
-        arguments = json.loads(item.arguments)
+        arguments = json.loads(item.arguments or "{}")
         history.append(
             {
                 "type": "function_call_output",
