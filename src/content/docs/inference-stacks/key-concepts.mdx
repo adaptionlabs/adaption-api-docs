@@ -117,7 +117,7 @@ response = client.responses.create(
 )
 ```
 
-For a stack, add `{"type": "file_search"}` to `tools`. File search always uses the stack's ready indexed datasets; a request cannot replace the stack's dataset scope with `dataset_ids`.
+For a stack, add `{"type": "file_search"}` to `tools` to search the stack's ready indexed datasets. To search specific datasets instead, pass `dataset_ids` as you would for a hosted model.
 
 ### Prepare a dataset for search
 

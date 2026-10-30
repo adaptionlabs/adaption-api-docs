@@ -48,7 +48,7 @@ Request parameters can override stack defaults:
 
 - An explicit `tools` array replaces the stack's default tool set. Pass `tools=[]` to disable tools for the request.
 - `agentic_memory` overrides the stack's memory setting.
-- A `file_search` entry still searches the stack's ready indexed datasets. The request cannot replace the stack's dataset scope with `dataset_ids`.
+- A `file_search` entry without `dataset_ids` searches the stack's ready indexed datasets. Add `dataset_ids` to search specific datasets instead.
 
 See [Key concepts](/inference-stacks/key-concepts) for how each default is applied.
 
