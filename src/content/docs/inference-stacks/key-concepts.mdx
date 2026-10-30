@@ -1,0 +1,148 @@
+---
+title: Key concepts
+description: Understand stacks, tools and connectors, file search, and memory in the Adaption Responses API.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+The Responses API builds on a few core concepts: stacks group a model with its tools and data, tools and connectors let the model act on external systems, file search grounds answers in your datasets, and memory carries useful context across turns.
+
+## Stacks
+
+A stack is a saved configuration of a model, tools, datasets, and memory. It provides defaults for API requests so that each request does not need to repeat the same configuration.
+
+A stack defines:
+
+- **Model** — the model that answers requests
+- **Tools** — the connectors and hosted tools the model can call
+- **Datasets** — the datasets available to `file_search`
+- **Memory** — whether agentic memory is on by default
+
+### Create and manage stacks
+
+Create and manage stacks from [**Inference stacks**](https://adaptionlabs.ai/app/inference-stacks) in the Adaption app. The API can call stacks but does not create or edit them.
+
+### Call a stack
+
+Pass `stack:<slug>` as the model. The request uses the stack's model, tools, datasets, and memory setting:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="stack:support-assistant",
+    input="Summarize this week's open escalations.",
+)
+```
+
+<Callout variant="note">
+  A stack can be called only by the user who owns it, with an API key for the
+  stack's organization. The stack must also be active.
+</Callout>
+
+## Tools and connectors
+
+Tools let a model fetch information and take actions during a response. Adaption runs the tool calls and returns the final answer along with each call the model made.
+
+### Connect a connector
+
+Open [**Settings → Connectors**](https://adaptionlabs.ai/app/settings?tab=connectors), choose a connector, and select **Connect**. Adaption manages the authorization and stores the encrypted credentials, so you do not need to handle them in your code. The same connection works with the Responses API and Adaption Chat.
+
+Connector availability depends on your account. List the tool catalog to see each connector's `server_label` and whether you can use it:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+for tool in client.tools.list().data:
+    print(tool.name, tool.server_label, tool.available)
+```
+
+Missing a connector? Email [support@adaptionlabs.ai](mailto:support@adaptionlabs.ai).
+
+### Enable a connector on a stack
+
+When a connector is enabled on a stack, it is available by default to requests that use that stack.
+
+Pass `tools` to use a narrower set for one request. Pass an empty list to call the stack without tools:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+# Use only the Slack connector for this request
+response = client.responses.create(
+    model="stack:support-assistant",
+    input="What did the team decide in #launch yesterday?",
+    tools=[{"type": "mcp", "server_label": "slack"}],
+)
+
+# Disable all tools for this request
+response = client.responses.create(
+    model="stack:support-assistant",
+    input="Draft a friendly greeting.",
+    tools=[],
+)
+```
+
+A connector requested in `tools` must be enabled on the stack.
+
+
+## File search
+
+`file_search` lets a model search your datasets. The model decides when to search and how to phrase each query, can search more than once, and cites the rows it uses in its answer.
+
+For a hosted model, pass the datasets to search:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What return window do we offer on electronics?",
+    tools=[{"type": "file_search", "dataset_ids": ["DATASET_ID"]}],
+)
+```
+
+For a stack, add `{"type": "file_search"}` to `tools` to search the stack's ready indexed datasets. To search specific datasets instead, pass `dataset_ids` as you would for a hosted model.
+
+### Prepare a dataset for search
+
+A dataset must have a ready retrieval index before it can be searched. In the app, select the text columns to index. Indexing runs in the background, and the stack page shows its status.
+
+### Search results in the response
+
+Each search appears in the response's `output` as a `file_search_call` item containing the model's query and the rows it found. Citations appear as `file_citation` annotations on the response text and identify the source dataset and row.
+
+Use `max_tool_calls` to limit the number of tool calls a response can make. When the limit is reached, the model answers with the information it already has.
+
+## Memory
+
+With agentic memory, a stack remembers useful context from earlier conversations, such as preferences, decisions, and facts about your work.
+
+- **Scope** — memories are kept per user and per stack.
+- **Creation** — memories are built in the background after a response completes, so a new memory is not available immediately.
+- **Use** — before each response, Adaption adds relevant memories to the model's instructions.
+- **Management** — view, edit, and delete memories from the stack's detail page in the app.
+
+Memory follows the stack's default setting. Override it for one request with `agentic_memory`:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="stack:support-assistant",
+    input="Which customers did I say to prioritize?",
+    agentic_memory=True,
+)
+```
+
+Requests that do not call a stack do not use memory.

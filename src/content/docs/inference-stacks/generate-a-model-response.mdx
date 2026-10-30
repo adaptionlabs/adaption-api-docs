@@ -1,0 +1,397 @@
+---
+title: Generate a model response
+description: Choose a model, continue conversations, stream output, use tools, and send image inputs with the Responses API.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Use `responses.create` to generate text from a model. This guide covers choosing a model, keeping conversation state, streaming output, adding tools, and sending image inputs.
+
+## Choose a model
+
+### Use a model directly
+
+Pass a model identifier as `model`. Set its instructions and tools on the request:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    instructions="You are a concise technical writer.",
+    input="Explain what an API rate limit is.",
+)
+
+print(response.output_text)
+```
+
+### Use a stack
+
+Pass `stack:<slug>` as `model` to call one of your stacks. The request uses the stack's model, tools, datasets, and memory setting:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="stack:support-assistant",
+    input="Summarize this week's open escalations.",
+)
+
+print(response.output_text)
+```
+
+Request parameters can override stack defaults:
+
+- An explicit `tools` array replaces the stack's default tool set. Pass `tools=[]` to disable tools for the request.
+- `agentic_memory` overrides the stack's memory setting.
+- A `file_search` entry without `dataset_ids` searches the stack's ready indexed datasets. Add `dataset_ids` to search specific datasets instead.
+
+See [Key concepts](/inference-stacks/key-concepts) for how each default is applied.
+
+## Manage conversation state
+
+Each request is independent unless you send earlier turns in `input` or continue from a stored response.
+
+### Send the conversation history
+
+Append the response's output to your input list, add the next user message, and send the complete history:
+
+```python
+from typing import Any
+
+from adaption import Adaption
+
+client = Adaption()
+
+history: list[Any] = [
+    {"role": "user", "content": "Tell me a joke about databases."},
+]
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input=history,
+)
+print(response.output_text)
+
+history += response.output
+history.append({"role": "user", "content": "Explain why it's funny."})
+
+second = client.responses.create(
+    model="qwen3.5-397b",
+    input=history,
+)
+print(second.output_text)
+```
+
+### Continue from a stored response
+
+Set `store=True`, then pass the response ID as `previous_response_id`. Adaption prepends the stored conversation, so the next request needs only the new turn:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="Tell me a joke about databases.",
+    store=True,
+)
+print(response.output_text)
+
+second = client.responses.create(
+    model="qwen3.5-397b",
+    previous_response_id=response.id,
+    input="Explain why it's funny.",
+    store=True,
+)
+print(second.output_text)
+```
+
+<Callout variant="note">
+  Unlike OpenAI, Adaption does not store responses by default. Set `store=True`
+  on every response you may continue from. Stored responses are retained for 30
+  days.
+</Callout>
+
+Retrieve or delete a stored response by ID:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+stored = client.responses.retrieve("resp_123")
+print(stored.output_text)
+
+client.responses.delete("resp_123")
+```
+
+## Stream a response
+
+Pass `stream=True` to receive server-sent events while the response is generated. Text arrives in `response.output_text.delta` events:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+stream = client.responses.create(
+    model="qwen3.5-397b",
+    input="Write a short poem about the ocean.",
+    stream=True,
+)
+
+for event in stream:
+    if event.type == "response.output_text.delta":
+        print(event.delta, end="", flush=True)
+    elif event.type == "response.completed":
+        print()
+```
+
+Common events include:
+
+- **`response.created`** — the response starts.
+- **`response.output_text.delta`** — the model generates more text.
+- **`response.file_search_call.completed`** — a file search finishes.
+- **`response.completed`** — the response finishes.
+- **`error`** — the request fails.
+
+## Add tools
+
+Tools let a model call functions and services while it generates a response. The Responses API supports four kinds:
+
+- **Function tools** run in your code.
+- **Remote MCP servers** are MCP servers you host or choose.
+- **Hosted tools**, such as `file_search`, run on Adaption.
+- **Connectors** are services you connect in the Adaption app, such as Slack or Linear.
+
+Adaption runs remote MCP, hosted, and connector tool calls and returns the final answer. Function tool calls are returned for your code to run.
+
+### Function tools
+
+Define a function with a JSON schema for its arguments. When the model calls it, the response ends with a `function_call` item. Run the function, then send its result back as a `function_call_output` item:
+
+```python
+import json
+from typing import Any
+
+from adaption import Adaption
+
+client = Adaption()
+
+tools: list[Any] = [
+    {
+        "type": "function",
+        "name": "get_weather",
+        "description": "Get the current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    }
+]
+
+
+def get_weather(city: str) -> str:
+    return f"It is 18°C and sunny in {city}."
+
+
+history: list[Any] = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+]
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input=history,
+    tools=tools,
+)
+
+history += response.output
+for item in response.output:
+    if item.type == "function_call":
+        arguments = json.loads(item.arguments or "{}")
+        history.append(
+            {
+                "type": "function_call_output",
+                "call_id": item.call_id,
+                "output": get_weather(**arguments),
+            }
+        )
+
+final = client.responses.create(
+    model="qwen3.5-397b",
+    input=history,
+    tools=tools,
+)
+print(final.output_text)
+```
+
+### Remote MCP servers
+
+Give the model a remote MCP server by URL. Adaption connects to the server, lists its tools, and runs the calls:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What transport protocols does the MCP specification support?",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "deepwiki",
+            "server_url": "https://mcp.deepwiki.com/mcp",
+            "allowed_tools": ["ask_question"],
+            "require_approval": "never",
+        }
+    ],
+)
+
+print(response.output_text)
+```
+
+- `authorization` is sent to the server as its `Authorization` header. Adaption does not store, log, or return it.
+- `allowed_tools` limits which server tools the model can call.
+- `require_approval` controls which calls wait for your approval.
+
+<Callout variant="warning">
+  Remote MCP calls require approval by default. Set `require_approval` to
+  `"never"` only for servers you trust.
+</Callout>
+
+When a call needs approval, the response ends with an `mcp_approval_request`. Replay the response output with an `mcp_approval_response` to continue:
+
+```python
+from typing import Any
+
+from adaption import Adaption
+
+client = Adaption()
+
+tools: list[Any] = [
+    {
+        "type": "mcp",
+        "server_label": "deepwiki",
+        "server_url": "https://mcp.deepwiki.com/mcp",
+    }
+]
+history: list[Any] = [
+    {
+        "role": "user",
+        "content": "What does the MCP specification say about auth?",
+    },
+]
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input=history,
+    tools=tools,
+)
+
+history += response.output
+for item in response.output:
+    if item.type == "mcp_approval_request":
+        history.append(
+            {
+                "type": "mcp_approval_response",
+                "approval_request_id": item.id,
+                "approve": True,
+            }
+        )
+
+final = client.responses.create(
+    model="qwen3.5-397b",
+    input=history,
+    tools=tools,
+)
+print(final.output_text)
+```
+
+### Hosted tools
+
+Hosted tools run on Adaption and need no connector setup. Use `file_search` to ground answers in your authorized, indexed datasets:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What return window do we offer on electronics?",
+    tools=[{"type": "file_search", "dataset_ids": ["DATASET_ID"]}],
+)
+
+print(response.output_text)
+```
+
+`file_search` uses semantic search to retrieve relevant rows, passes them to the model as context, and adds citations to the response.
+
+<Callout variant="note">
+  Web search and code execution are upcoming hosted tools.
+</Callout>
+
+### Connectors
+
+Connectors use the connections configured in the Adaption app. Reference one by its `server_label`; no credential is needed in the request:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="List the Linear issues assigned to me that are due this week.",
+    tools=[{"type": "mcp", "server_label": "linear"}],
+)
+
+print(response.output_text)
+```
+
+See [Connect a connector](/inference-stacks/key-concepts#connect-a-connector) to configure a connection and discover the connectors available to your account.
+
+## Send image inputs
+
+Multimodal models, such as `qwen3.5-397b`, accept images alongside text. Send a message whose content contains `input_text` and `input_image` parts. The image can be a public URL or a base64 data URL:
+
+```python
+import base64
+from typing import Any
+
+from adaption import Adaption
+
+client = Adaption()
+
+with open("receipt.png", "rb") as file:
+    image = base64.b64encode(file.read()).decode()
+
+messages: list[Any] = [
+    {
+        "type": "message",
+        "role": "user",
+        "content": [
+            {"type": "input_text", "text": "What is the total on this receipt?"},
+            {
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{image}",
+            },
+        ],
+    }
+]
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input=messages,
+)
+
+print(response.output_text)
+```

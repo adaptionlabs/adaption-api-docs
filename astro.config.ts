@@ -158,6 +158,15 @@ export default defineConfig({
           ],
         },
         {
+          label: "Inference Stacks",
+          items: [
+            "inference-stacks/quickstart",
+            "inference-stacks/key-concepts",
+            "inference-stacks/generate-a-model-response",
+            "inference-stacks/models",
+          ],
+        },
+        {
           label: "Adaptive Data",
           items: [
             "adaptive-data/overview",

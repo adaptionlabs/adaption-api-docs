@@ -1,0 +1,70 @@
+---
+title: Models
+description: Compare pricing, context lengths, and input modalities for models available through the Adaption Responses API.
+---
+
+Explore the hosted models available for direct Responses API calls and inference stacks. Each model supports a different context length and set of input modalities.
+
+The prices and limits below describe Adaption's hosted deployments. The linked upstream model cards may advertise different capabilities or limits.
+
+## Pricing
+
+Prices are in credits per 1 million tokens. Cached input prices are shown in parentheses. The cached rate applies only to cached input tokens; all other input tokens use the standard rate.
+
+| Model ID                                                                    | Input credits (cached) | Output credits |
+| --------------------------------------------------------------------------- | ---------------------: | -------------: |
+| [`gemma-4-31b-it`](https://huggingface.co/google/gemma-4-31B-it)            |            0.09 (0.05) |           0.34 |
+| [`glm-5.2`](https://huggingface.co/zai-org/GLM-5.2)                         |           0.104 (0.10) |           4.40 |
+| [`qwen3.5-397b`](https://huggingface.co/Qwen/Qwen3.5-397B-A17B)             |           0.55 (0.225) |           3.50 |
+| [`gemma-4-26b-a4b-it`](https://huggingface.co/google/gemma-4-26B-A4B-it)    |        0.0765 (0.0425) |          0.255 |
+| [`qwen3.8-27b`](https://huggingface.co/Qwen/Qwen3.8-27B)                    |         0.039 (0.0039) |           1.25 |
+| [`deepseek-v4-flash`](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash) |     0.04444 (0.001414) |        0.13332 |
+| [`glm-53-flash`](https://huggingface.co/zai-org/GLM-5.3-Flash)              |            0.15 (0.03) |           0.50 |
+
+## Configurations
+
+Context length is the maximum combined number of input and output tokens supported by a model.
+
+| Model ID                                                                    | Context length (tokens) | Input modalities |
+| --------------------------------------------------------------------------- | ----------------------: | ---------------- |
+| [`gemma-4-31b-it`](https://huggingface.co/google/gemma-4-31B-it)            |                 256,000 | Text, image      |
+| [`glm-5.2`](https://huggingface.co/zai-org/GLM-5.2)                         |                 786,432 | Text             |
+| [`qwen3.5-397b`](https://huggingface.co/Qwen/Qwen3.5-397B-A17B)             |                 131,072 | Text, image      |
+| [`gemma-4-26b-a4b-it`](https://huggingface.co/google/gemma-4-26B-A4B-it)    |                 256,000 | Text, image      |
+| [`qwen3.8-27b`](https://huggingface.co/Qwen/Qwen3.8-27B)                    |                 262,144 | Text, image      |
+| [`deepseek-v4-flash`](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash) |               1,048,576 | Text             |
+| [`glm-53-flash`](https://huggingface.co/zai-org/GLM-5.3-Flash)              |               1,048,576 | Text             |
+
+To send images to a model that supports them, see [Send image inputs](/inference-stacks/generate-a-model-response#send-image-inputs).
+
+## Call a model or stack
+
+Pass a model ID as `model` to call a hosted model directly. To call an inference stack, use `stack:<slug>`. The stack supplies its configured model, tools, datasets, and memory setting.
+
+```python
+from adaption import Adaption
+
+client = Adaption()  # reads ADAPTION_API_KEY
+
+response = client.responses.create(
+    model="stack:your-stack-slug",
+    input="Hello",
+)
+
+print(response.output_text)
+```
+
+Use a stack's slug when possible. `stack:<uuid>` remains supported for existing callers.
+
+## List available models
+
+Model availability can vary by API key. Pass `type="hosted"` to list the hosted models available to your key without including inference stacks or harnesses:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+for model in client.models.list(type="hosted").data:
+    print(model.id)
+```
