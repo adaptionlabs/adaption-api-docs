@@ -1744,18 +1744,16 @@
         },
         "responses": {
           "200": {
-            "description": "The upstream Responses API response.",
+            "description": "The response, or with `stream: true` a stream of server-sent events.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/ResponseObjectDto"
                 }
               },
               "text/event-stream": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/ResponseStreamEventDto"
                 }
               }
             }
@@ -1922,8 +1920,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/ResponseObjectDto"
                 }
               }
             }
@@ -2008,7 +2005,7 @@
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.1.13",
+    "version": "0.1.18",
     "contact": {}
   },
   "tags": [],
@@ -2079,7 +2076,7 @@
             "example": "oauth"
           },
           "connect_path": {
-            "type": "object",
+            "type": "string",
             "description": "For an `oauth` tool, the GET path (under the API prefix) that starts its browser connect flow — usually /oauth/{server_label}/connect; Google Drive uses /oauth/google/connect, the shared \"Connect Google\". Null for tools not connected through OAuth.",
             "nullable": true,
             "example": "/oauth/slack/connect"
@@ -5714,6 +5711,275 @@
           "data"
         ]
       },
+      "ResponseOutputContentDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Content part type: `output_text` for reply text, `refusal` for a refusal.",
+            "example": "output_text"
+          },
+          "text": {
+            "type": "string",
+            "description": "The reply text, on an `output_text` part.",
+            "example": "Once upon a time, a unicorn drifted to sleep on a cloud."
+          },
+          "refusal": {
+            "type": "string",
+            "description": "The refusal message, on a `refusal` part."
+          },
+          "annotations": {
+            "type": "array",
+            "description": "Citations into `text`, such as file citations from file search.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "ResponseOutputItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Item type, such as `message`, `reasoning`, `function_call`, `mcp_call` or `file_search_call`. Fields beyond the ones listed depend on the type.",
+            "example": "message"
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier of the output item."
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of the item, such as `completed` or `in_progress`.",
+            "example": "completed"
+          },
+          "role": {
+            "type": "string",
+            "description": "Author of a `message` item.",
+            "enum": [
+              "assistant"
+            ]
+          },
+          "content": {
+            "description": "Content parts of a `message` item.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResponseOutputContentDto"
+            }
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "ResponseErrorDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "server_error"
+          },
+          "message": {
+            "type": "string",
+            "example": "The model provider could not complete the request."
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "ResponseIncompleteDetailsDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Why the response is incomplete.",
+            "example": "max_output_tokens"
+          }
+        }
+      },
+      "ResponseUsageDto": {
+        "type": "object",
+        "properties": {
+          "input_tokens": {
+            "type": "integer",
+            "example": 36
+          },
+          "output_tokens": {
+            "type": "integer",
+            "example": 87
+          },
+          "total_tokens": {
+            "type": "integer",
+            "example": 123
+          },
+          "input_tokens_details": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "cached_tokens": 0
+            }
+          },
+          "output_tokens_details": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "reasoning_tokens": 0
+            }
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "total_tokens"
+        ]
+      },
+      "ResponseObjectDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "resp_123"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "response"
+            ],
+            "example": "response"
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "Unix timestamp (in seconds) when the response was created.",
+            "example": 1750000000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "in_progress",
+              "cancelled",
+              "queued",
+              "incomplete"
+            ],
+            "example": "completed"
+          },
+          "model": {
+            "type": "string",
+            "description": "Public name of the model that generated the response.",
+            "example": "qwen3.5-397b"
+          },
+          "output": {
+            "description": "Items the model generated, in order.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResponseOutputItemDto"
+            }
+          },
+          "output_text": {
+            "type": "string",
+            "description": "The text of every `output_text` part in `output`, joined. Reasoning and tool calls are excluded.",
+            "example": "Once upon a time, a unicorn drifted to sleep on a cloud."
+          },
+          "error": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResponseErrorDto"
+              }
+            ]
+          },
+          "incomplete_details": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResponseIncompleteDetailsDto"
+              }
+            ]
+          },
+          "usage": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResponseUsageDto"
+              }
+            ]
+          },
+          "previous_response_id": {
+            "type": "string",
+            "description": "The response this one continues, if any.",
+            "nullable": true
+          },
+          "store": {
+            "type": "boolean",
+            "description": "Whether the response is stored for later retrieval."
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "status",
+          "model",
+          "output",
+          "output_text"
+        ]
+      },
+      "ResponseStreamEventDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Event type, such as `response.created`, `response.output_text.delta` or `response.completed`. Fields beyond the ones listed depend on the type.",
+            "example": "response.output_text.delta"
+          },
+          "sequence_number": {
+            "type": "integer",
+            "example": 4
+          },
+          "response": {
+            "description": "The response so far, on `response.*` lifecycle events.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResponseObjectDto"
+              }
+            ]
+          },
+          "delta": {
+            "type": "string",
+            "description": "The text added, on `*.delta` events.",
+            "example": "Once"
+          },
+          "item": {
+            "description": "The output item, on `response.output_item.*` events.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResponseOutputItemDto"
+              }
+            ]
+          },
+          "output_index": {
+            "type": "integer",
+            "example": 0
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
       "ResponseInputMessageDto": {
         "type": "object",
         "properties": {
@@ -5728,8 +5994,31 @@
             "example": "user"
           },
           "content": {
-            "type": "string",
-            "example": "What was my previous question?"
+            "description": "Text, or an array of content parts: input_text, input_image (image_url as an https or base64 data URL), or input_file (file_url, or filename with base64 file_data). Which parts a model accepts depends on the model; one that cannot read a part returns 400. input_file.file_id is not supported.",
+            "oneOf": [
+              {
+                "type": "string",
+                "example": "What was my previous question?"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": [
+                  {
+                    "type": "input_text",
+                    "text": "What is in this image?"
+                  },
+                  {
+                    "type": "input_image",
+                    "image_url": "https://example.com/photo.jpg"
+                  }
+                ]
+              }
+            ]
           }
         },
         "required": [
@@ -5872,7 +6161,7 @@
         "properties": {
           "model": {
             "type": "string",
-            "description": "Hosted model identifier, or `stack:<slug>` to call one of your inference stacks. A stack supplies its model and authorizes explicitly requested MCP/file_search tools against its configured connections and datasets.",
+            "description": "Hosted model identifier, or `stack:<slug>` to call one of your inference stacks. A stack supplies its model and default tools; explicitly requested MCP tools must be enabled on the stack, while file_search can name any of the caller's authorized adapted datasets.",
             "example": "qwen3.5-397b"
           },
           "input": {

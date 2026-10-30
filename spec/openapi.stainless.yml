@@ -173,11 +173,20 @@ resources:
     methods:
       list: get /api/v1/training-models
   responses:
+    models:
+      response: "#/components/schemas/ResponseObjectDto"
+      response_output_item: "#/components/schemas/ResponseOutputItemDto"
+      response_output_content: "#/components/schemas/ResponseOutputContentDto"
+      response_usage: "#/components/schemas/ResponseUsageDto"
+      response_error: "#/components/schemas/ResponseErrorDto"
+      response_incomplete_details: "#/components/schemas/ResponseIncompleteDetailsDto"
+      response_stream_event: "#/components/schemas/ResponseStreamEventDto"
     methods:
       create:
         endpoint: post /api/v1/responses
         streaming:
           param_discriminator: stream
+          stream_event_model: responses.response_stream_event
       retrieve: get /api/v1/responses/{response_id}
       delete: delete /api/v1/responses/{response_id}
     subresources:
