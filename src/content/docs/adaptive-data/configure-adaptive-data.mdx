@@ -29,7 +29,7 @@ A run always applies your settings in the same order. This means the order you p
 1. **Map columns.** `column_mapping` selects which source columns are read as the prompt, completion, chat, and context.
 2. **Limit rows.** If `job_specification.max_rows` is set, a sample of that many rows is selected: a random sample for text datasets, the first rows for image datasets. Later steps see only those rows.
 3. **Deduplicate.** Exact duplicate rows are removed. This happens after sampling, so a run with `max_rows=500` can return fewer than 500 rows.
-4. **Expand languages.** If `language_expansion` is set, a share of the remaining rows is copied into each target language and added as new rows. Expansion comes before rephrasing and generation, so translated rows are rephrased and completed in their target language. The completions are written in that language, not translated afterwards.
+4. **Expand languages.** If `translate` or `localize` is set, a share of the remaining rows is copied into each target language or locale and added as new rows. Expansion comes before rephrasing and generation, so translated rows are rephrased and completed in their target language. The completions are written in that language, not translated afterwards.
 5. **Rephrase prompts.** If `prompt_rephrase` is on, each prompt is rewritten, including the prompts on rows added in step 4. Datasets mapped through a `chat` column are not rephrased. `length` is applied here as guidance attached to the rewritten prompt, so it takes effect only when `prompt_rephrase` is on.
 6. **Generate completions.** Each row receives its adapted completion. `training_type` decides what this step produces: one completion for `instruction_dataset`, or a chosen and rejected pair for `preference_pairs`. Two brand controls apply here:
    - `blueprint` is given to the model as a system instruction.
@@ -38,13 +38,13 @@ A run always applies your settings in the same order. This means the order you p
 8. **Review safety.** If `safety_categories` is set, each finished completion is reviewed after generation.
 
 <Callout variant="note">
-  Credits are estimated from your row limit plus the rows language expansion
-  will add, so language expansion raises the estimate even when `max_rows`
-  stays the same. Duplicates are not known in advance, so the final row count
-  can be lower than the estimate. Use `estimate=True` to see the figure before
-  you start the run.
+  Credits are estimated from your row limit plus the rows `translate` and
+  `localize` will add, so they raise the estimate even when `max_rows` stays the
+  same. Rows from `expand` are priced separately and included in the same
+  estimate. Duplicates are not known in advance, so the final row count can be
+  lower than the estimate. Use `estimate=True` to see the figure before you
+  start the run.
 </Callout>
-
 
 ## Apply recipes
 
@@ -108,6 +108,40 @@ print(f"Run started: {run.run_id}")
 ```
 
 Use `training_type="instruction_dataset"`—or omit `training_type`—to produce enhanced prompt/completion pairs instead. Language expansion, recipes, job limits, and brand controls can be included in the same preference-pair run. See `training_type` on the [`datasets.adapt` reference](/api/python/resources/datasets/methods/adapt) for the current schema.
+
+## Add rows and languages to a run
+
+`datasets.adapt` can grow the dataset in the same run:
+
+- `translate` adds a translated copy of a share of the rows for each target language.
+- `localize` adds a copy localized to each country and language pair.
+- `expand` adds new rows before adaptation starts: `similar_rows` generated in the style of your dataset, `domain_rows` retrieved from topics that match it, and `general_rows` retrieved from other topics to broaden it.
+
+```python
+run = client.datasets.adapt(
+    dataset_id,
+    column_mapping=column_mapping,
+    translate={
+        "languages": ["es", "fr"],
+        "sample_rate": 0.25,
+    },
+    localize={
+        "pairs": [{"country": "ES", "language": "ca"}],
+        "sample_rate": 0.1,
+    },
+    expand={
+        "similar_rows": 500,
+        "general_rows": 1000,
+    },
+)
+print(f"Run started: {run.run_id}")
+```
+
+Passing any of `translate`, `localize` or `expand` sets the whole selection for the run: a field you leave out is turned off, including one chosen in the app. With none of them, the run uses the selection saved on the dataset.
+
+The rows Expand adds are adapted together with your own rows. Translation and localization apply only to your own rows. Each Expand block costs 1 credit per 100 rows, rounded up, on top of the adaptation. Set at least one count above `0`; each is capped at `100,000`. Expand returns `400` when it is not enabled for your organization or when the dataset has image context.
+
+`language_expansion` is deprecated. It holds one language mode at a time and cannot be combined with these fields. Requests that already use it keep working.
 
 ## Limit rows and estimate a run
 

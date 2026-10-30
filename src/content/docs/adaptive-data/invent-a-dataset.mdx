@@ -54,14 +54,15 @@ To invent a dataset, provide **at least one** of the following parameters:
 
 ### Request parameters
 
-| Parameter            | Required | Notes                                                                                                                                                |
-| -------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rows`               | Yes      | Number of rows to generate. Subject to your plan's per-launch row limit.                                                                             |
-| `name`               | No       | Display name for the invented dataset.                                                                                                               |
-| `training_type`      | No       | `instruction_dataset` (default) or `preference_pairs`. See [Choose the output format](#choose-the-output-format).                                    |
-| `language_expansion` | No       | Translates or localizes a sample of the generated rows. See [Expand across languages and locales](#expand-across-languages-and-locales).             |
-| `estimate`           | No       | Returns a credit estimate without creating or launching a dataset. Defaults to `False`.                                                              |
-| `idempotency_key`    | No       | Makes retries safe. Repeating a request with the same key returns the original dataset instead of starting generation again. Maximum 255 characters. |
+| Parameter         | Required | Notes                                                                                                                                                    |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rows`            | Yes      | Number of rows to generate. Subject to your plan's per-launch row limit.                                                                                 |
+| `name`            | No       | Display name for the invented dataset.                                                                                                                   |
+| `training_type`   | No       | `instruction_dataset` (default) or `preference_pairs`. See [Choose the output format](#choose-the-output-format).                                        |
+| `translate`       | No       | Translates a sample of the generated rows into other languages. See [Expand across languages and locales](#expand-across-languages-and-locales).         |
+| `localize`        | No       | Localizes a sample of the generated rows to country and language pairs. See [Expand across languages and locales](#expand-across-languages-and-locales). |
+| `estimate`        | No       | Returns a credit estimate without creating or launching a dataset. Defaults to `False`.                                                                  |
+| `idempotency_key` | No       | Makes retries safe. Repeating a request with the same key returns the original dataset instead of starting generation again. Maximum 255 characters.     |
 
 ### Price a request first
 
@@ -106,7 +107,7 @@ for domain in response.domains:
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `code`       | The value to send in `domains` or `subdomains`. Domain codes are values such as `medical`; subdomain codes are qualified values such as `medical.symptoms_diagnosis`. |
 | `title`      | Human-readable name for the domain or subdomain.                                                                                                                      |
-| `subdomains` | Subdomains available within a domain. An empty list means the domain has no subdomains.                                                                             |
+| `subdomains` | Subdomains available within a domain. An empty list means the domain has no subdomains.                                                                               |
 
 ### Narrow with subdomains
 
@@ -129,7 +130,6 @@ dataset = client.datasets.invent(
     rows=1000,
 )
 ```
-
 
 ### Combine multiple domains
 
@@ -160,10 +160,12 @@ Use `instruction_dataset` for standard supervised fine-tuning. Use `preference_p
 
 ### Expand across languages and locales
 
-`language_expansion` uses the same structure as [language expansion in Adaptive Data](/adaptive-data/expand-data):
+`translate` and `localize` add rows in other languages, the same way as [translating and localizing an existing dataset](/adaptive-data/expand-data#translate-rows):
 
-- `translate` produces a new row variant for each target language.
-- `localize` produces a new row variant for each country and language pair, using locale-specific wording rather than direct translation alone.
+- `translate` adds a translated variant of each sampled row for every target language.
+- `localize` adds a variant for every country and language pair, using locale-specific wording rather than direct translation alone.
+
+Pass either one, or both in the same request. Each takes its own `sample_rate`: the fraction of invented rows expanded for each target, between `0.01` and `1`. Credits are billed on the expanded output row count.
 
 ```python
 dataset = client.datasets.invent(
@@ -174,36 +176,22 @@ dataset = client.datasets.invent(
     ),
     domains=["medical"],
     rows=1000,
-    language_expansion={
-        "type": "translate",
-        "sample_rate": 0.25,
+    translate={
         "languages": ["es", "fr"],
-    },
-)
-```
-
-`sample_rate` is the fraction of invented rows expanded for each target and must be between `0.01` and `1`. Credits are billed on the expanded output row count.
-
-For localization, pass country and language pairs:
-
-```python
-dataset = client.datasets.invent(
-    dataset_prompt=(
-        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
-        "drug explanations, and healthcare roles. Each entry includes a prompt and a "
-        "detailed, expert-generated response."
-    ),
-    domains=["medical"],
-    rows=1000,
-    language_expansion={
-        "type": "localize",
         "sample_rate": 0.25,
+    },
+    localize={
         "pairs": [{"country": "ES", "language": "ca"}],
+        "sample_rate": 0.1,
     },
 )
 ```
 
-Unknown language or country/language codes return a `400` response with a sample of the supported codes.
+This request delivers and bills about `1,000 × (1 + 0.25 × 2 + 0.1 × 1) = 1,600` rows.
+
+Unsupported language codes and country/language pairs return a `400` response before anything is created.
+
+`language_expansion` is deprecated. It holds one mode at a time and cannot be combined with `translate` or `localize`. Requests that already use it keep working.
 
 ### Make retries safe
 

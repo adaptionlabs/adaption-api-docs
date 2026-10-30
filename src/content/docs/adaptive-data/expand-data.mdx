@@ -204,4 +204,4 @@ ae0e0cd4-672f-4fda-afd4-52597412ca94                 ¿Cuál es la capital de Fr
 
 For recipes, preference pairs, row limits, and brand controls on an adaptation run, see [Configure Adaptive Data](/adaptive-data/configure-adaptive-data).
 
-The methods on this page each write a new dataset and leave the source unchanged. `datasets.adapt` also accepts a `language_expansion` setting; that path stores the setting on the dataset and expands rows inside its own adaptation run, without creating a new dataset. See the [`adapt` reference](/api/python/resources/datasets/methods/adapt) for that shape.
+The methods on this page each write a new dataset and leave the source unchanged. `datasets.adapt` also accepts `translate`, `localize` and `expand`, which add rows inside its own adaptation run without creating a new dataset. See [Add rows and languages to a run](/adaptive-data/configure-adaptive-data#add-rows-and-languages-to-a-run).
