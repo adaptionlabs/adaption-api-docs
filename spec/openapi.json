@@ -2005,7 +2005,7 @@
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.1.18",
+    "version": "0.1.19",
     "contact": {}
   },
   "tags": [],
@@ -5771,6 +5771,78 @@
             "items": {
               "$ref": "#/components/schemas/ResponseOutputContentDto"
             }
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the tool called, on `function_call`, `mcp_call` and `mcp_approval_request` items.",
+            "example": "get_weather"
+          },
+          "arguments": {
+            "type": "string",
+            "description": "JSON-encoded arguments for the tool, on `function_call`, `mcp_call` and `mcp_approval_request` items.",
+            "example": "{\"city\":\"Paris\"}"
+          },
+          "call_id": {
+            "type": "string",
+            "description": "Identifier to answer a `function_call` with: send it back as the `call_id` of a `function_call_output` input item.",
+            "example": "call_123"
+          },
+          "server_label": {
+            "type": "string",
+            "description": "Label of the MCP server, on `mcp_call`, `mcp_approval_request` and `mcp_list_tools` items.",
+            "example": "docs"
+          },
+          "approval_request_id": {
+            "type": "string",
+            "description": "The approval request this `mcp_call` answers, if it needed approval.",
+            "nullable": true
+          },
+          "output": {
+            "type": "string",
+            "description": "What the tool returned, on an `mcp_call` item.",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "description": "Why the tool call failed, on `mcp_call` and `mcp_list_tools` items.",
+            "nullable": true
+          },
+          "tools": {
+            "type": "array",
+            "description": "Tools the server offers, on an `mcp_list_tools` item.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "summary": {
+            "type": "array",
+            "description": "Summary parts of a `reasoning` item, each with `type` and `text`.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "encrypted_content": {
+            "type": "string",
+            "description": "Opaque reasoning state to replay in a later request, on a `reasoning` item.",
+            "nullable": true
+          },
+          "queries": {
+            "description": "Search queries, on a `file_search_call` item.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "results": {
+            "type": "array",
+            "description": "Matched chunks, on a `file_search_call` item.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "nullable": true
           }
         },
         "required": [
@@ -5974,6 +6046,18 @@
           "output_index": {
             "type": "integer",
             "example": 0
+          },
+          "item_id": {
+            "type": "string",
+            "description": "Identifier of the output item the event belongs to."
+          },
+          "content_index": {
+            "type": "integer",
+            "example": 0
+          },
+          "text": {
+            "type": "string",
+            "description": "The complete text, on `*.done` text events."
           }
         },
         "required": [
