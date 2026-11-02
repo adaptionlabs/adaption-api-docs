@@ -133,6 +133,8 @@ resources:
       # structure without a second occupant.
       get_export_links: get /api/v1/datasets/{dataset_id}/export-links
       get_best_launch_config: get /api/v1/datasets/{dataset_id}/finetune/best-launch-config
+      get_preprocessing_credits: get /api/v1/datasets/{dataset_id}/preprocessing-credits
+      launch_preprocessing: post /api/v1/datasets/{dataset_id}/launch-preprocessing
     subresources:
       upload:
         methods:
