@@ -39,6 +39,7 @@ See the [`autoscientist.list_models` API reference](/api/python/resources/autosc
 | NVIDIA Nemotron 3 Super 120B A12B BF16             | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`              | 120B  | SFT, DPO | lora                      | false                       | 10,000    |
 | Qwen 3.5 (0.8B)                                    | `Qwen/Qwen3.5-0.8B`                                          | 0.8B  | SFT, DPO | lora                      | false                       | 1,000     |
 | Qwen 3.5 122B A10B                                 | `Qwen/Qwen3.5-122B-A10B`                                     | 122B  | SFT, DPO | lora                      | true                        | 10,000    |
+| Qwen 3.6 27B                                       | `Qwen/Qwen3.6-27B`                                           | 27B   | SFT, DPO | lora, full                | true                        | 10,000    |
 | Qwen 3.6 35B A3B                                   | `Qwen/Qwen3.6-35B-A3B`                                       | 35B   | SFT, DPO | lora                      | true                        | 10,000    |
 | **SFT / Alignment (multimodal)**                   |                                                              |       |          |                           |                             |           |
 | Gemma 3 (4B) VLM                                   | `google/gemma-3-4b-it-VLM`                                   | 4B    | SFT, DPO | lora                      | false                       | 1,000     |
@@ -71,6 +72,7 @@ These limits are properties of the model and training hardware. AutoScientist ac
 | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`              | 49152         | 24576         | 2               | 2               | 4                     | 64               |
 | `Qwen/Qwen3.5-0.8B`                                          | 131072        | 131072        | 8               | 8               | 1                     | 64               |
 | `Qwen/Qwen3.5-122B-A10B`                                     | 65536         | 32768         | 16              | 16              | 1                     | 64               |
+| `Qwen/Qwen3.6-27B`                                           | 131072        | 65536         | 2               | 2               | 4                     | 64               |
 | `Qwen/Qwen3.6-35B-A3B`                                       | 65536         | 32768         | 8               | 8               | 1                     | 64               |
 | **SFT / Alignment (multimodal)**                             |               |               |                 |                 |                       |                  |
 | `google/gemma-3-4b-it-VLM`                                   | 32768         | 32768         | 8               | 8               | 1                     | 64               |
