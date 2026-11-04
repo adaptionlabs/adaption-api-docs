@@ -46,20 +46,11 @@ const h = (
   extra: Record<string, unknown> = {},
 ): Node => ({ type, props: { style, children, ...extra } });
 
-function clamp(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, text.lastIndexOf(" ", max)).replace(/[,.;:]$/, "") + "…";
-}
-
 export async function renderOgImage({
   section,
   title,
   description,
 }: OgCard): Promise<Buffer> {
-  // The design sets titles at 84px on one line. Longer titles step down so a
-  // two-line title still leaves room for a three-line description.
-  const titleSize = title.length > 22 ? 68 : 84;
-
   // Satori sizes `width: 100%` as content-box, so padding on the root would
   // push it past the canvas. The padded card flex-fills a bare wrapper instead.
   const card = h(
@@ -70,7 +61,7 @@ export async function renderOgImage({
       flexDirection: "column",
       justifyContent: "space-between",
       alignItems: "flex-start",
-      padding: "72px 288px 72px 72px",
+      padding: "60px 72px",
     },
     [
       h("img", { width: 220.426, height: 40.286 }, undefined, { src: LOGO }),
@@ -88,26 +79,32 @@ export async function renderOgImage({
             },
             section,
           ),
+          // Up to two lines of title and three of description fit the frame.
           h(
             "div",
             {
+              display: "block",
+              lineClamp: 2,
               fontFamily: "Bureau Light",
-              fontSize: titleSize,
-              lineHeight: 1.2,
-              letterSpacing: titleSize * -0.02,
+              fontSize: 84,
+              lineHeight: 1,
+              letterSpacing: -1.68,
             },
-            clamp(title, 60),
+            title,
           ),
           description
             ? h(
                 "div",
                 {
+                  display: "block",
+                  lineClamp: 3,
+                  width: 912,
                   fontFamily: "Bureau Book",
                   fontSize: 36,
                   lineHeight: 1.2,
                   letterSpacing: -0.72,
                 },
-                clamp(description, 130),
+                description,
               )
             : null,
         ],
