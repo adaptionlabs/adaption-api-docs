@@ -3,31 +3,31 @@ import { resolve } from "node:path";
 import satori from "satori";
 import sharp from "sharp";
 
+// Implements the "Adaption_Developer-Docs_Social-Banner" frame in the
+// 2026 Brand Design Figma file (trXJD2NX3TkyV7vUbhqwRp, node 6924:4800).
+
 // Read from the project root: this module is bundled before it runs, so paths
 // relative to import.meta.url do not survive the build.
 const root = (path: string) => readFileSync(resolve(process.cwd(), path));
 
 // Satori cannot read woff2, so these are TTF copies of the site font
-// (public/fonts/STKBureauSans-*.woff2), decompressed with fontTools.
-const font = (name: string) => root(`src/og/fonts/STKBureauSans-${name}.ttf`);
-const FONTS = [
-  { name: "Bureau", data: font("Regular"), weight: 400 as const },
-  { name: "Bureau", data: font("SemiBold"), weight: 600 as const },
-];
+// (public/fonts/STKBureauSans-*.woff2), decompressed with fontTools. Each cut
+// is its own family because Book and Regular would otherwise share weight 400.
+const font = (cut: string) => ({
+  name: `Bureau ${cut}`,
+  data: root(`src/og/fonts/STKBureauSans-${cut}.ttf`),
+  weight: 400 as const,
+});
+const FONTS = [font("Light"), font("Book"), font("Regular")];
 
-const LOGO = `data:image/svg+xml;base64,${root(
-  "src/assets/logo-dark.svg",
-).toString("base64")}`;
+// White logo exported from the Figma frame.
+const LOGO = `data:image/svg+xml;base64,${root("src/og/logo.svg").toString("base64")}`;
 
-// Colors come from the Adaption Figma file. The background is the
-// "Gradient (Black-Pink)" paint style: gray at the top fading to pink at the
-// bottom. The white logo sits in the dark top band; all text is dark so it
-// stays readable over the light lower half.
-const BG =
-  "linear-gradient(to top, #DAA7D2 14.9%, #A9BAD1 40%, #4986B4 82.7%, #545454 100%)";
-const HEADLINE = "#1f1828"; // Data Viz/Indigo/50
-const BODY = "#453f6b"; // Data Viz/Indigo/40: description and URL
-const EYEBROW = "#054761"; // AD/Blue/60
+// A 20% black overlay on a navy-to-pink vertical gradient.
+const BACKGROUND = [
+  "linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.2) 100%)",
+  "linear-gradient(180deg, #192B37 0%, #5385A8 41.866%, #94B0C4 64.425%, #DAA2CF 90.506%, #D9D9D9 99.846%)",
+].join(", ");
 
 export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;
@@ -56,7 +56,9 @@ export async function renderOgImage({
   title,
   description,
 }: OgCard): Promise<Buffer> {
-  const titleSize = title.length > 40 ? 64 : 80;
+  // The design sets titles at 84px on one line. Longer titles step down so a
+  // two-line title still leaves room for a three-line description.
+  const titleSize = title.length > 22 ? 68 : 84;
 
   // Satori sizes `width: 100%` as content-box, so padding on the root would
   // push it past the canvas. The padded card flex-fills a bare wrapper instead.
@@ -67,41 +69,54 @@ export async function renderOgImage({
       display: "flex",
       flexDirection: "column",
       justifyContent: "space-between",
-      padding: "64px 80px 56px",
+      alignItems: "flex-start",
+      padding: "72px 288px 72px 72px",
     },
     [
-      h("img", { width: 260, height: 48 }, undefined, { src: LOGO }),
-      h("div", { display: "flex", flexDirection: "column", gap: 20 }, [
-        h(
-          "div",
-          {
-            fontSize: 26,
-            fontWeight: 600,
-            letterSpacing: 4,
-            textTransform: "uppercase",
-            color: EYEBROW,
-          },
-          section,
-        ),
-        h(
-          "div",
-          {
-            fontSize: titleSize,
-            fontWeight: 600,
-            lineHeight: 1.05,
-            letterSpacing: -1,
-          },
-          clamp(title, 80),
-        ),
-        description
-          ? h(
-              "div",
-              { fontSize: 32, lineHeight: 1.35, color: BODY, maxWidth: 1000 },
-              clamp(description, 150),
-            )
-          : null,
-      ]),
-      h("div", { fontSize: 24, color: BODY }, "docs.adaptionlabs.ai"),
+      h("img", { width: 220.426, height: 40.286 }, undefined, { src: LOGO }),
+      h(
+        "div",
+        { display: "flex", flexDirection: "column", gap: 24, width: "100%" },
+        [
+          h(
+            "div",
+            {
+              fontFamily: "Bureau Regular",
+              fontSize: 24,
+              lineHeight: 1.2,
+              textTransform: "uppercase",
+            },
+            section,
+          ),
+          h(
+            "div",
+            {
+              fontFamily: "Bureau Light",
+              fontSize: titleSize,
+              lineHeight: 1.2,
+              letterSpacing: titleSize * -0.02,
+            },
+            clamp(title, 60),
+          ),
+          description
+            ? h(
+                "div",
+                {
+                  fontFamily: "Bureau Book",
+                  fontSize: 36,
+                  lineHeight: 1.2,
+                  letterSpacing: -0.72,
+                },
+                clamp(description, 130),
+              )
+            : null,
+        ],
+      ),
+      h(
+        "div",
+        { fontFamily: "Bureau Regular", fontSize: 24, lineHeight: 1.2 },
+        "docs.adaptionlabs.ai",
+      ),
     ],
   );
   const tree = h(
@@ -110,9 +125,8 @@ export async function renderOgImage({
       width: "100%",
       height: "100%",
       display: "flex",
-      backgroundImage: BG,
-      color: HEADLINE,
-      fontFamily: "Bureau",
+      backgroundImage: BACKGROUND,
+      color: "#ffffff",
     },
     card,
   );
