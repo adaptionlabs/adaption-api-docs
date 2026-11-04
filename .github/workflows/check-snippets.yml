@@ -7,12 +7,14 @@ on:
     paths:
       - "src/content/docs/**"
       - "scripts/check_snippets.py"
+      - "scripts/test_check_snippets.py"
       - ".github/workflows/check-snippets.yml"
   push:
     branches: [main]
     paths:
       - "src/content/docs/**"
       - "scripts/check_snippets.py"
+      - "scripts/test_check_snippets.py"
       - ".github/workflows/check-snippets.yml"
 
 jobs:
@@ -23,4 +25,5 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       # The published SDK, not a pin: the docs must agree with what a reader
       # gets from `pip install adaption` on the day they read the page.
+      - run: uv run --no-project --with adaption --with mypy python3 scripts/test_check_snippets.py
       - run: uv run --no-project --with adaption --with mypy python3 scripts/check_snippets.py
