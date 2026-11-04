@@ -30,6 +30,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.14",
     "prettier": "^3.8.1",
+    "satori": "^0.63.2",
     "tailwindcss": "^4.3.3"
   },
   "pnpm": {

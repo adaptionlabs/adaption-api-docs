@@ -18,6 +18,7 @@ is wrong, open an issue naming the endpoint and what it should say.
 ## Set up the site
 
 You need Node.js 22.12 or newer and [pnpm](https://pnpm.io/).
+
 ```sh
 pnpm install
 pnpm dev
@@ -52,6 +53,14 @@ You can enable the same check as a pre-push hook once per clone:
 git config core.hooksPath .githooks
 ```
 
+## Social preview images
+
+Every page gets a 1200×630 link-preview card, rendered at build time to
+`/og/<page>.png` and referenced from the page's `og:image` tag. The card shows
+the page's sidebar section, its `title`, and its `description` (cut off past
+about 150 characters), so write a description that reads well on its own. To
+change the card design, edit `src/og/render.ts`; to label a new top-level
+section, edit `src/og/sections.ts`.
 
 ## Submit a pull request
 
