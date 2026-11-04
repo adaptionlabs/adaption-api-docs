@@ -77,6 +77,7 @@ export default defineConfig({
         },
       },
       title: "Adaption",
+      favicon: "/favicon.ico",
       customCss: ["./theme.css"],
       editLink: {
         baseUrl: "https://github.com/adaptionlabs/adaption-api-docs/edit/main/",
