@@ -1,0 +1,75 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    {
+      "source": "/guides/supported-models{/}?",
+      "destination": "/autoscientist/supported-models/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/adaptive-data{/}?",
+      "destination": "/adaptive-data/overview/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/column-selection{/}?",
+      "destination": "/adaptive-data/select-columns/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/universal-prompts{/}?",
+      "destination": "/adaptive-data/select-columns/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/multimodal-context{/}?",
+      "destination": "/adaptive-data/select-columns/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/applying-preferences{/}?",
+      "destination": "/adaptive-data/configure-adaptive-data/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/safety-and-length-constraints{/}?",
+      "destination": "/adaptive-data/configure-adaptive-data/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/mitigating-hallucinations{/}?",
+      "destination": "/adaptive-data/configure-adaptive-data/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/reasoning-traces{/}?",
+      "destination": "/adaptive-data/configure-adaptive-data/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/processing-large-datasets{/}?",
+      "destination": "/adaptive-data/configure-adaptive-data/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/evaluating-dataset-quality{/}?",
+      "destination": "/adaptive-data/evaluate-dataset-quality/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/autoscientist{/}?",
+      "destination": "/autoscientist/overview/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/autoscientist-api{/}?",
+      "destination": "/autoscientist/running-autoscientist/",
+      "permanent": true
+    },
+    {
+      "source": "/guides/processing-unstructured-documents{/}?",
+      "destination": "/tutorials/processing-unstructured-documents/",
+      "permanent": true
+    }
+  ]
+}
