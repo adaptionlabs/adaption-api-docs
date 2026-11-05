@@ -300,7 +300,7 @@
     },
     "/api/v1/datasets/{dataset_id}/upload/complete": {
       "post": {
-        "description": "File uploads only. Call after uploading bytes to the presigned URL from POST /datasets. Verifies the file exists in S3, then triggers the preprocessing pipeline.",
+        "description": "File uploads only. Call after uploading bytes to the presigned URL from POST /datasets. Verifies the file exists in S3, then triggers the preprocessing pipeline. TXT files are converted to rows here. Documents (pdf, docx, pptx, xlsx, html, or a zip holding them) are not: the dataset then reports `awaiting_input` until POST /datasets/{dataset_id}/launch-preprocessing extracts them.",
         "operationId": "DatasetController_completeUploadById",
         "parameters": [
           {
@@ -532,6 +532,115 @@
         ]
       }
     },
+    "/api/v1/datasets/{dataset_id}/preprocessing-credits": {
+      "get": {
+        "description": "Quotes the credits that extracting a document dataset (pdf, docx, pptx, xlsx, html, or a zip of them) will reserve, from the page count of each document. Pass the same `pages_to_process` or `documents_to_process` you intend to launch with. Page counting runs in the background after upload, so `isFinal: false` means the quote is still partial — poll until it is true. Start extraction with POST /datasets/{dataset_id}/launch-preprocessing.",
+        "operationId": "DatasetController_getPreprocessingCredits",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pages_to_process",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of pages to process. Documents are included until this budget is reached. If omitted, all pages are processed.",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "documents_to_process",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of documents to process. If omitted, all documents are processed.",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreprocessingCreditsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a document dataset, or both pages_to_process and documents_to_process were set."
+          }
+        },
+        "summary": "Estimate credit cost for document preprocessing",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/launch-preprocessing": {
+      "post": {
+        "description": "Extracts the text, tables and figures of an uploaded document dataset (pdf, docx, pptx, xlsx, html, or a zip of them) into rows. After the upload completes, such a dataset reports `awaiting_input` until this is called. Reserves credits from the page count of the selected documents — quote them first with GET /datasets/{dataset_id}/preprocessing-credits — then starts extraction. Poll GET /datasets/{dataset_id}/status: it reports `pending` while extracting and `awaiting_input` once the rows are ready, at which point call POST /datasets/{dataset_id}/adapt.",
+        "operationId": "DatasetController_launchPreprocessing",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchPreprocessingBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchPreprocessingResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a document dataset, or both pages_to_process and documents_to_process were set."
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "409": {
+            "description": "Preprocessing was already launched for this dataset, or its upload has not completed."
+          },
+          "503": {
+            "description": "The page count of a document could not be read yet. Retry shortly."
+          }
+        },
+        "summary": "Launch document preprocessing",
+        "tags": [
+          "Dataset"
+        ]
+      }
+    },
     "/api/v1/datasets/{dataset_id}/augment": {
       "post": {
         "description": "Retrieves additional rows matching this dataset and returns them as a new dataset, leaving this one unchanged. The new dataset carries this dataset’s rows alongside the retrieved ones, so it can be trained on or downloaded directly. Omit both row counts to receive the recommended fill and its cost as a quote; a run needs explicit row counts, or fill_to_recommended=true to fill any count you leave out with its recommended value. Poll GET /datasets/{dataset_id}/status on the returned id until it reaches `succeeded`. Set estimate=true to price the request without starting a run.",
@@ -728,7 +837,7 @@
             }
           },
           "400": {
-            "description": "Validation failed: column_mapping shape error, or language_expansion validation failure (shape mismatch, unknown ISO 639-1 code, or unsupported country/language pair)."
+            "description": "Validation failed: column_mapping shape error; a translate, localize or language_expansion failure (unknown ISO 639-1 code, unsupported country/language pair, or a malformed spec); an expand that adds no rows or that this dataset cannot run; or language_expansion combined with translate, localize or expand."
           },
           "402": {
             "description": "Insufficient credits"
@@ -780,7 +889,7 @@
             }
           },
           "400": {
-            "description": "Validation failed: column_mapping shape error, or language_expansion validation failure (shape mismatch, unknown ISO 639-1 code, or unsupported country/language pair)."
+            "description": "Validation failed: column_mapping shape error; a translate, localize or language_expansion failure (unknown ISO 639-1 code, unsupported country/language pair, or a malformed spec); an expand that adds no rows or that this dataset cannot run; or language_expansion combined with translate, localize or expand."
           },
           "402": {
             "description": "Insufficient credits"
@@ -2005,7 +2114,7 @@
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.1.19",
+    "version": "0.1.22",
     "contact": {}
   },
   "tags": [],
@@ -2747,7 +2856,7 @@
               "succeeded",
               "failed"
             ],
-            "description": "Current processing status. `awaiting_input` means the dataset is uploaded but waiting for you to start adaptation via datasets.adapt(column_mapping=...) — it will not progress on its own."
+            "description": "Current processing status. `awaiting_input` means the dataset is uploaded but waiting for you to start adaptation via datasets.adapt(column_mapping=...) — it will not progress on its own. An uploaded document dataset with no `row_count` yet is instead waiting for POST /datasets/{dataset_id}/launch-preprocessing."
           },
           "row_count": {
             "type": "integer",
@@ -3253,6 +3362,126 @@
           }
         }
       },
+      "PreprocessingInsufficientCreditsDto": {
+        "type": "object",
+        "properties": {
+          "creditsRequired": {
+            "type": "number",
+            "description": "Credits the extraction would reserve"
+          },
+          "creditsAvailable": {
+            "type": "number",
+            "description": "Credits available to the team"
+          }
+        },
+        "required": [
+          "creditsRequired",
+          "creditsAvailable"
+        ]
+      },
+      "PreprocessingCreditsResponseDto": {
+        "type": "object",
+        "properties": {
+          "availableCredits": {
+            "type": "number",
+            "description": "User's total available credits (team balance)"
+          },
+          "extractionCost": {
+            "type": "number",
+            "description": "Estimated or actual credit cost for document extraction"
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total pages across all documents (sum of page counts)"
+          },
+          "totalDocuments": {
+            "type": "number",
+            "description": "Total documents in the dataset"
+          },
+          "completedDocuments": {
+            "type": "number",
+            "description": "Number of documents with completed extraction (page counts known)"
+          },
+          "isFinal": {
+            "type": "boolean",
+            "description": "Whether the cost is final (all extractions complete) or an estimate"
+          },
+          "insufficientCredits": {
+            "description": "Present when available credits are insufficient for the extraction cost",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PreprocessingInsufficientCreditsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "availableCredits",
+          "extractionCost",
+          "totalPages",
+          "totalDocuments",
+          "completedDocuments",
+          "isFinal"
+        ]
+      },
+      "LaunchPreprocessingBodyDto": {
+        "type": "object",
+        "properties": {
+          "pages_to_process": {
+            "type": "number",
+            "description": "Maximum number of pages to process. Documents are included until this budget is reached. If omitted, all pages are processed.",
+            "minimum": 1
+          },
+          "documents_to_process": {
+            "type": "number",
+            "description": "Maximum number of documents to process. If omitted, all documents are processed.",
+            "minimum": 1
+          },
+          "preprocessing_mode": {
+            "type": "string",
+            "enum": [
+              "per_document",
+              "per_page"
+            ],
+            "description": "How extracted content becomes rows: `per_document` (default) makes one row per document, `per_page` one row per page. Omit to keep the mode already set on the dataset.",
+            "example": "per_document"
+          }
+        }
+      },
+      "LaunchPreprocessingResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "description": "ID of the dataset"
+          },
+          "status": {
+            "type": "string",
+            "description": "Dataset status after the launch. Poll GET /datasets/{dataset_id}/status until it reports `awaiting_input`, then call POST /datasets/{dataset_id}/adapt.",
+            "example": "pending"
+          },
+          "credits_escrowed": {
+            "type": "number",
+            "description": "Credits reserved for extracting the selected documents"
+          },
+          "pages_to_process": {
+            "type": "number",
+            "description": "Total pages across the documents selected for extraction"
+          },
+          "documents_selected": {
+            "type": "number",
+            "description": "Number of documents selected for extraction"
+          },
+          "documents_total": {
+            "type": "number",
+            "description": "Number of documents in the dataset"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status"
+        ]
+      },
       "PublicAugmentDto": {
         "type": "object",
         "properties": {
@@ -3429,6 +3658,7 @@
           },
           "languages": {
             "description": "Target languages, as ISO 639-1 codes. Each sampled row gains one translated row per language. Unsupported codes are rejected with a sample of the supported ones.",
+            "minItems": 1,
             "example": [
               "es",
               "fr"
@@ -3530,6 +3760,7 @@
           },
           "pairs": {
             "description": "Target country/language pairs. Each sampled row gains one row localized to each pair — translated into the language and adapted to that country’s conventions. Unsupported combinations are rejected.",
+            "minItems": 1,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PublicCountryLanguagePairDto"
@@ -3671,6 +3902,84 @@
           }
         }
       },
+      "PublicTranslateTargetsDto": {
+        "type": "object",
+        "properties": {
+          "languages": {
+            "description": "Target languages, as ISO 639-1 codes. Each sampled row gains one translated row per language. Unsupported codes are rejected with a sample of the supported ones.",
+            "minItems": 1,
+            "example": [
+              "es",
+              "fr"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sample_rate": {
+            "type": "number",
+            "description": "Fraction of rows translated into each language. At 0.25 with two languages, 1,000 rows become 1,500.",
+            "minimum": 0.01,
+            "maximum": 1,
+            "example": 0.25
+          }
+        },
+        "required": [
+          "languages",
+          "sample_rate"
+        ]
+      },
+      "PublicLocalizeTargetsDto": {
+        "type": "object",
+        "properties": {
+          "pairs": {
+            "description": "Target country/language pairs. Each sampled row gains one row localized to each pair — translated into the language and adapted to that country’s conventions. Unsupported combinations are rejected.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicCountryLanguagePairDto"
+            }
+          },
+          "sample_rate": {
+            "type": "number",
+            "description": "Fraction of rows localized to each pair. At 0.25 with one pair, 1,000 rows become 1,250.",
+            "minimum": 0.01,
+            "maximum": 1,
+            "example": 0.25
+          }
+        },
+        "required": [
+          "pairs",
+          "sample_rate"
+        ]
+      },
+      "PublicAdaptExpandDto": {
+        "type": "object",
+        "properties": {
+          "similar_rows": {
+            "type": "integer",
+            "description": "New rows to generate in the style of this dataset. A sample of its rows is analysed for topic, language and prompt/completion conventions, and new rows are generated to match. Defaults to 0.",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 500
+          },
+          "domain_rows": {
+            "type": "integer",
+            "description": "Rows to retrieve from topics matching this dataset. Defaults to 0.",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 3000
+          },
+          "general_rows": {
+            "type": "integer",
+            "description": "Rows to retrieve from other topics, to broaden the dataset. Defaults to 0.",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 1000
+          }
+        }
+      },
       "PublicLanguageExpansionSpecDto": {
         "type": "object",
         "properties": {
@@ -3760,11 +4069,36 @@
           },
           "estimate": {
             "type": "boolean",
-            "description": "When true, validates the request and returns the estimated credit cost without starting a run.",
+            "description": "When true, validates the request and returns the estimated credit cost without starting a run. The request’s `column_mapping` and expansion fields are still saved to the dataset, as they are what the estimate prices.",
             "default": false
           },
+          "translate": {
+            "description": "Translate a sample of the rows into further languages, adding one row per sampled row and language. Combines with `localize`; output row count ≈ input × (1 + translate.sample_rate × languages + localize.sample_rate × pairs), and credits are billed on output rows.\n\nPassing `translate`, `localize` or `expand` sets the whole selection for this run: a mode the request leaves out is turned off, including one saved in the dashboard. With none of them (and no `language_expansion`), the selection saved on the dataset is used. Cannot be combined with `language_expansion`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicTranslateTargetsDto"
+              }
+            ]
+          },
+          "localize": {
+            "description": "Localize a sample of the rows to country/language pairs, adding one row per sampled row and pair. Combines with `translate` and `expand`, with the same rules: passing any of them sets the whole selection for this run. Cannot be combined with `language_expansion`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicLocalizeTargetsDto"
+              }
+            ]
+          },
+          "expand": {
+            "description": "Add rows before adaptation: generated in the style of this dataset, or retrieved from matching and other topics. They are adapted along with the dataset’s own rows into this dataset, so its row count grows by their total. Translation and localization apply to the dataset’s own rows only.\n\nEach block costs 1 credit per 100 rows, rounded up, on top of the adaptation; the estimate includes it. Set at least one count above 0. Returns 400, leaving the saved selection unchanged, when Expand is not enabled for the organization or the dataset has image context; a column mapping with no chat, prompt or completion column or universal prompt to seed from is a 400 too. Combines with `translate` and `localize`, with the same rules: passing any of them sets the whole selection for this run. Cannot be combined with `language_expansion`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicAdaptExpandDto"
+              }
+            ]
+          },
           "language_expansion": {
-            "description": "Translation/localization expansion. When set, the pipeline produces additional rows in the requested languages or country/language variants. Output row count ≈ input × (1 + sample_rate × target_count); credits are billed on output rows.\n\nThree-state field:\n- **omitted** — leaves any prior expansion config on the dataset unchanged (no-op). A wizard-saved expansion is preserved across SDK-driven /adapt calls that do not pass `language_expansion`.\n- **`language_expansion: null`** — explicitly clears any prior expansion config on this dataset (overrides wizard state).\n- **object** — overwrites the prior expansion config with the given spec.",
+            "deprecated": true,
+            "description": "Deprecated: use `translate` and `localize`, which can be combined. Holds one mode, translate or localize.\n\nThree-state field:\n- **omitted** — leaves any prior expansion config on the dataset unchanged (no-op). A wizard-saved expansion is preserved across SDK-driven /adapt calls that pass neither `language_expansion` nor `translate` / `localize`.\n- **`language_expansion: null`** — explicitly clears any prior expansion config on this dataset (overrides wizard state), including a dashboard-selected Expand.\n- **object** — overwrites the prior expansion config with the given spec. Every other mode saved on the dataset, Expand included, is turned off.",
             "nullable": true,
             "allOf": [
               {
@@ -5028,8 +5362,25 @@
             "minimum": 1,
             "example": 1000
           },
+          "translate": {
+            "description": "Translate a sample of the generated rows into further languages, adding one row per sampled row and language. Combines with `localize`. Credits are billed on the POST-expansion row count, so setting this quotes and charges above `rows`. Cannot be combined with `language_expansion`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicTranslateTargetsDto"
+              }
+            ]
+          },
+          "localize": {
+            "description": "Localize a sample of the generated rows to country/language pairs, adding one row per sampled row and pair. Combines with `translate`. Credits are billed on the POST-expansion row count. Cannot be combined with `language_expansion`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicLocalizeTargetsDto"
+              }
+            ]
+          },
           "language_expansion": {
-            "description": "Optionally translate or localize the generated rows into further languages. Credits are billed on the POST-expansion row count, so setting this quotes and charges above `rows`. `sample_rate` (0-1) is the share of rows expanded.",
+            "deprecated": true,
+            "description": "Deprecated: use `translate` and `localize`, which can be combined. Optionally translate or localize the generated rows into further languages. Credits are billed on the POST-expansion row count, so setting this quotes and charges above `rows`. `sample_rate` (0-1) is the share of rows expanded.",
             "nullable": true,
             "allOf": [
               {

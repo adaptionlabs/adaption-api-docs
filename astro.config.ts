@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
 import { generateAPIReferenceItems, stainlessDocs } from "@stainless-api/docs";
@@ -5,6 +6,10 @@ import tailwindcss from "@tailwindcss/vite";
 import rehypeExternalLinks from "rehype-external-links";
 
 const srcDir = fileURLToPath(new URL("./src", import.meta.url));
+
+const vercelRedirects: { source: string; destination: string }[] = JSON.parse(
+  readFileSync(new URL("./vercel.json", import.meta.url), "utf8"),
+).redirects;
 
 // The API reference used to be fetched from the Stainless API on every build.
 // That API is retired, so the spec and the config live in `spec/` and ship with
@@ -42,29 +47,18 @@ export default defineConfig({
       },
     },
   },
-  redirects: {
-    // The /guides/* set was superseded by the Adaptive Data and AutoScientist
-    // sections. Keep inbound and indexed links pointed at their replacements.
-    "/guides/supported-models": "/autoscientist/supported-models",
-    "/guides/adaptive-data": "/adaptive-data/overview",
-    "/guides/column-selection": "/adaptive-data/select-columns",
-    "/guides/universal-prompts": "/adaptive-data/select-columns",
-    "/guides/multimodal-context": "/adaptive-data/select-columns",
-    "/guides/applying-preferences": "/adaptive-data/configure-adaptive-data",
-    "/guides/safety-and-length-constraints":
-      "/adaptive-data/configure-adaptive-data",
-    "/guides/mitigating-hallucinations":
-      "/adaptive-data/configure-adaptive-data",
-    "/guides/reasoning-traces": "/adaptive-data/configure-adaptive-data",
-    "/guides/processing-large-datasets":
-      "/adaptive-data/configure-adaptive-data",
-    "/guides/evaluating-dataset-quality":
-      "/adaptive-data/evaluate-dataset-quality",
-    "/guides/autoscientist": "/autoscientist/overview",
-    "/guides/autoscientist-api": "/autoscientist/running-autoscientist",
-    "/guides/processing-unstructured-documents":
-      "/tutorials/processing-unstructured-documents",
-  },
+  // The /guides/* set was superseded by the Adaptive Data and AutoScientist
+  // sections; the redirects keep inbound and indexed links pointed at their
+  // replacements. They live in vercel.json because that is what production
+  // serves: @stainless-api/docs turns off Astro's redirect pages at build time
+  // and writes them to _stainless/redirects.json, which only Stainless hosting
+  // reads. Reading the same file here keeps `pnpm dev` in step.
+  redirects: Object.fromEntries(
+    vercelRedirects.map(({ source, destination }) => [
+      source.replace("{/}?", ""),
+      destination,
+    ]),
+  ),
   integrations: [
     stainlessDocs({
       logo: {
@@ -83,6 +77,7 @@ export default defineConfig({
         },
       },
       title: "Adaption",
+      favicon: "/favicon.ico",
       customCss: ["./theme.css"],
       editLink: {
         baseUrl: "https://github.com/adaptionlabs/adaption-api-docs/edit/main/",

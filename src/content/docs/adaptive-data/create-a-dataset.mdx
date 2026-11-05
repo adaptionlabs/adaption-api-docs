@@ -21,7 +21,7 @@ client = Adaption()
 
     The SDK helper creates the dataset, uploads the file, and confirms the upload.
 
-    Supported extensions: **`.csv`**, **`.json`**, **`.jsonl`**, and **`.parquet`**.
+    Supported extensions: **`.csv`**, **`.json`**, **`.jsonl`**, and **`.parquet`**. Documents (**`.pdf`**, **`.docx`**, **`.pptx`**, **`.xlsx`**, **`.html`**, **`.txt`**, and **`.zip`**) upload the same way but need an extraction step first; see [Upload documents](#upload-documents).
 
     ```python
     dataset = client.datasets.upload_file("training_data.csv")
@@ -75,6 +75,56 @@ client = Adaption()
   uploads. Do not combine `processing_mode="raw"` with a Hugging Face or Kaggle
   URL. See [Run on non-adapted data](/autoscientist/run-on-non-adapted-data) for
   a local-file example.
+</Callout>
+
+## Upload documents
+
+Documents are not rows yet. After the upload, Adaption counts their pages and waits for you to launch extraction, which turns the content into rows and costs credits.
+
+Upload the file and wait for the page count. The dataset stops at `awaiting_input` with no `row_count`:
+
+```python
+dataset = client.datasets.upload_file("annual_report.pdf")
+dataset_id = dataset.dataset_id
+
+status = client.datasets.wait_for_completion(dataset_id)
+print(status.status, status.row_count)
+```
+
+Check what extraction will cost before you launch it with [`get_preprocessing_credits`](/api/python/resources/datasets/methods/get_preprocessing_credits):
+
+```python
+quote = client.datasets.get_preprocessing_credits(dataset_id)
+print(f"{quote.total_pages:.0f} pages cost {quote.extraction_cost} credits")
+print(f"{quote.available_credits} credits available")
+if quote.insufficient_credits:
+    raise RuntimeError("Not enough credits to extract these documents")
+```
+
+Launch extraction with [`launch_preprocessing`](/api/python/resources/datasets/methods/launch_preprocessing), then wait again. When extraction finishes, the dataset returns to `awaiting_input`, this time with a `row_count`:
+
+```python
+launch = client.datasets.launch_preprocessing(
+    dataset_id,
+    preprocessing_mode="per_page",
+)
+print(f"Reserved {launch.credits_escrowed} credits")
+
+status = client.datasets.wait_for_completion(dataset_id)
+if status.status == "failed":
+    error = status.error_data
+    message = (error and error.message) or "unknown error"
+    raise RuntimeError(f"Document extraction failed: {message}")
+print(f"Extracted {status.row_count} rows")
+```
+
+`preprocessing_mode` decides how content becomes rows: `per_document` (the default) makes one row per document, `per_page` one row per page. To extract only part of the upload, pass either `pages_to_process` or `documents_to_process`, not both. `get_preprocessing_credits` accepts the same limits, so you can quote a subset before launching it.
+
+<Callout variant="note">
+  Launch extraction once per dataset. A second call fails with
+  `adaption.ConflictError` (HTTP 409), and so does a launch before the page
+  count finishes. If the team lacks the credits, the launch fails with HTTP 402
+  and reserves nothing.
 </Callout>
 
 ## Wait for the import
