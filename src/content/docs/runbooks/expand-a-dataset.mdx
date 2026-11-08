@@ -6,13 +6,13 @@ description: Upload 500 GSM8K rows, grow them with domain, general, and similar 
 import { Callout } from "@stainless-api/docs/components";
 
 <Callout variant="tip">
-  **Run this tutorial as a notebook**
+  **Run this runbook as a notebook**
 
 [Open in Google Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/expand_dataset.ipynb) or view the [source on GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/expand_dataset.ipynb).
 
 </Callout>
 
-This tutorial takes 500 rows of [GSM8K](https://huggingface.co/datasets/openai/gsm8k) and grows them three ways with [Expand data](/adaptive-data/expand-data): **domain**, **general**, and **similar** rows, 100 of each. It then shows a sample of each kind so you can compare them.
+This runbook takes 500 rows of [GSM8K](https://huggingface.co/datasets/openai/gsm8k) and grows them three ways with [Expand data](/adaptive-data/expand-data): **domain**, **general**, and **similar** rows, 100 of each. It then shows a sample of each kind so you can compare them.
 
 Runtime is about an hour. Cost is low (3 × 100 added rows); the exact figure is printed before the run.
 
@@ -240,4 +240,4 @@ show_rows(expanded["similar"], "Similar rows")
 
 - Join the seed and the expansions you want into one training set with [Combine datasets](/adaptive-data/combine-datasets), or request all three kinds in one `augment` call.
 - Add other languages with [`translate` and `localize`](/adaptive-data/expand-data#translate-rows).
-- Train on the result with [Train a model with AutoScientist](/tutorials/train-with-autoscientist).
+- Train on the result with [Train a model with AutoScientist](/runbooks/train-with-autoscientist).

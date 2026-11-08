@@ -189,15 +189,15 @@ export default defineConfig({
           ],
         },
         {
-          label: "Tutorials",
+          label: "Runbooks",
           items: [
-            "tutorials/adaptive-data-app-walkthrough",
-            "tutorials/processing-unstructured-documents",
-            "tutorials/autoscientist-app-walkthrough",
-            "tutorials/invent-a-dataset",
-            "tutorials/expand-a-dataset",
-            "tutorials/extend-trajectories",
-            "tutorials/train-with-autoscientist",
+            "runbooks/adaptive-data-app-walkthrough",
+            "runbooks/processing-unstructured-documents",
+            "runbooks/autoscientist-app-walkthrough",
+            "runbooks/invent-a-dataset",
+            "runbooks/expand-a-dataset",
+            "runbooks/extend-trajectories",
+            "runbooks/train-with-autoscientist",
           ],
         },
         {

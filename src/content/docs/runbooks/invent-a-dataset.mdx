@@ -6,13 +6,13 @@ description: Generate a 100-row medical Q&A dataset from a single prompt, downlo
 import { Callout } from "@stainless-api/docs/components";
 
 <Callout variant="tip">
-  **Run this tutorial as a notebook**
+  **Run this runbook as a notebook**
 
 [Open in Google Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/invent_a_dataset.ipynb) or view the [source on GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/invent_a_dataset.ipynb).
 
 </Callout>
 
-This tutorial generates a training-ready dataset from scratch with [Invent a Dataset](/adaptive-data/invent-a-dataset). You write one `dataset_prompt` and need no source data. The example builds a 100-row medical question-answer dataset, then measures how varied the rows are.
+This runbook generates a training-ready dataset from scratch with [Invent a Dataset](/adaptive-data/invent-a-dataset). You write one `dataset_prompt` and need no source data. The example builds a 100-row medical question-answer dataset, then measures how varied the rows are.
 
 **Read more on the blog:** [Invent a Dataset: Data Generation for Custom Models](https://adaptionlabs.ai/blog/introducing-invent-a-dataset) and [Invent a Dataset: Measuring Dataset Generation Abilities with Zero Seed Data](https://adaptionlabs.ai/blog/measuring-dataset-generation-abilities-with-zero-seed-data).
 
@@ -147,6 +147,6 @@ print(f"Diversity score: {result['dcscore']:.1f} / {result['n']} rows  (normaliz
 
 ## Next steps
 
-- Grow the dataset with [Expand a dataset](/tutorials/expand-a-dataset).
+- Grow the dataset with [Expand a dataset](/runbooks/expand-a-dataset).
 - Check quality with [Evaluate dataset quality](/adaptive-data/evaluate-dataset-quality).
-- Train a model on it with [Train a model with AutoScientist](/tutorials/train-with-autoscientist).
+- Train a model on it with [Train a model with AutoScientist](/runbooks/train-with-autoscientist).
