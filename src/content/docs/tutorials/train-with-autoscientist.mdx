@@ -88,8 +88,9 @@ import math
 
 dataset = client.datasets.get(dataset_id=upload_response.dataset_id)
 
-domain_rows_to_add = max(0, 20_000 - dataset.row_count)
-total_domain_rows = dataset.row_count + domain_rows_to_add
+row_count = dataset.row_count or 0
+domain_rows_to_add = max(0, 20_000 - row_count)
+total_domain_rows = row_count + domain_rows_to_add
 
 target_general_ratio = 0.4
 general_rows_to_add = math.ceil((target_general_ratio * total_domain_rows) / (1 - target_general_ratio))
