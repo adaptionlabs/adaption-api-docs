@@ -1,0 +1,39 @@
+---
+title: Overview
+description: Step-by-step workflows for the Adaption API and app. Run the notebooks in Google Colab or follow along in the docs.
+---
+
+Runbooks take you through a complete workflow from start to finish. The notebook runbooks come from the [adaption-runbooks](https://github.com/adaptionlabs/adaption-runbooks) repo on GitHub. Each one has a page here and a notebook you can open in Google Colab or run locally.
+
+## Get started
+
+1. Get an API key from the [Adaption app](https://adaptionlabs.ai/app/auth). See [Create API keys](/introduction/create-api-keys).
+2. Open a notebook in Colab and add `ADAPTION_API_KEY` to Colab secrets (🔑 in the sidebar).
+
+To run the notebooks locally, clone the [repo](https://github.com/adaptionlabs/adaption-runbooks) and run:
+
+```shell
+export ADAPTION_API_KEY=...
+uv run --with adaption --with jupyterlab jupyter lab
+```
+
+## Notebook runbooks
+
+| Runbook                                                                | What it does                                                              | Notebook                                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Invent a Medical Q&A Dataset](/runbooks/invent-a-dataset)             | Generates a dataset from one prompt and scores its diversity              | [Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/invent_a_dataset.ipynb) · [GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/invent_a_dataset.ipynb)     |
+| [Expand a Dataset](/runbooks/expand-a-dataset)                         | Grows 500 GSM8K rows with domain, general, and similar rows               | [Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/expand_dataset.ipynb) · [GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/expand_dataset.ipynb)         |
+| [Extend Conversation Trajectories](/runbooks/extend-trajectories)      | Writes next user turns that need the whole conversation to answer         | [Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/extendtrajectories.ipynb) · [GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/extendtrajectories.ipynb) |
+| [Train a Model with AutoScientist](/runbooks/train-with-autoscientist) | Trains on Alpaca with data augmentation and downloads the best checkpoint | [Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/autoscientist/autoscientist.ipynb) · [GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/autoscientist/autoscientist.ipynb)           |
+
+## App runbooks
+
+These walk through the Adaption app, with no code.
+
+- [Adaptive Data App Walkthrough](/runbooks/adaptive-data-app-walkthrough): import a dataset, map its columns, run adaptation, and review the results.
+- [Processing Unstructured Documents](/runbooks/processing-unstructured-documents): turn PDFs, spreadsheets, and slide decks into a dataset.
+- [AutoScientist App Walkthrough](/runbooks/autoscientist-app-walkthrough): pick a dataset, launch training, and read the result.
+
+## Contribute
+
+To add a runbook, see [CONTRIBUTING.md](https://github.com/adaptionlabs/adaption-runbooks/blob/main/CONTRIBUTING.md) in the repo.

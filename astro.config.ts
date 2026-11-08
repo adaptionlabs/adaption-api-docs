@@ -191,6 +191,7 @@ export default defineConfig({
         {
           label: "Runbooks",
           items: [
+            "runbooks/overview",
             "runbooks/adaptive-data-app-walkthrough",
             "runbooks/processing-unstructured-documents",
             "runbooks/autoscientist-app-walkthrough",
