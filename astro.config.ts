@@ -194,6 +194,10 @@ export default defineConfig({
             "tutorials/adaptive-data-app-walkthrough",
             "tutorials/processing-unstructured-documents",
             "tutorials/autoscientist-app-walkthrough",
+            "tutorials/invent-a-dataset",
+            "tutorials/expand-a-dataset",
+            "tutorials/extend-trajectories",
+            "tutorials/train-with-autoscientist",
           ],
         },
         {

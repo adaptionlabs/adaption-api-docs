@@ -1,0 +1,152 @@
+---
+title: Invent a Medical Q&A Dataset
+description: Generate a 100-row medical Q&A dataset from a single prompt, download it, and score its diversity with DCScore.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **Run this tutorial as a notebook**
+
+[Open in Google Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/invent_a_dataset.ipynb) or view the [source on GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/invent_a_dataset.ipynb).
+
+</Callout>
+
+This tutorial generates a training-ready dataset from scratch with [Invent a Dataset](/adaptive-data/invent-a-dataset). You write one `dataset_prompt` and need no source data. The example builds a 100-row medical question-answer dataset, then measures how varied the rows are.
+
+**Read more on the blog:** [Invent a Dataset: Data Generation for Custom Models](https://adaptionlabs.ai/blog/introducing-invent-a-dataset) and [Invent a Dataset: Measuring Dataset Generation Abilities with Zero Seed Data](https://adaptionlabs.ai/blog/measuring-dataset-generation-abilities-with-zero-seed-data).
+
+## Before you start
+
+You need an Adaption API key. See [Create API keys](/introduction/create-api-keys). In Colab, add it to the secrets panel as `ADAPTION_API_KEY`. Locally, set it as an environment variable.
+
+## Step 1 | Install the SDK
+
+```shell
+pip install adaption
+```
+
+## Step 2 | Create the client
+
+```python
+import os
+
+from adaption import Adaption
+
+if "ADAPTION_API_KEY" not in os.environ:
+    try:
+        from google.colab import userdata  # Colab secrets
+
+        os.environ["ADAPTION_API_KEY"] = userdata.get("ADAPTION_API_KEY")
+    except ImportError:
+        from getpass import getpass
+
+        os.environ["ADAPTION_API_KEY"] = getpass("ADAPTION_API_KEY: ")
+
+client = Adaption()
+```
+
+## Step 3 | Estimate the cost
+
+Ask for an estimate first. Passing `estimate=True` returns the credit cost without starting a run.
+
+```python
+estimate = client.datasets.invent(
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles."
+    ),
+    rows=100,
+    estimate=True,
+)
+print(f"Estimated credits: {estimate.estimated_credits} | Available credits: {estimate.available_credits}")
+```
+
+## Step 4 | Invent the dataset
+
+Drop `estimate=True` and give the dataset a name. `training_type="instruction_dataset"` produces prompt and completion pairs. To invent preference pairs for alignment, pass `training_type="preference_pairs"` instead.
+
+```python
+dataset = client.datasets.invent(
+    name="Clinical Q&A",
+    dataset_prompt=(
+        "A dataset of medical question-answer pairs covering diagnoses, treatments, "
+        "drug explanations, and healthcare roles."
+    ),
+    rows=100,
+    training_type="instruction_dataset",
+)
+dataset_id = dataset.id
+print(dataset_id, dataset.status)  # running
+```
+
+Invent can also produce the dataset in other languages and locales. See [Expand across languages and locales](/adaptive-data/invent-a-dataset#expand-across-languages-and-locales).
+
+## Step 5 | Wait for the run to finish
+
+The run is asynchronous. `wait_for_completion` polls until the dataset is ready.
+
+```python
+record = client.datasets.wait_for_completion(dataset_id)
+print(f"Generated {record.row_count} rows")
+```
+
+## Step 6 | Download and view the rows
+
+```python
+import pandas as pd
+
+client.datasets.download(
+    dataset_id,
+    file_format="jsonl",
+).write_to_file("clinical-qa.jsonl")
+
+df = pd.read_json("clinical-qa.jsonl", lines=True)
+df.head()
+```
+
+In Colab, `google.colab.data_table.DataTable(df)` gives a sortable, searchable table.
+
+## Step 7 | Score diversity with DCScore
+
+[DCScore](https://arxiv.org/abs/2502.08512) measures dataset diversity by treating it as a classification task over embeddings. The score runs from `1` (every row identical) to `N` (every row distinct), so the example also reports it divided by `N`.
+
+Fetch the reference code and the embedding library. Rows are embedded with `all-mpnet-base-v2`, the default text model in the DCScore paper.
+
+```shell
+git clone -q https://github.com/BlueWhaleLab/DCScore
+pip install -q sentence-transformers
+```
+
+```python
+import json
+import sys
+
+sys.path.append("DCScore")
+from dcscore_function import DCScore
+
+
+def evaluate_diversity(texts, model="sentence-transformers/all-mpnet-base-v2", batch_size=128, tau=0.1):
+    """Return DCScore for a list of texts. 1 = all identical, len(texts) = all distinct."""
+    evaluator = DCScore(model)
+    embeddings, n, _ = evaluator.get_embedding(texts, batch_size=batch_size)
+    score = evaluator.calculate_dcscore_by_embedding(embeddings, kernel_type="cs", tau=tau)
+    return {"dcscore": score, "normalized": score / n, "n": n}
+
+
+rows = []
+with open("clinical-qa.jsonl", encoding="utf-8") as file:
+    for line in file:
+        if line.strip():
+            rows.append(json.loads(line))
+
+data = [f"{r['enhanced_prompt']}\n\n{r['enhanced_completion']}" for r in rows]
+result = evaluate_diversity(data)
+print(f"Diversity score: {result['dcscore']:.1f} / {result['n']} rows  (normalized {result['normalized']:.3f})")
+```
+
+## Next steps
+
+- Grow the dataset with [Expand a dataset](/tutorials/expand-a-dataset).
+- Check quality with [Evaluate dataset quality](/adaptive-data/evaluate-dataset-quality).
+- Train a model on it with [Train a model with AutoScientist](/tutorials/train-with-autoscientist).
