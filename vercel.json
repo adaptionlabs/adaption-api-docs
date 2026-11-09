@@ -71,5 +71,13 @@
       "destination": "/tutorials/processing-unstructured-documents/",
       "permanent": true
     }
+  ],
+  "headers": [
+    {
+      "source": "/llms-full.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
+    }
   ]
 }
