@@ -1,0 +1,243 @@
+---
+title: Expand a Dataset
+description: Upload 500 GSM8K rows, grow them with domain, general, and similar rows, and compare what each kind of row looks like.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **Run this runbook as a notebook**
+
+[Open in Google Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/expand_dataset.ipynb) or view the [source on GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/expand_dataset.ipynb).
+
+</Callout>
+
+This runbook takes 500 rows of [GSM8K](https://huggingface.co/datasets/openai/gsm8k) and grows them three ways with [Expand data](/adaptive-data/expand-data): **domain**, **general**, and **similar** rows, 100 of each. It then shows a sample of each kind so you can compare them.
+
+Runtime is about an hour. Cost is low (3 × 100 added rows); the exact figure is printed before the run.
+
+## Before you start
+
+You need an Adaption API key. See [Create API keys](/introduction/create-api-keys). In Colab, add it to the secrets panel as `ADAPTION_API_KEY`. Locally, set it as an environment variable.
+
+## Step 1 | Install and set up
+
+```shell
+pip install adaption pandas pyarrow
+```
+
+```python
+import os
+
+from adaption import Adaption
+
+if "ADAPTION_API_KEY" not in os.environ:
+    try:
+        from google.colab import userdata  # Colab secrets
+
+        os.environ["ADAPTION_API_KEY"] = userdata.get("ADAPTION_API_KEY")
+    except ImportError:
+        from getpass import getpass
+
+        os.environ["ADAPTION_API_KEY"] = getpass("ADAPTION_API_KEY: ")
+
+client = Adaption()
+
+PARQUET_URL = "https://huggingface.co/datasets/openai/gsm8k/resolve/main/main/train-00000-of-00001.parquet"
+NUM_ROWS = 500  # rows of GSM8K to upload; this is the dataset we expand
+
+# One expansion per strategy, so each output dataset holds the seed plus one kind of row.
+EXPANSIONS = {
+    "domain": {"domain_rows": 100},
+    "general": {"general_rows": 100},
+    "similar": {"similar_rows": 100},
+}
+
+SAMPLES_TO_SHOW = 3
+```
+
+## Step 2 | Add helper functions
+
+- `wait` waits for a dataset job and raises with the API's error message if it failed.
+- `download` downloads a dataset as JSONL and loads it into a DataFrame.
+- `show_rows` shows a sample of rows as prompt and completion cards.
+- `added_rows` picks out the rows an expansion added.
+
+```python
+import html
+
+import pandas as pd
+from IPython.display import HTML, display
+
+
+def wait(dataset_id: str, what: str):
+    """Wait for a dataset job and raise with the API's message if it failed."""
+    status = client.datasets.wait_for_completion(dataset_id, timeout=3 * 3600)
+    if status.status == "failed":
+        msg = (status.error_data and status.error_data.message) or "unknown error"
+        raise RuntimeError(f"{what} failed: {msg}")
+    print(f"{what}: {status.status}, {status.row_count} rows")
+    return status
+
+
+def download(dataset_id: str, path: str) -> pd.DataFrame:
+    client.datasets.download(dataset_id, file_format="jsonl").write_to_file(path)
+    return pd.read_json(path, lines=True)
+
+
+def first_present(row, columns):
+    for col in columns:
+        value = row.get(col)
+        if isinstance(value, str) and value.strip() and value.strip() != "N/A":
+            return value
+    return ""
+
+
+PROMPT_COLS = ["original_prompt", "enhanced_prompt", "prompt"]
+COMPLETION_COLS = ["original_completion", "enhanced_completion", "completion"]
+
+
+def show_rows(df: pd.DataFrame, title: str, n: int = SAMPLES_TO_SHOW, seed: int = 0):
+    """Render n rows as prompt/completion cards."""
+    sample = df.sample(min(n, len(df)), random_state=seed)
+    cards = []
+    for _, row in sample.iterrows():
+        prompt = html.escape(first_present(row, PROMPT_COLS))
+        completion = html.escape(first_present(row, COMPLETION_COLS))
+        cards.append(
+            "<div style='border:1px solid #d4d4d8;border-radius:8px;padding:12px 14px;margin:10px 0'>"
+            f"<div style='font-weight:600;margin-bottom:4px'>Prompt</div>"
+            f"<div style='white-space:pre-wrap;margin-bottom:10px'>{prompt}</div>"
+            f"<div style='font-weight:600;margin-bottom:4px'>Completion</div>"
+            f"<div style='white-space:pre-wrap;color:#52525b'>{completion}</div>"
+            "</div>"
+        )
+    display(HTML(f"<h4>{html.escape(title)}</h4>" + "".join(cards)))
+
+
+def added_rows(df: pd.DataFrame, seed_prompts: set) -> pd.DataFrame:
+    """Rows the expansion added, as opposed to the seed rows it carries over.
+
+    The download does not tag rows by origin, so an added row is one whose
+    prompt is not among the seed prompts.
+    """
+    prompts = df.apply(lambda r: first_present(r, PROMPT_COLS), axis=1)
+    return df[~prompts.isin(seed_prompts)]
+```
+
+## Step 3 | Take a 500-row slice of GSM8K
+
+GSM8K has about 7,500 grade-school math word problems, each with a step-by-step solution. Download the train split and keep 500 random rows.
+
+```python
+import urllib.request
+
+urllib.request.urlretrieve(PARQUET_URL, "gsm8k-train.parquet")
+seed_df = pd.read_parquet("gsm8k-train.parquet").sample(NUM_ROWS, random_state=0)
+seed_df.to_parquet("gsm8k-seed.parquet", index=False)
+print(f"{len(seed_df)} rows, columns: {list(seed_df.columns)}")
+```
+
+## Step 4 | Upload the rows
+
+Expansion needs a dataset that is ready to read. Instead of running Adaptive Data on it, upload the rows with `processing_mode="raw"`, which takes them as they are: `question` becomes the prompt and `answer` the completion. See [`datasets.upload_file`](/api/python/resources/datasets/methods/create).
+
+```python
+upload = client.datasets.upload_file(
+    "gsm8k-seed.parquet",
+    name="GSM8K seed (500 rows)",
+    processing_mode="raw",
+    column_mapping={"prompt": "question", "completion": "answer"},
+)
+dataset_id = upload.dataset_id
+print(dataset_id)
+
+wait(dataset_id, "Upload")
+
+seed_view = seed_df.rename(columns={"question": "prompt", "answer": "completion"})
+seed_prompts = set(seed_view["prompt"])
+show_rows(seed_view, "Seed rows (GSM8K, as uploaded)")
+```
+
+## Step 5 | Expand with domain, general, and similar rows
+
+[`datasets.augment`](/api/python/resources/datasets/methods/augment) returns a **new dataset** with the seed rows plus the added ones. The seed is left unchanged. It supports three kinds of row:
+
+| Strategy | Parameter      | Where rows come from                                         |
+| -------- | -------------- | ------------------------------------------------------------ |
+| Domain   | `domain_rows`  | Rows **matching the topics** of your dataset                 |
+| General  | `general_rows` | Rows from **other topics**, to broaden coverage              |
+| Similar  | `similar_rows` | New rows in the style, language, and format of your own rows |
+
+You can combine all three in one call. Here, each strategy runs on its own so each output holds one kind of added row. Price all three first:
+
+```python
+total = 0
+for name, rows in EXPANSIONS.items():
+    est = client.datasets.augment(dataset_id, **rows, estimate=True)
+    total += est.estimated_credits_consumed
+    print(f"{name:>8}: {est.estimated_credits_consumed} credits")
+print(f"{'total':>8}: {total} credits")
+```
+
+Launch all three. The `idempotency_key` makes re-running safe: a repeat returns the dataset already created instead of starting, and charging for, a second run.
+
+```python
+expanded_ids = {}
+for name, rows in EXPANSIONS.items():
+    response = client.datasets.augment(
+        dataset_id,
+        **rows,
+        idempotency_key=f"expand-runbook-{dataset_id}-{name}",
+    )
+    expanded_ids[name] = response.dataset_id
+    print(f"{name:>8}: {response.dataset_id} ({response.status})")
+```
+
+Wait for each expansion. A timeout only stops waiting, not the job; run the code again to resume.
+
+```python
+for name, expanded_id in expanded_ids.items():
+    wait(expanded_id, f"{name} expansion")
+
+expanded = {}
+for name, expanded_id in expanded_ids.items():
+    df = download(expanded_id, f"gsm8k-{name}.jsonl")
+    new = added_rows(df, seed_prompts)
+    expanded[name] = new
+    print(f"{name:>8}: {len(df)} rows total = {len(df) - len(new)} seed + {len(new)} added")
+```
+
+## Step 6 | Compare each kind of row
+
+The expanded dataset does not label which rows were added, so the code above splits each one by prompt: any row whose prompt is not in the seed was added. Because each expansion ran one strategy, every added row in it comes from that strategy.
+
+### Domain rows: more of the same topic
+
+For GSM8K, domain rows are more math, arithmetic, and multi-step word problems. Use them when your dataset is too small to train on but the pool already covers your domain.
+
+```python
+show_rows(expanded["domain"], "Domain rows")
+```
+
+### General rows: broader coverage
+
+General rows come from topics _outside_ your dataset, such as coding, writing, science, and everyday questions. They don't teach the target task. They keep a fine-tuned model from over-specializing and losing its general abilities. A common recipe keeps about 40% general rows alongside your domain data.
+
+```python
+show_rows(expanded["general"], "General rows")
+```
+
+### Similar rows: written in your style
+
+Similar rows follow the topic, language, and format of your own rows. Here that means a short word problem, a worked solution with `<<…>>` calculator notes, and a final `#### <answer>` line. Use them when the pool has little that looks like your data, or when the format itself matters.
+
+```python
+show_rows(expanded["similar"], "Similar rows")
+```
+
+## Next steps
+
+- Join the seed and the expansions you want into one training set with [Combine datasets](/adaptive-data/combine-datasets), or request all three kinds in one `augment` call.
+- Add other languages with [`translate` and `localize`](/adaptive-data/expand-data#translate-rows).
+- Train on the result with [Train a model with AutoScientist](/runbooks/train-with-autoscientist).

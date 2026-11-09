@@ -6,7 +6,7 @@ const SECTIONS: Record<string, string> = {
   "inference-stacks": "Inference Stacks",
   "adaptive-data": "Adaptive Data",
   autoscientist: "AutoScientist",
-  tutorials: "Tutorials",
+  runbooks: "Runbooks",
   tools: "Tools",
   resources: "Resources",
   guides: "Guides",

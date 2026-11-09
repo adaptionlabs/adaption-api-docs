@@ -68,7 +68,22 @@
     },
     {
       "source": "/guides/processing-unstructured-documents{/}?",
-      "destination": "/tutorials/processing-unstructured-documents/",
+      "destination": "/runbooks/processing-unstructured-documents/",
+      "permanent": true
+    },
+    {
+      "source": "/tutorials/adaptive-data-app-walkthrough{/}?",
+      "destination": "/runbooks/adaptive-data-app-walkthrough/",
+      "permanent": true
+    },
+    {
+      "source": "/tutorials/processing-unstructured-documents{/}?",
+      "destination": "/runbooks/processing-unstructured-documents/",
+      "permanent": true
+    },
+    {
+      "source": "/tutorials/autoscientist-app-walkthrough{/}?",
+      "destination": "/runbooks/autoscientist-app-walkthrough/",
       "permanent": true
     }
   ]

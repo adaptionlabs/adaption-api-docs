@@ -1,0 +1,202 @@
+---
+title: Extend Conversation Trajectories
+description: Generate next user turns for WildChat conversations that a model can only answer well by using the whole conversation.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **Run this runbook as a notebook**
+
+[Open in Google Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/extendtrajectories.ipynb) or view the [source on GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/adaptive-data/extendtrajectories.ipynb).
+
+</Callout>
+
+This runbook runs [Extend Trajectories](/adaptive-data/extend-trajectories) on 20 conversations from [WildChat-1M](https://huggingface.co/datasets/allenai/WildChat-1M). Runtime is minutes and cost is low.
+
+Extend Trajectories is available through the API, not the web app.
+
+## The problem
+
+In most multi-turn training data, the next user message can be answered from the assistant's last reply alone. Models trained on it learn that recent context is enough. In production that fails in ways like these:
+
+- A user asks for something that sounds harmless, but a rule in the system prompt rules it out.
+- A request the model declined earlier comes back smaller or more urgent, and the model approves it.
+- A detail the user gave early on should change the answer, but the model never uses it.
+
+Public benchmarks such as [MultiChallenge](https://labs.scale.com/leaderboard/multichallenge) and [τ-bench](https://taubench.com/leaderboard?benchmark=core) measure these behaviors, and frontier models still miss some of them.
+
+## What Extend Trajectories does
+
+For each conversation, Extend Trajectories writes the user's next message, in the same user's voice and the conversation's own language. A model that answers from the last reply alone will likely get it wrong. A model that tracks the whole conversation can get it right.
+
+Your source dataset stays untouched. Each run makes a new dataset with the generated message in an `extended_prompt` column.
+
+**Wealth-management chatbot.** A retiree said they could accept at most a 10% loss, and the assistant declined to put \$100,000 into a high-risk fund. Generated next message:
+
+> "That makes sense, but since I don't need the income, could I put \$100,000 into Apex and the rest into Conservative Income?"
+
+**Chinese-language chat.** At the start, the user asked for a 3,500-character plan. Section 3 lists a drone inspection system, and section 5 lists funding sources. Generated next message:
+
+> "现在文档字数达到最初要求的 3500 字了吗？另外，第三部分提到的基于无人机技术的监理巡查系统，能否结合第五部分的科研经费来源，补充说明该项目的预算分配和预期回报周期？"
+>
+> _(Has the document reached the 3,500 characters I asked for at the start? And can you add a budget split and payback period for the drone inspection system in section 3, using the funding sources in section 5?)_
+
+Each message sounds reasonable on its own. Answering it well depends on something earlier in the conversation.
+
+## Before you start
+
+You need an Adaption API key. See [Create API keys](/introduction/create-api-keys). In Colab, add it to the secrets panel as `ADAPTION_API_KEY`. Locally, set it as an environment variable.
+
+## Step 1 | Install and set up
+
+```shell
+pip install adaption
+```
+
+```python
+import os
+
+from adaption import Adaption
+
+if "ADAPTION_API_KEY" not in os.environ:
+    try:
+        from google.colab import userdata  # Colab secrets
+
+        os.environ["ADAPTION_API_KEY"] = userdata.get("ADAPTION_API_KEY")
+    except ImportError:
+        from getpass import getpass
+
+        os.environ["ADAPTION_API_KEY"] = getpass("ADAPTION_API_KEY: ")
+
+client = Adaption()
+```
+
+## Step 2 | Import a dataset
+
+You can import from Hugging Face or upload a local file. This example imports one WildChat file from Hugging Face.
+
+```python
+dataset = client.datasets.create(
+    source={
+        "url": "https://huggingface.co/datasets/allenai/WildChat-1M",
+        "files": ["data/train-00000-of-00014.parquet"],
+    },
+)
+
+# Or upload a local file:
+# dataset = client.datasets.upload_file("/path/to/file.ext")
+
+dataset_id = dataset.dataset_id
+print(dataset_id)
+```
+
+Wait until the import finishes:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        print(f"Imported {status.row_count} rows")
+        break
+    time.sleep(5)
+```
+
+## Step 3 | Estimate the run
+
+Map the column that holds the conversation to `chat`, and cap the run at 20 rows.
+
+```python
+column_mapping = {"chat": "conversation"}
+job_specification = {"max_rows": 20}
+
+estimate = client.datasets.extend_trajectories(
+    dataset_id=dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+    estimate=True,
+)
+print(f"~{estimate.estimated_minutes:.0f} min, {estimate.estimated_credits_consumed:.0f} credits")
+```
+
+## Step 4 | Start the run and wait
+
+```python
+extension = client.datasets.extend_trajectories(
+    dataset_id=dataset_id,
+    column_mapping=column_mapping,
+    job_specification=job_specification,
+)
+print(f"Run started: {extension.run_id}")
+
+extended_id = extension.dataset_id  # the new dataset; None only for estimates
+if extended_id is None:
+    raise RuntimeError("The run did not return a dataset ID")
+
+status = client.datasets.wait_for_completion(extended_id, timeout=3600)
+if status.status == "failed":
+    raise RuntimeError(f"Run {extension.run_id} failed: {status.error_data}")
+print(status.status)
+```
+
+## Step 5 | Download and inspect
+
+`client.datasets.download(...)` returns a response you can read three ways: `.read()` for bytes, `.text()` for a string, or `.write_to_file(path)` to save it. This example saves a CSV.
+
+```python
+client.datasets.download(
+    dataset_id=extended_id,
+    file_format="csv",
+).write_to_file("wildchat_extended.csv")
+```
+
+Print one conversation followed by its generated next turn:
+
+```python
+import json
+import textwrap
+
+import pandas as pd
+
+data = pd.read_csv("wildchat_extended.csv")
+WIDTH = 80
+
+
+def show(row, limit=500):
+    turns = json.loads(row["original_prompt"])
+    turns.append({"role": "assistant", "content": row["original_completion"]})
+
+    for i, turn in enumerate(turns, 1):
+        header = f"── Turn {i} · {turn['role'].upper()} "
+        print(header + "─" * (WIDTH - len(header)))
+        print(textwrap.fill(turn["content"][:limit], WIDTH), "\n")
+
+    print("═" * WIDTH)
+    print("GENERATED NEXT USER TURN")
+    print("═" * WIDTH)
+    print(textwrap.fill(row["extended_prompt"], WIDTH))
+
+
+show(data.iloc[4])
+```
+
+## Use the output
+
+Extend Trajectories writes the question. Your pipeline writes the answer.
+
+- **Training:** append `extended_prompt` as a user turn, let the model you're training respond with the same system prompt and tools, grade the replies, and train on the ones that got it right, with SFT or as RL episodes.
+- **Evaluation:** each extended conversation is a ready-made test case. Give your agent the history and the generated turn, and check whether its reply uses what came earlier.
+
+## Tips
+
+- **Choose conversations with something to remember.** Policies, limits, decisions, and amounts give the generator more to build on, and longer conversations give it more.
+- **Roll out under the original conditions.** For agents, the environment state should match what already happened in the conversation.
+- **Start small.** Run a few hundred rows, check the output, then scale up.
+
+_Demo data: [WildChat-1M](https://huggingface.co/datasets/allenai/WildChat-1M) (Allen Institute for AI)._

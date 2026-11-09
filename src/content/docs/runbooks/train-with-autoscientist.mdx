@@ -1,0 +1,135 @@
+---
+title: Train a Model with AutoScientist
+description: Import the Alpaca dataset from Hugging Face, train with AutoScientist and data augmentation, and download the best checkpoint.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+<Callout variant="tip">
+  **Run this runbook as a notebook**
+
+[Open in Google Colab](https://colab.research.google.com/github/adaptionlabs/adaption-runbooks/blob/main/autoscientist/autoscientist.ipynb) or view the [source on GitHub](https://github.com/adaptionlabs/adaption-runbooks/blob/main/autoscientist/autoscientist.ipynb).
+
+</Callout>
+
+This runbook imports the [Alpaca](https://huggingface.co/datasets/tatsu-lab/alpaca) instruction dataset, trains a model with [AutoScientist](/autoscientist/overview) using [data augmentation](/autoscientist/data-augmentation), and downloads the best checkpoint.
+
+Runtime is hours, and the run uses training credits.
+
+**Read more on the blog:** [AutoScientist: Automating the Science of Model Training](https://adaptionlabs.ai/blog/autoscientist) and [AutoScientist API: Automated Model Training](https://adaptionlabs.ai/blog/autoscientist-api).
+
+## Before you start
+
+You need an Adaption API key. See [Create API keys](/introduction/create-api-keys). In Colab, add it to the secrets panel as `ADAPTION_API_KEY`. Locally, set it as an environment variable.
+
+## Step 1 | Install and set up
+
+```shell
+pip install adaption
+```
+
+```python
+import os
+
+from adaption import Adaption
+
+if "ADAPTION_API_KEY" not in os.environ:
+    try:
+        from google.colab import userdata  # Colab secrets
+
+        os.environ["ADAPTION_API_KEY"] = userdata.get("ADAPTION_API_KEY")
+    except ImportError:
+        from getpass import getpass
+
+        os.environ["ADAPTION_API_KEY"] = getpass("ADAPTION_API_KEY: ")
+
+client = Adaption()
+```
+
+## Step 2 | Import the dataset
+
+```python
+upload_response = client.datasets.create_from_huggingface(
+    url="https://huggingface.co/datasets/tatsu-lab/alpaca",
+    files=["data/train-00000-of-00001-a09b74b3ef9c3b56.parquet"],
+)
+print(upload_response.dataset_id)
+```
+
+Wait until the import finishes and the row count is set:
+
+```python
+import time
+
+while True:
+    status = client.datasets.get_status(upload_response.dataset_id)
+    if status.status == "failed":
+        err = status.error_data
+        msg = (err and err.message) or "unknown error"
+        raise RuntimeError(f"Ingestion failed: {msg}")
+    if status.row_count is not None:
+        break
+    time.sleep(5)
+```
+
+## Step 3 | Choose how many rows to add
+
+AutoScientist picks the model, recipe, iteration limit, target win rate, and training columns. See [Running AutoScientist](/autoscientist/running-autoscientist) for details.
+
+Augmentation is optional, but strongly recommended when your dataset is small or lacks variety. More rows give the model more to learn from and help reduce overfitting and the loss of general abilities.
+
+Aim for at least 20,000 domain rows, with 40% general rows to keep the model's broader abilities:
+
+- **Domain rows** add data specific to your dataset's domain. Your existing rows count toward the 20,000 target.
+- **General rows** add varied, general-purpose examples.
+
+```python
+import math
+
+dataset = client.datasets.get(dataset_id=upload_response.dataset_id)
+
+row_count = dataset.row_count or 0
+domain_rows_to_add = max(0, 20_000 - row_count)
+total_domain_rows = row_count + domain_rows_to_add
+
+target_general_ratio = 0.4
+general_rows_to_add = math.ceil((target_general_ratio * total_domain_rows) / (1 - target_general_ratio))
+print(total_domain_rows, (domain_rows_to_add, general_rows_to_add))
+```
+
+## Step 4 | Start training
+
+The added rows join the training data before AutoScientist starts its training rounds.
+
+```python
+run = client.autoscientist.create(
+    dataset_id=dataset.dataset_id,
+    augmentation_domain_rows=domain_rows_to_add,
+    augmentation_general_rows=general_rows_to_add,
+)
+print(run.id, run.status)
+```
+
+## Step 5 | Wait for the run to finish
+
+```python
+run = client.autoscientist.wait_for_completion(run.id)
+print(run.status, run.best_win_rate)
+
+if run.status != "succeeded":
+    raise RuntimeError(f"AutoScientist ended with {run.status}")
+```
+
+See [Interpreting results](/autoscientist/interpreting-results) for what the win rate means.
+
+## Step 6 | Download the model
+
+```python
+if not run.download_available:
+    raise RuntimeError("The checkpoint is not available for download")
+
+with client.autoscientist.with_streaming_response.download(run.id) as response:
+    response.stream_to_file("best-checkpoint.tgz")
+```
+
+See [Download the model](/autoscientist/download-the-model) for what the archive holds and how to serve it.
