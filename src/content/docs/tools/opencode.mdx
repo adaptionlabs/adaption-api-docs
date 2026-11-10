@@ -1,11 +1,11 @@
 ---
 title: OpenCode
-description: Configure Adaption as an inference provider in OpenCode and generate model responses with the Responses API.
+description: Configure Adaption as an inference provider in OpenCode and code with Adaption models.
 ---
 
 OpenCode can use Adaption's hosted models as an inference provider. Adaption serves the OpenAI Responses API, so OpenCode's compatible Responses runtime connects without a plugin. You bring an [Adaption API key](/introduction/create-api-keys) and a model ID from [Models](/inference-stacks/models).
 
-You can also connect the [Adaption MCP server](/tools/mcp) separately to give OpenCode tools for datasets and AutoScientist runs. The two setups are independent.
+You can also connect the [Adaption MCP server](/tools/mcp) separately to give OpenCode tools for interacting with the Adaption Platform.
 
 ## Create and export an API key
 
@@ -17,8 +17,6 @@ You can also connect the [Adaption MCP server](/tools/mcp) separately to give Op
    ```bash
    export ADAPTION_API_KEY="pt_live_..."
    ```
-
-Do not commit a configuration file containing a real key.
 
 ## Add the provider
 
@@ -71,7 +69,7 @@ Config changes apply without a restart. OpenCode watches the file and reloads pr
 
 ## Select a model
 
-In the TUI, run `/models` and choose an `adaption/...` entry. To set a default instead, set the top-level `model` field:
+In the TUI, run `/models` and choose an entry. To set a default instead, set the top-level `model` field:
 
 ```jsonc title="opencode.jsonc"
 {
@@ -94,37 +92,9 @@ In the TUI, run `/models` and choose an `adaption/...` entry. To set a default i
 
 Then ask OpenCode:
 
-> Write a one-sentence bedtime story about a unicorn.
+> Explain this repository to me.
 
 The response comes from the Adaption Responses API. Streaming works the same way it does for any OpenCode model.
-
-## Use an inference stack
-
-An inference stack is a saved configuration of a model, tools, datasets, and memory. Pass its name as `stack:<name>` through the same provider.
-
-Stacks belong to your account and cannot be auto-discovered, so add one as a model entry whose key follows the `stack:<name>` pattern. The key is also what Adaption receives as the `model`:
-
-```jsonc title="opencode.jsonc"
-{
-  "$schema": "https://opencode.ai/config.json",
-  "providers": {
-    "adaption": {
-      "env": ["ADAPTION_API_KEY"],
-      "package": "@opencode/ai/providers/openai-compatible/responses",
-      "settings": {
-        "baseURL": "https://api.prod.adaptionlabs.ai/api/v1",
-      },
-      "models": {
-        "stack:support-assistant": {
-          "name": "Support Assistant Stack",
-        },
-      },
-    },
-  },
-}
-```
-
-Select `adaption/stack:support-assistant` in `/models`, or set `"model": "adaption/stack:support-assistant"`. See [Key concepts](/inference-stacks/key-concepts) for how a stack's model, tools, datasets, and memory apply to each request.
 
 ## Optional: connect the MCP server
 
@@ -140,9 +110,8 @@ See [MCP](/tools/mcp) for the complete tool catalog. The MCP server is separate 
 
 ## Troubleshooting
 
-- **`Model unavailable: adaption/...`** — The model key in the `models` map is not what your key grants. For a hosted model, the key must match a model ID from [Models](/inference-stacks/models). For a stack, the key must follow the `stack:<name>` pattern and match one of your stacks.
+- **`Model unavailable: ...`** — The model key in the `models` map is not what your key grants. For a hosted model, the key must match a model ID from [Models](/inference-stacks/models). For a stack, the key must follow the `stack:<name>` pattern and match one of your stacks.
 - **Requests fail with `401` or `missing required scope(s)`.** `ADAPTION_API_KEY` is unset in the OpenCode server's environment, or the key was created with a scope list that lacks `adaption-mcp:read` or `adaption-mcp:write`. See [Authentication and permissions](/tools/mcp#authentication-and-permissions).
-- **The wrong organization's data or stacks appear.** API keys are bound to one organization. Reissue a key in the organization you want and update `ADAPTION_API_KEY`.
 - **A request returns `502` or `503`.** The model provider could not complete the request, or inference is not configured for this environment. Wait and retry; if it persists, check the model's status in the Adaption app.
 
 ## Next steps
