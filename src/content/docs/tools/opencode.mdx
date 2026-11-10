@@ -110,7 +110,7 @@ See [MCP](/tools/mcp) for the complete tool catalog. The MCP server is separate 
 
 ## Troubleshooting
 
-- **`Model unavailable: ...`** — The model key in the `models` map is not what your key grants. For a hosted model, the key must match a model ID from [Models](/inference-stacks/models). For a stack, the key must follow the `stack:<name>` pattern and match one of your stacks.
+- **`Model unavailable: ...`** — The model key in the `models` map is not what your key grants. It must match a hosted model ID from [Models](/inference-stacks/models).
 - **Requests fail with `401` or `missing required scope(s)`.** `ADAPTION_API_KEY` is unset in the OpenCode server's environment, or the key was created with a scope list that lacks `adaption-mcp:read` or `adaption-mcp:write`. See [Authentication and permissions](/tools/mcp#authentication-and-permissions).
 - **A request returns `502` or `503`.** The model provider could not complete the request, or inference is not configured for this environment. Wait and retry; if it persists, check the model's status in the Adaption app.
 
