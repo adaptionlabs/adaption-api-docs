@@ -100,7 +100,7 @@ The response comes from the Adaption Responses API. Streaming works the same way
 
 ## Use an inference stack
 
-An inference stack is a saved configuration of a model, tools, datasets, and memory. Pass its slug as `stack:<slug>` through the same provider.
+An inference stack is a saved configuration of a model, tools, datasets, and memory. Pass its name as `stack:<name>` through the same provider.
 
 Stacks belong to your account and cannot be auto-discovered, so add one as a model entry whose key follows the `stack:<name>` pattern. The key is also what Adaption receives as the `model`:
 
@@ -140,7 +140,7 @@ See [MCP](/tools/mcp) for the complete tool catalog. The MCP server is separate 
 
 ## Troubleshooting
 
-- **`Model unavailable: adaption/...`** — The model ID in the `models` map is not what your key grants, or `modelID` does not match a hosted model or `stack:<slug>`. Confirm the ID against [Models](/inference-stacks/models) or your inference stacks page.
+- **`Model unavailable: adaption/...`** — The model key in the `models` map is not what your key grants. For a hosted model, the key must match a model ID from [Models](/inference-stacks/models). For a stack, the key must follow the `stack:<name>` pattern and match one of your stacks.
 - **Requests fail with `401` or `missing required scope(s)`.** `ADAPTION_API_KEY` is unset in the OpenCode server's environment, or the key was created with a scope list that lacks `adaption-mcp:read` or `adaption-mcp:write`. See [Authentication and permissions](/tools/mcp#authentication-and-permissions).
 - **The wrong organization's data or stacks appear.** API keys are bound to one organization. Reissue a key in the organization you want and update `ADAPTION_API_KEY`.
 - **A request returns `502` or `503`.** The model provider could not complete the request, or inference is not configured for this environment. Wait and retry; if it persists, check the model's status in the Adaption app.
