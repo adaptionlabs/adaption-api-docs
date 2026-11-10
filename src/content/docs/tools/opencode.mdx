@@ -102,7 +102,7 @@ The response comes from the Adaption Responses API. Streaming works the same way
 
 An inference stack is a saved configuration of a model, tools, datasets, and memory. Pass its slug as `stack:<slug>` through the same provider.
 
-Stacks belong to your account and cannot be auto-discovered, so add one as a model entry whose `modelID` points at the stack:
+Stacks belong to your account and cannot be auto-discovered, so add one as a model entry whose key follows the `stack:<name>` pattern. The key is also what Adaption receives as the `model`:
 
 ```jsonc title="opencode.jsonc"
 {
@@ -115,9 +115,8 @@ Stacks belong to your account and cannot be auto-discovered, so add one as a mod
         "baseURL": "https://api.prod.adaptionlabs.ai/api/v1",
       },
       "models": {
-        "support-assistant": {
+        "stack:support-assistant": {
           "name": "Support Assistant Stack",
-          "modelID": "stack:support-assistant",
         },
       },
     },
@@ -125,7 +124,7 @@ Stacks belong to your account and cannot be auto-discovered, so add one as a mod
 }
 ```
 
-Select `adaption/support-assistant` in `/models`, or set `"model": "adaption/support-assistant"`. See [Key concepts](/inference-stacks/key-concepts) for how a stack's model, tools, datasets, and memory apply to each request.
+Select `adaption/stack:support-assistant` in `/models`, or set `"model": "adaption/stack:support-assistant"`. See [Key concepts](/inference-stacks/key-concepts) for how a stack's model, tools, datasets, and memory apply to each request.
 
 ## Optional: connect the MCP server
 
