@@ -42,6 +42,11 @@ function dropNestedApiPages(links: string[]): string[] {
   });
 }
 
+// "/api/foo/" and "api/foo" both become "api/foo".
+function trimSlashes(pathname: string): string {
+  return pathname.replace(/^\/+|\/+$/g, "");
+}
+
 // Prose pages start with front matter (title, description) and no heading.
 // Turn that into a heading and summary line so each page reads on its own.
 function pageBody(markdown: string): string {
@@ -69,8 +74,9 @@ export default function llmsFullTxt(): AstroIntegration {
       "astro:config:done": ({ config }) => {
         site = config.site?.replace(/\/$/, "");
       },
-      "astro:build:done": async ({ dir, logger }) => {
+      "astro:build:done": async ({ dir, logger, pages }) => {
         const dist = fileURLToPath(dir);
+        const built = new Set(pages.map((page) => trimSlashes(page.pathname)));
         const llmsTxtPath = path.join(dist, LLMS_TXT);
         const llmsTxt = await readFile(llmsTxtPath, "utf8");
 
@@ -79,14 +85,14 @@ export default function llmsFullTxt(): AstroIntegration {
         const skipped: string[] = [];
 
         for (const link of dropNestedApiPages(pageLinks(llmsTxt))) {
-          let markdown: string;
-          try {
-            markdown = await readFile(path.join(dist, link), "utf8");
-          } catch {
-            // llms.txt also lists draft pages, which are not built.
+          // llms.txt also lists draft pages, which are not built.
+          if (!built.has(trimSlashes(link.replace(/index\.md$/, "")))) {
             skipped.push(link);
             continue;
           }
+          // A built page with no index.md means the Markdown output changed,
+          // so fail the build rather than ship a partial file.
+          const markdown = await readFile(path.join(dist, link), "utf8");
           const url = `${site ?? ""}${link.replace(/index\.md$/, "")}`;
           sections.push(`Source: ${url}\n\n${pageBody(markdown)}`);
         }
