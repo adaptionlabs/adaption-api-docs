@@ -204,6 +204,7 @@ export default defineConfig({
             "tools/claude-plugin",
             "tools/codex-plugin",
             "tools/hermes-plugin",
+            "tools/opencode",
             "oauth",
           ],
         },
