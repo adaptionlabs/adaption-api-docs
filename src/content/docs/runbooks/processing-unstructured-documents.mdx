@@ -5,7 +5,9 @@ description: Ingest PDFs, documents, spreadsheets, and slide decks in the Adapti
 
 Most organizational knowledge is stored in formats designed for people rather than tabular processing: PDFs, OCR'd documents, spreadsheets, word-processing files, slide decks, and email threads. Layouts, embedded tables, merged cells, handwriting, and footnotes make custom preprocessing slow and brittle.
 
-The Adaptive Data app accepts these files in their raw form. It extracts and structures the content, then produces a dataset that can use the same column mapping, adaptation, evaluation, and export flow as other datasets.
+Adaptive Data accepts these files in their raw form, in the app or through the API. It extracts and structures the content, then produces a dataset that can use the same column mapping, adaptation, evaluation, and export flow as other datasets.
+
+**Read more on the blog:** [Forge: Turn Unstructured Documents Into AI Ready Datasets](https://adaptionlabs.ai/blog/forge).
 
 ## What counts as an unstructured document?
 
@@ -37,6 +39,31 @@ Select the unit that should become one dataset row:
 The app previews the row count for both choices before you continue.
 
 ![The app offers two ways to split: import each entire document as a separate row, or import each document page as a separate row, with a row-count preview for each.](/unstructured-documents/split-by-document-or-page.png)
+
+## Process documents with the API
+
+The same two choices are available in the Python SDK. Upload the files, check the extraction cost, then launch extraction with a `preprocessing_mode` of `per_document` or `per_page`:
+
+```python
+import time
+
+dataset = client.datasets.upload_file("annual_report.pdf")
+dataset_id = dataset.dataset_id
+client.datasets.wait_for_completion(dataset_id)
+
+# Pages are counted in the background, so poll until the quote is final.
+quote = client.datasets.get_preprocessing_credits(dataset_id)
+while not quote.is_final:
+    time.sleep(2)
+    quote = client.datasets.get_preprocessing_credits(dataset_id)
+print(f"{quote.total_pages:.0f} pages cost {quote.extraction_cost} credits")
+
+client.datasets.launch_preprocessing(dataset_id, preprocessing_mode="per_page")
+status = client.datasets.wait_for_completion(dataset_id)
+print(f"Extracted {status.row_count} rows")
+```
+
+See [Upload documents](/adaptive-data/create-a-dataset#upload-documents) for the full flow, including error handling and extracting only part of an upload.
 
 ## Map the extracted content
 
@@ -71,4 +98,4 @@ After both questions are answered, extraction runs and produces a regular Adapti
 3. [Quality evaluation](/adaptive-data/evaluate-dataset-quality).
 4. Review and export of the adapted rows.
 
-For the full UI flow, continue to the [Adaptive Data app walkthrough](/runbooks/adaptive-data-app-walkthrough). To automate supported dataset workflows, use the current [API reference](/api/python); document extraction options described here are configured in the app.
+For the full UI flow, continue to the [Adaptive Data app walkthrough](/runbooks/adaptive-data-app-walkthrough). To run the same flow in code, see [Upload documents](/adaptive-data/create-a-dataset#upload-documents) and the [API reference](/api/python).
