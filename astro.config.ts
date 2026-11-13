@@ -4,6 +4,7 @@ import { defineConfig } from "astro/config";
 import { generateAPIReferenceItems, stainlessDocs } from "@stainless-api/docs";
 import tailwindcss from "@tailwindcss/vite";
 import rehypeExternalLinks from "rehype-external-links";
+import llmsFullTxt from "./src/integrations/llms-full";
 
 const srcDir = fileURLToPath(new URL("./src", import.meta.url));
 
@@ -280,5 +281,8 @@ export default defineConfig({
         },
       },
     }),
+    // After stainlessDocs(): it reads the llms.txt and index.md files that
+    // stainlessDocs() writes.
+    llmsFullTxt(),
   ],
 });
