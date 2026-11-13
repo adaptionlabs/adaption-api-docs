@@ -45,11 +45,17 @@ The app previews the row count for both choices before you continue.
 The same two choices are available in the Python SDK. Upload the files, check the extraction cost, then launch extraction with a `preprocessing_mode` of `per_document` or `per_page`:
 
 ```python
+import time
+
 dataset = client.datasets.upload_file("annual_report.pdf")
 dataset_id = dataset.dataset_id
-client.datasets.wait_for_completion(dataset_id)  # waits for the page count
+client.datasets.wait_for_completion(dataset_id)
 
+# Pages are counted in the background, so poll until the quote is final.
 quote = client.datasets.get_preprocessing_credits(dataset_id)
+while not quote.is_final:
+    time.sleep(2)
+    quote = client.datasets.get_preprocessing_credits(dataset_id)
 print(f"{quote.total_pages:.0f} pages cost {quote.extraction_cost} credits")
 
 client.datasets.launch_preprocessing(dataset_id, preprocessing_mode="per_page")
