@@ -81,7 +81,7 @@ client = Adaption()
 
 Documents are not rows yet. After the upload, Adaption counts their pages and waits for you to launch extraction, which turns the content into rows and costs credits.
 
-Upload the file and wait for the page count. The dataset stops at `awaiting_input` with no `row_count`:
+Upload the file and wait for it to finish. The dataset stops at `awaiting_input` with no `row_count`:
 
 ```python
 dataset = client.datasets.upload_file("annual_report.pdf")
@@ -91,10 +91,15 @@ status = client.datasets.wait_for_completion(dataset_id)
 print(status.status, status.row_count)
 ```
 
-Check what extraction will cost before you launch it with [`get_preprocessing_credits`](/api/python/resources/datasets/methods/get_preprocessing_credits):
+Check what extraction will cost before you launch it with [`get_preprocessing_credits`](/api/python/resources/datasets/methods/get_preprocessing_credits). Pages are counted in the background, so the dataset can reach `awaiting_input` before the count is done. Until then the quote is partial (`is_final` is `False`), so poll until it is final:
 
 ```python
+import time
+
 quote = client.datasets.get_preprocessing_credits(dataset_id)
+while not quote.is_final:
+    time.sleep(2)
+    quote = client.datasets.get_preprocessing_credits(dataset_id)
 print(f"{quote.total_pages:.0f} pages cost {quote.extraction_cost} credits")
 print(f"{quote.available_credits} credits available")
 if quote.insufficient_credits:
@@ -122,9 +127,9 @@ print(f"Extracted {status.row_count} rows")
 
 <Callout variant="note">
   Launch extraction once per dataset. A second call fails with
-  `adaption.ConflictError` (HTTP 409), and so does a launch before the page
-  count finishes. If the team lacks the credits, the launch fails with HTTP 402
-  and reserves nothing.
+  `adaption.ConflictError` (HTTP 409), and so does a launch before the upload
+  finishes. If pages can't be counted yet, the launch fails with HTTP 503. If
+  the team lacks the credits, it fails with HTTP 402 and reserves nothing.
 </Callout>
 
 ## Wait for the import
