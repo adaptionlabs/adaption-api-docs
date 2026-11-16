@@ -1,6 +1,179 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/api/v1/chat/completions": {
+      "post": {
+        "description": "OpenAI-compatible Chat Completions. Supports streaming, function tools, structured output, and image and file input.",
+        "operationId": "ChatCompletionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChatCompletionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The completion, or with `stream: true` a stream of server-sent events, each a `chat.completion.chunk`, ending with `data: [DONE]`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionChunkDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the model rejected it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization has no credits left.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not use this model or endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The model, or the endpoint, is not available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request is too large for the model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A rate limit was reached. See the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The model provider did not return a valid completion.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The model provider timed out.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a chat completion",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/v1/tools": {
       "get": {
         "description": "Lists the tools the orchestrator can run inside a turn, each annotated with whether this caller can use it. Tools the caller cannot use are returned with a reason rather than hidden.",
@@ -2114,7 +2287,7 @@
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.1.22",
+    "version": "0.1.28",
     "contact": {}
   },
   "tags": [],
@@ -2138,6 +2311,1004 @@
         },
         "required": [
           "message"
+        ]
+      },
+      "ChatCompletionFunctionCallDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          },
+          "arguments": {
+            "type": "string",
+            "description": "The arguments as a JSON-encoded string."
+          }
+        },
+        "required": [
+          "name",
+          "arguments"
+        ]
+      },
+      "ChatCompletionToolCallDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "function"
+            ]
+          },
+          "function": {
+            "$ref": "#/components/schemas/ChatCompletionFunctionCallDto"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "function"
+        ]
+      },
+      "ChatCompletionMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "nullable": true
+          },
+          "refusal": {
+            "type": "string",
+            "nullable": true
+          },
+          "reasoning_content": {
+            "type": "string",
+            "nullable": true,
+            "description": "The model's reasoning, for models that reason."
+          },
+          "tool_calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionToolCallDto"
+            }
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ChatCompletionChoiceDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "enum": [
+              0
+            ]
+          },
+          "finish_reason": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "length",
+              "tool_calls",
+              "content_filter",
+              "function_call"
+            ]
+          },
+          "message": {
+            "$ref": "#/components/schemas/ChatCompletionMessageDto"
+          }
+        },
+        "required": [
+          "index",
+          "finish_reason",
+          "message"
+        ]
+      },
+      "ChatCompletionPromptTokensDetailsDto": {
+        "type": "object",
+        "properties": {
+          "cached_tokens": {
+            "type": "integer"
+          },
+          "audio_tokens": {
+            "type": "integer"
+          }
+        }
+      },
+      "ChatCompletionCompletionTokensDetailsDto": {
+        "type": "object",
+        "properties": {
+          "reasoning_tokens": {
+            "type": "integer"
+          },
+          "audio_tokens": {
+            "type": "integer"
+          },
+          "accepted_prediction_tokens": {
+            "type": "integer"
+          },
+          "rejected_prediction_tokens": {
+            "type": "integer"
+          }
+        }
+      },
+      "ChatCompletionUsageDto": {
+        "type": "object",
+        "properties": {
+          "prompt_tokens": {
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "type": "integer"
+          },
+          "total_tokens": {
+            "type": "integer"
+          },
+          "prompt_tokens_details": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatCompletionPromptTokensDetailsDto"
+              }
+            ]
+          },
+          "completion_tokens_details": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatCompletionCompletionTokensDetailsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "prompt_tokens",
+          "completion_tokens",
+          "total_tokens"
+        ]
+      },
+      "ChatCompletionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "chat.completion"
+            ]
+          },
+          "created": {
+            "type": "integer",
+            "description": "Unix time in seconds."
+          },
+          "model": {
+            "type": "string"
+          },
+          "system_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "choices": {
+            "minItems": 1,
+            "maxItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionChoiceDto"
+            }
+          },
+          "usage": {
+            "$ref": "#/components/schemas/ChatCompletionUsageDto"
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "created",
+          "model",
+          "choices",
+          "usage"
+        ]
+      },
+      "ChatCompletionChunkFunctionCallDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "string",
+            "description": "The next piece of the arguments."
+          }
+        }
+      },
+      "ChatCompletionChunkToolCallDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "function"
+            ]
+          },
+          "function": {
+            "$ref": "#/components/schemas/ChatCompletionChunkFunctionCallDto"
+          }
+        },
+        "required": [
+          "index"
+        ]
+      },
+      "ChatCompletionChunkDeltaDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "nullable": true
+          },
+          "refusal": {
+            "type": "string",
+            "nullable": true
+          },
+          "reasoning_content": {
+            "type": "string",
+            "nullable": true
+          },
+          "tool_calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionChunkToolCallDto"
+            }
+          }
+        }
+      },
+      "ChatCompletionChunkChoiceDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "enum": [
+              0
+            ]
+          },
+          "finish_reason": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "length",
+              "tool_calls",
+              "content_filter",
+              "function_call"
+            ],
+            "nullable": true
+          },
+          "delta": {
+            "$ref": "#/components/schemas/ChatCompletionChunkDeltaDto"
+          }
+        },
+        "required": [
+          "index",
+          "finish_reason",
+          "delta"
+        ]
+      },
+      "ChatCompletionChunkDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "chat.completion.chunk"
+            ]
+          },
+          "created": {
+            "type": "integer",
+            "description": "Unix time in seconds."
+          },
+          "model": {
+            "type": "string"
+          },
+          "system_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "choices": {
+            "maxItems": 1,
+            "description": "Empty on the final usage chunk.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionChunkChoiceDto"
+            }
+          },
+          "usage": {
+            "nullable": true,
+            "description": "Set on the final chunk when `stream_options.include_usage` is true.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatCompletionUsageDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "created",
+          "model",
+          "choices"
+        ]
+      },
+      "ChatCompletionTextPartDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "text"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text"
+        ]
+      },
+      "ChatCompletionSystemMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "system"
+            ]
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/components/schemas/ChatCompletionTextPartDto"
+                }
+              }
+            ],
+            "description": "Text, or a list of text parts."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ChatCompletionDeveloperMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "developer"
+            ]
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/components/schemas/ChatCompletionTextPartDto"
+                }
+              }
+            ],
+            "description": "Text, or a list of text parts."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ChatCompletionImageUrlDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "pattern": "^(https://|data:image/)",
+            "description": "An https URL or an inline `data:image/...` URL."
+          },
+          "detail": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "low",
+              "high"
+            ]
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "ChatCompletionImagePartDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "image_url"
+            ]
+          },
+          "image_url": {
+            "$ref": "#/components/schemas/ChatCompletionImageUrlDto"
+          }
+        },
+        "required": [
+          "type",
+          "image_url"
+        ]
+      },
+      "ChatCompletionFileDto": {
+        "type": "object",
+        "properties": {
+          "file_data": {
+            "type": "string",
+            "pattern": "^data:",
+            "description": "The file as an inline data URL. File IDs are not supported."
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "file_data",
+          "filename"
+        ]
+      },
+      "ChatCompletionFilePartDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "file"
+            ]
+          },
+          "file": {
+            "$ref": "#/components/schemas/ChatCompletionFileDto"
+          }
+        },
+        "required": [
+          "type",
+          "file"
+        ]
+      },
+      "ChatCompletionUserMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user"
+            ]
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ChatCompletionTextPartDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ChatCompletionImagePartDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ChatCompletionFilePartDto"
+                    }
+                  ]
+                }
+              }
+            ],
+            "description": "Text, or a list of text, image and file parts."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ChatCompletionAssistantMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "assistant"
+            ]
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/components/schemas/ChatCompletionTextPartDto"
+                }
+              }
+            ],
+            "description": "Null when the turn is only tool calls. A turn needs content, a refusal, reasoning or tool_calls.",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          },
+          "refusal": {
+            "type": "string",
+            "nullable": true
+          },
+          "tool_calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionToolCallDto"
+            }
+          },
+          "reasoning_content": {
+            "type": "string",
+            "nullable": true,
+            "description": "The model's earlier reasoning, replayed so it can continue from it."
+          },
+          "reasoning": {
+            "type": "string",
+            "nullable": true,
+            "description": "Alias of `reasoning_content`."
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "ChatCompletionToolMessageDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "tool"
+            ]
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/components/schemas/ChatCompletionTextPartDto"
+                }
+              }
+            ],
+            "description": "Text, or a list of text parts."
+          },
+          "tool_call_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "role",
+          "content",
+          "tool_call_id"
+        ]
+      },
+      "ChatCompletionNamedFunctionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ChatCompletionNamedToolChoiceDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "function"
+            ]
+          },
+          "function": {
+            "$ref": "#/components/schemas/ChatCompletionNamedFunctionDto"
+          }
+        },
+        "required": [
+          "type",
+          "function"
+        ]
+      },
+      "ChatCompletionFunctionDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The function parameters as a JSON Schema object."
+          },
+          "strict": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ChatCompletionToolDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "function"
+            ],
+            "description": "Only function tools are supported."
+          },
+          "function": {
+            "$ref": "#/components/schemas/ChatCompletionFunctionDefinitionDto"
+          }
+        },
+        "required": [
+          "type",
+          "function"
+        ]
+      },
+      "ChatCompletionJsonSchemaDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "strict": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ChatCompletionResponseFormatDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "json_object",
+              "json_schema"
+            ]
+          },
+          "json_schema": {
+            "description": "Required when `type` is `json_schema`, and only then.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatCompletionJsonSchemaDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "ChatCompletionStreamOptionsDto": {
+        "type": "object",
+        "properties": {
+          "include_usage": {
+            "type": "boolean",
+            "description": "Send a final chunk carrying token usage."
+          }
+        }
+      },
+      "CreateChatCompletionDto": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "A model id from `GET /models`.",
+            "example": "glm-5.2"
+          },
+          "messages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ChatCompletionSystemMessageDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatCompletionDeveloperMessageDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatCompletionUserMessageDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatCompletionAssistantMessageDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatCompletionToolMessageDto"
+                }
+              ]
+            }
+          },
+          "tools": {
+            "minItems": 1,
+            "maxItems": 128,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionToolDto"
+            }
+          },
+          "tool_choice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "auto",
+                  "required"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ChatCompletionNamedToolChoiceDto"
+              }
+            ],
+            "description": "Requires `tools`. A named function must be one of `tools`."
+          },
+          "parallel_tool_calls": {
+            "type": "boolean"
+          },
+          "response_format": {
+            "$ref": "#/components/schemas/ChatCompletionResponseFormatDto"
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "enum": [
+              "none",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "description": "How much the model reasons before answering. Levels vary by model; `max` is beyond OpenAI's set and is supported by GLM and DeepSeek V4."
+          },
+          "stream": {
+            "type": "boolean",
+            "description": "Stream the reply as server-sent events."
+          },
+          "stream_options": {
+            "description": "Requires `stream: true`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatCompletionStreamOptionsDto"
+              }
+            ]
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Do not send together with `max_completion_tokens`."
+          },
+          "max_completion_tokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Output token limit, reasoning included. Do not send together with `max_tokens`."
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "top_p": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "frequency_penalty": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2
+          },
+          "presence_penalty": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2
+          },
+          "seed": {
+            "type": "integer"
+          },
+          "stop": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "maxProperties": 16,
+            "description": "Up to 16 string pairs (keys up to 64 characters). Kept with a stored completion; never sent to the model provider."
+          },
+          "user": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "Accepted for OpenAI compatibility; not sent to the model provider."
+          },
+          "safety_identifier": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Accepted for OpenAI compatibility; not sent to the model provider."
+          },
+          "store": {
+            "type": "boolean",
+            "description": "Keep the completion so it can be retrieved later."
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ]
+      },
+      "ChatCompletionErrorDetailDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "example": "invalid_request_error"
+          },
+          "code": {
+            "type": "string",
+            "example": "invalid_request"
+          },
+          "param": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "message",
+          "type",
+          "code",
+          "param"
+        ]
+      },
+      "ChatCompletionErrorDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ChatCompletionErrorDetailDto"
+          }
+        },
+        "required": [
+          "error"
         ]
       },
       "HostedToolDto": {
@@ -2581,6 +3752,11 @@
             "type": "string",
             "description": "Name of the raw column holding the dispreferred response. Give it together with chosen.",
             "example": "rejected"
+          },
+          "reasoning_trace": {
+            "type": "string",
+            "description": "Name of the raw column holding a reasoning trace. It is stored as `original_reasoning_trace`, kept apart from the `reasoning_trace` an adaptation generates; name that column as `column_mapping.reasoning_trace` when you launch training to train on it.",
+            "example": "thinking"
           },
           "context": {
             "description": "Names of raw columns to fold in as context alongside the prompt. Each is validated against the uploaded file at ingestion; an unknown name fails the request listing the available columns. The columns themselves are kept in the dataset as well as folded.",
@@ -3404,7 +4580,7 @@
           },
           "isFinal": {
             "type": "boolean",
-            "description": "Whether the cost is final (all extractions complete) or an estimate"
+            "description": "Whether the cost is final or still an estimate. Before launch it is final once every document has a page count; after launch, once every extraction has finished."
           },
           "insufficientCredits": {
             "description": "Present when available credits are insufficient for the extraction cost",
@@ -3961,21 +5137,21 @@
             "type": "integer",
             "description": "New rows to generate in the style of this dataset. A sample of its rows is analysed for topic, language and prompt/completion conventions, and new rows are generated to match. Defaults to 0.",
             "minimum": 0,
-            "maximum": 100000,
+            "maximum": 25000,
             "example": 500
           },
           "domain_rows": {
             "type": "integer",
             "description": "Rows to retrieve from topics matching this dataset. Defaults to 0.",
             "minimum": 0,
-            "maximum": 100000,
+            "maximum": 25000,
             "example": 3000
           },
           "general_rows": {
             "type": "integer",
             "description": "Rows to retrieve from other topics, to broaden the dataset. Defaults to 0.",
             "minimum": 0,
-            "maximum": 100000,
+            "maximum": 25000,
             "example": 1000
           }
         }
@@ -4414,6 +5590,7 @@
               "too_few_sources",
               "too_many_sources",
               "duplicate_source_ids",
+              "sources_too_large",
               "dataset_not_found",
               "wrong_organization",
               "dataset_not_ready",
@@ -6081,7 +7258,7 @@
           },
           "annotations": {
             "type": "array",
-            "description": "Citations into `text`, such as file citations from file search.",
+            "description": "Citations into `text`: `file_citation` for a file search source and `url_citation` (with `url` and `title`) for a web search source. Each covers its `[S#]` bracket and carries its `citation_id`.",
             "items": {
               "type": "object",
               "additionalProperties": true
@@ -6097,7 +7274,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "Item type, such as `message`, `reasoning`, `function_call`, `mcp_call` or `file_search_call`. Fields beyond the ones listed depend on the type.",
+            "description": "Item type, such as `message`, `reasoning`, `function_call`, `mcp_call`, `file_search_call` or `web_search_call`. Fields beyond the ones listed depend on the type.",
             "example": "message"
           },
           "id": {
@@ -6186,9 +7363,14 @@
               "type": "string"
             }
           },
+          "action": {
+            "type": "object",
+            "description": "The search on a `web_search_call` item: `type`, `query`, `queries` and `sources` (the result URLs).",
+            "additionalProperties": true
+          },
           "results": {
             "type": "array",
-            "description": "Matched chunks, on a `file_search_call` item.",
+            "description": "Matched chunks on a `file_search_call` item, or search results on a `web_search_call` item (`citation_id`, `title`, `url`, and when available `summary`, `highlights`, `published_date`, `author`). Send the item back unchanged to replay it without a new search.",
             "items": {
               "type": "object",
               "additionalProperties": true
@@ -6585,6 +7767,133 @@
             "items": {
               "type": "string"
             }
+          },
+          "search_mode": {
+            "type": "string",
+            "description": "Retrieval strategy. Vector is the backward-compatible default; lexical uses BM25; hybrid fuses both.",
+            "enum": [
+              "vector",
+              "lexical",
+              "hybrid"
+            ],
+            "default": "vector"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "WebSearchToolFiltersDto": {
+        "type": "object",
+        "properties": {
+          "allowed_domains": {
+            "description": "Only return results from these domains or their subdomains, e.g. `openai.com`. A leading `https://` or `*.` is allowed; paths and ports are not.",
+            "maxItems": 100,
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WebSearchToolUserLocationDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "approximate"
+            ],
+            "nullable": true
+          },
+          "country": {
+            "type": "string",
+            "description": "Two-letter ISO country code. Results are biased towards this country.",
+            "example": "US",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "description": "Accepted for compatibility; not used yet.",
+            "nullable": true
+          },
+          "region": {
+            "type": "string",
+            "description": "Accepted for compatibility; not used yet.",
+            "nullable": true
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Accepted for compatibility; not used yet.",
+            "nullable": true
+          }
+        }
+      },
+      "WebSearchToolDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "web_search"
+            ],
+            "example": "web_search"
+          },
+          "filters": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WebSearchToolFiltersDto"
+              }
+            ]
+          },
+          "search_context_size": {
+            "type": "string",
+            "description": "How many search results the model gets per search: low 3, medium 5, high 10.",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "default": "medium"
+          },
+          "user_location": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WebSearchToolUserLocationDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "CodeExecutionToolDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "code_execution"
+            ],
+            "example": "code_execution"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Opaque session identifier. Reuse it across responses to retain files in the same owner-scoped sandbox. Omit it for a session scoped to this response.",
+            "maxLength": 256
+          },
+          "session_mode": {
+            "type": "string",
+            "enum": [
+              "persistent",
+              "ephemeral"
+            ],
+            "default": "persistent",
+            "description": "Persistent retains files until the idle/lifetime limit; ephemeral destroys the sandbox after each call."
           }
         },
         "required": [
@@ -6634,6 +7943,11 @@
             "description": "Use agentic memory for this request: relevant memories from earlier turns with this stack are added to the model instructions, and the turn may be used to build new memories. Omitted or null uses the stack's agentic memory setting; requests that do not name a stack default to false.",
             "example": true
           },
+          "self_improvement": {
+            "type": "boolean",
+            "description": "Enable self-improvement for this request. Omitted or null uses the stack's setting. Only stack models accept true.",
+            "example": true
+          },
           "max_output_tokens": {
             "type": "integer",
             "description": "Maximum number of tokens the model may generate.",
@@ -6655,7 +7969,7 @@
           },
           "tools": {
             "type": "array",
-            "description": "Responses API tools. Catalog MCP entries are hosted by Adaption; MCP entries with server_url are called by Adaption with caller-owned authorization; file_search runs over authorized adapted datasets. With `model: stack:<id>`, omitted tools means the stack's configured tools (none when tool_choice is \"none\"), and an empty array means no tools; requested hosted MCP labels must be enabled on the stack, and file_search uses the stack dataset scope when dataset_ids is omitted. connector_id MCP tools are not supported.",
+            "description": "Responses API tools. Catalog MCP entries are hosted by Adaption; MCP entries with server_url are called by Adaption with caller-owned authorization; file_search runs over authorized adapted datasets; web_search searches the public web; code_execution runs in an owner-scoped, network-blocked sandbox. With `model: stack:<id>`, omitted tools means the stack's configured tools (none when tool_choice is \"none\"), and an empty array means no tools; requested hosted MCP labels must be enabled on the stack, and file_search uses the stack dataset scope when dataset_ids is omitted. connector_id MCP tools are not supported.",
             "items": {
               "oneOf": [
                 {
@@ -6663,6 +7977,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/FileSearchToolDto"
+                },
+                {
+                  "$ref": "#/components/schemas/WebSearchToolDto"
+                },
+                {
+                  "$ref": "#/components/schemas/CodeExecutionToolDto"
                 },
                 {
                   "type": "object",
@@ -6676,7 +7996,9 @@
                       "not": {
                         "enum": [
                           "mcp",
-                          "file_search"
+                          "file_search",
+                          "web_search",
+                          "code_execution"
                         ]
                       }
                     }
@@ -6710,7 +8032,7 @@
             "default": false
           },
           "tool_choice": {
-            "description": "How the model may use the attached tools. Omitted or `auto`, the model decides whether to search and how to word the query. `none` forbids tools entirely. Naming a function demands that call: use `{ \"type\": \"function\", \"name\": \"file_search\" }` when an answer must be grounded in the attached datasets, and the response fails rather than answering unsearched.",
+            "description": "How the model may use the attached tools. Omitted or `auto`, the model decides whether and how to call them. `none` forbids tools entirely. Naming a function demands that call: use `{ \"type\": \"function\", \"name\": \"file_search\" }` when an answer must be grounded in the attached datasets, or name `code_execution` when execution is required. The response fails if the model omits a demanded call.",
             "oneOf": [
               {
                 "type": "string",
