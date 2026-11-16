@@ -159,6 +159,7 @@ export default defineConfig({
             "inference-stacks/key-concepts",
             "inference-stacks/generate-a-model-response",
             "inference-stacks/models",
+            "inference-stacks/connectors",
           ],
         },
         {

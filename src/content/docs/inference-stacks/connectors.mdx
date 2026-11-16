@@ -1,0 +1,273 @@
+---
+title: Connectors
+description: Connect Slack, GitHub, Atlassian, Linear, Supabase, and other apps to Adaption, and learn what each connector can reach and which ones need an extra setup step.
+---
+
+import { Callout } from "@stainless-api/docs/components";
+
+Connectors let the model search and work with your other apps during a response. Each connector uses the app's own MCP server and acts as the person who connected it, so the model sees only what that account can see.
+
+## Connect
+
+1. Open [**Settings → Connectors**](https://adaptionlabs.ai/app/settings?tab=connectors) and select **Connect** on the connector.
+2. Sign in to the app if asked.
+3. Review what Adaption is asking for. Some apps also ask you to pick a workspace, site, or organization.
+4. Approve the request.
+
+You return to Adaption with the connector connected. The same connection works in Adaption Chat and with the Responses API. Adaption stores the credentials encrypted and refreshes them for you.
+
+A few connectors need an admin of your organization in that app to allow Adaption first. They are listed in [Connector notes](#connector-notes).
+
+## Use a connector with the API
+
+Reference a connector by its `server_label`. No credential is needed in the request:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="Which Jira issues assigned to me are due this week?",
+    tools=[{"type": "mcp", "server_label": "atlassian"}],
+)
+```
+
+We add connectors regularly, so this list keeps growing. List the tool catalog to see the current connectors:
+
+```python
+for tool in client.tools.list().data:
+    print(tool.name, tool.server_label, tool.available)
+```
+
+| Connector    | `server_label` | Disconnect revokes access |
+| ------------ | -------------- | ------------------------- |
+| Airtable     | `airtable`     | No                        |
+| Asana        | `asana`        | Yes                       |
+| Atlassian    | `atlassian`    | Yes                       |
+| BigQuery     | `bigquery`     | No                        |
+| Box          | `box`          | Yes                       |
+| Braintrust   | `braintrust`   | No                        |
+| Canva        | `canva`        | No                        |
+| Dropbox      | `dropbox`      | No                        |
+| GitHub       | `github`       | No                        |
+| Granola      | `granola`      | No                        |
+| HubSpot      | `hubspot`      | No                        |
+| Hugging Face | `huggingface`  | No                        |
+| Linear       | `linear`       | No                        |
+| monday.com   | `monday`       | Yes                       |
+| Notion       | `notion`       | Yes                       |
+| PostHog      | `posthog`      | Yes                       |
+| Salesforce   | `salesforce`   | No                        |
+| Slack        | `slack`        | No                        |
+| Supabase     | `supabase`     | No                        |
+| Todoist      | `todoist`      | Yes                       |
+| Vercel       | `vercel`       | Yes                       |
+
+To use connectors by default on a stack, see [Enable a connector on a stack](/inference-stacks/key-concepts#enable-a-connector-on-a-stack).
+
+Missing a connector? Email [support@adaptionlabs.ai](mailto:support@adaptionlabs.ai).
+
+## What the model can do
+
+Each app decides which tools its MCP server offers, and Adaption passes them to the model. Some connectors only read. Others can also create and change things, such as sending a Slack message or updating a Jira issue.
+
+- **Your permissions apply.** The model can reach only what your account in that app can reach, and only the workspaces, sites, or bases you chose when you connected.
+- **You decide which tools run.** In Adaption, set each connector's read and write tools to run, ask first, or never run.
+- **Some tools are never offered.** Adaption withholds tools that delete irreversibly, return secrets, or sign out of the app. [Connector notes](#connector-notes) lists them for each connector.
+
+Some features depend on your plan in the app, not on Adaption. A tool your plan does not include usually returns an empty result or an error.
+
+## Disconnect
+
+Select **Disconnect** on the connector in [**Settings → Connectors**](https://adaptionlabs.ai/app/settings?tab=connectors). Adaption deletes its stored credentials and, where the app supports it, revokes its access there too.
+
+Where **Disconnect revokes access** is **No** in the [table](#use-a-connector-with-the-api), the app has no way for Adaption to revoke its own access. To remove the authorization fully, also remove Adaption from the app's connected or authorized apps.
+
+## Connector notes
+
+Connectors not listed here have no extra setup or limits.
+
+### Airtable
+
+The connection reaches only the bases and workspaces you select when connecting. To change the selection, open [Airtable's third-party integrations](https://airtable.com/?integrations=thirdParty). Your role in each base still applies, so some tables may be unreadable.
+
+### Asana
+
+On Enterprise+ workspaces, an admin can block Adaption in Asana's app management. If they have, Asana asks you to contact your admin during sign-in.
+
+Asana's interactive preview tools are withheld because they need a UI that Adaption does not show. The regular create and search tools cover the same tasks.
+
+### Atlassian
+
+The Atlassian connector covers Jira, Confluence, Jira Service Management, Bitbucket Cloud, and Rovo search through Atlassian's Rovo MCP server.
+
+#### Allow Adaption in your Atlassian organization
+
+<Callout variant="note">
+  An admin of your Atlassian organization must do this once before anyone can
+  connect. Until they do, users see **Access to this domain is restricted** on
+  the Atlassian consent screen, and the **Accept** button is disabled.
+</Callout>
+
+Atlassian lets organization admins choose which AI tools can connect to their Atlassian apps. Adaption is not on Atlassian's default list of partner tools, so it needs to be allowed.
+
+An Atlassian organization admin does this:
+
+1. Open [Atlassian Administration](https://admin.atlassian.com) and select your organization.
+2. Select **Connectors**, then **Atlassian MCP server**.
+3. On the **Domains** tab, under **Your domains**, select **Add domain**.
+4. Enter this pattern and save:
+
+```
+https://api.prod.adaptionlabs.ai/**
+```
+
+Keep **Allow Atlassian supported domains** turned on unless you also want to block tools such as Claude and ChatGPT.
+
+The setting applies to sites that belong to that organization. If your Jira or Confluence site belongs to a different Atlassian organization, an admin of that organization must add the domain there.
+
+#### Sites
+
+When you connect, choose the site or sites the connection may use. To add another site later, disconnect and connect again, then select every site you want.
+
+#### Tools
+
+Most Atlassian tools are not listed up front. The model asks Atlassian which tool fits a task, then runs it. This is normal and happens within a single response.
+
+The model cannot:
+
+- **Delete anything.** Deleting issues, comments, and attachments is irreversible, so Adaption never offers those tools, even if your admin enables them in Atlassian.
+- **Administer projects.** Creating projects and editing workflows or screens is not requested.
+- **Use other Atlassian products.** Loom, Goals, Projects, Teams, Focus areas, Talent, Jira Align, Assets, and capacity planning are not part of this connection.
+
+Some tool groups can be turned off by your admin under **Connectors → Atlassian MCP server → Permissions**.
+
+#### Rovo credits
+
+Rovo search and some teamwork graph lookups use your organization's Rovo credits, up to about 10 credits per call. Jira, Confluence, Jira Service Management, and Bitbucket reads and writes do not.
+
+#### Staying connected
+
+If the connection goes unused for 90 days, or someone changes your Atlassian password, Atlassian ends it and you need to connect again.
+
+### BigQuery
+
+The connection reaches every Google Cloud project you can see in BigQuery. Queries run as read-only SQL, and BigQuery bills the project they run in.
+
+BigQuery shares its Google authorization with importing datasets from Google Sheets and Drive. Disconnecting BigQuery in Adaption does not revoke access in Google, because revoking it would also stop dataset imports. To revoke both, remove Adaption from your [Google account's third-party connections](https://myaccount.google.com/connections).
+
+### Box
+
+An admin of your Box enterprise must allow Adaption and the Box MCP server integration under **Admin Console → Integrations**. Box AI tools work only where Box AI is turned on for your enterprise.
+
+If the connection goes unused for 60 days, Box ends it and you need to connect again.
+
+### Braintrust
+
+Only Braintrust's US data plane is supported. Braintrust's `send_feedback` tool is withheld, because it would send text from your conversation to Braintrust.
+
+### Canva
+
+Brand templates, brand kits, autofill, and resize need Canva Pro or higher. On the free plan, exports are standard quality, and designs with premium elements may fail to export.
+
+### Dropbox
+
+The connection reaches your whole Dropbox, limited by your own sharing rights. Team admin actions are not included.
+
+### GitHub
+
+Private repositories are reachable only where the Adaption GitHub App is installed. To reach an organization's private repositories, an owner of that organization must install the app on it.
+
+### Granola
+
+Only notes from your active Granola workspace are visible. To use another workspace, switch to it in the Granola app. The tools that switch workspaces and sign out are withheld, because they would change your Granola app and every other tool connected to it.
+
+The free Granola plan covers your notes from the last 30 days. Transcripts and folders need a paid plan, and Enterprise admins can turn off MCP access or transcripts for the workspace.
+
+### HubSpot
+
+An admin of your HubSpot account must connect before anyone else in that account can.
+
+Only standard CRM objects are available. Custom objects are not reachable through HubSpot's MCP server.
+
+### Hugging Face
+
+If you already saved a Hugging Face access token for datasets, Hugging Face is already connected and you do not need to connect again.
+
+Hugging Face Jobs and Inference Providers are billed to your Hugging Face account.
+
+### monday.com
+
+If you belong to several monday.com accounts, choose one when you connect. An admin of the account must install the **monday MCP** app from the monday.com marketplace and keep MCP turned on.
+
+### Notion
+
+A connection covers one Notion workspace, chosen when you connect. To use another workspace, disconnect and connect again.
+
+Notion ends the connection 180 days after you first connect, or after 30 days without use. Connect again when that happens.
+
+AI search, including Notion's connected sources such as Slack and Jira, needs a Notion Business or Enterprise plan with Notion AI. On other plans the model uses keyword search.
+
+### PostHog
+
+The connection uses your default PostHog organization and project. The model can switch to another one when you ask, which also changes your default in PostHog.
+
+### Salesforce
+
+The Salesforce connector is read-only. The model can list and describe objects, read records, and run SOQL queries and searches.
+
+### Supabase
+
+The Supabase connector uses Supabase's MCP server in read-only mode.
+
+#### One organization per connection
+
+A connection covers **one Supabase organization** and every project in it. The model can see all of those projects, not just one.
+
+To use a different organization, disconnect and connect again, choosing the other organization. If you want the model to reach production data only when you need it, keep production projects in a separate organization and connect the one you want.
+
+#### Tools
+
+- **Find projects** — list the organization's projects and their details
+- **Read the database** — list tables, extensions, and migrations, and run SQL
+- **Debug** — read project logs and Supabase's security and performance advisors
+- **Development details** — read a project's API URL and publishable keys, and generate TypeScript types
+- **Docs** — search Supabase's documentation
+
+<Callout variant="note">
+  All SQL runs as a read-only database user. A query that tries to write fails,
+  whatever it says.
+</Callout>
+
+The model cannot change data or schema, create, pause, or restore projects, or use Edge Functions, branching, or storage. If you want a change made, the model writes the SQL or the steps for you to run yourself.
+
+#### Your data
+
+Query results go to the model to answer your question, the same as any other tool result. The model is instructed to select only the columns it needs and to avoid credentials and personal data unless you ask for them. Connect an organization whose data you are comfortable sharing in chat.
+
+### Todoist
+
+There is no read-only option. The connection can read, create, update, complete, and delete your tasks, projects, sections, comments, filters, and labels.
+
+### Vercel
+
+The connection acts with your own Vercel account and team role, including write actions. Tools that return secrets, such as environment variable values, Edge Config tokens, and feature flag SDK keys, are withheld.
+
+## Troubleshooting
+
+**The model finds nothing**
+The item may be in a workspace, site, base, or organization you did not select when connecting, or outside your own permissions in the app. Disconnect and connect again with the right selection, or check your access in the app.
+
+**The connector stopped working**
+The app may have ended the connection, for example after a period without use or a password change. Disconnect and connect again.
+
+**Atlassian: "Access to this domain is restricted" or "Your organization admin must authorize access from a domain"**
+The domain is not allowed for the organization that owns the selected site. Ask an admin of that organization to complete [the admin step](#allow-adaption-in-your-atlassian-organization).
+
+**Atlassian: "You don't have permission to connect from this IP address"**
+Your organization uses an IP allowlist. An admin must allow Adaption's requests in Atlassian Administration.
+
+**Supabase: a query fails with a read-only error**
+The query tried to write. Run writes yourself in the Supabase dashboard or with your own tools.
