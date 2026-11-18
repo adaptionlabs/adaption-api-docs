@@ -110,8 +110,14 @@ resources:
       # Adds rows retrieved from the curated pool and returns them as a new
       # dataset. `run` improves the rows already there; this one adds more.
       augment: post /api/v1/datasets/{dataset_id}/augment
+      # "Expand" is the product name for adding rows (the Expand page,
+      # `adapt(expand=…)`). `augment` stays because released SDK versions call it.
+      # Not `type: alias`: an alias is emitted as the last statement of the
+      # class body, next to the `AsyncDatasetsResource` line the staging
+      # custom code edits, and the custom-code patch then fails to apply.
+      expand: post /api/v1/datasets/{dataset_id}/augment
       # Add translated copies of a dataset's rows, as a new dataset. Two methods
-      # rather than one `expand` with a mode: the inputs genuinely differ —
+      # rather than one method with a mode: the inputs genuinely differ —
       # language codes versus country/language pairs — so a single signature
       # would make each call carry a field the other rejects.
       translate: post /api/v1/datasets/{dataset_id}/translate
