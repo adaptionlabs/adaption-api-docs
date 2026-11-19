@@ -41,29 +41,30 @@ for tool in client.tools.list().data:
     print(tool.name, tool.server_label, tool.available)
 ```
 
-| Connector    | `server_label` | Disconnect revokes access |
-| ------------ | -------------- | ------------------------- |
-| Airtable     | `airtable`     | No                        |
-| Asana        | `asana`        | Yes                       |
-| Atlassian    | `atlassian`    | Yes                       |
-| BigQuery     | `bigquery`     | No                        |
-| Box          | `box`          | Yes                       |
-| Braintrust   | `braintrust`   | No                        |
-| Canva        | `canva`        | No                        |
-| Dropbox      | `dropbox`      | No                        |
-| GitHub       | `github`       | No                        |
-| Granola      | `granola`      | No                        |
-| HubSpot      | `hubspot`      | No                        |
-| Hugging Face | `huggingface`  | No                        |
-| Linear       | `linear`       | No                        |
-| monday.com   | `monday`       | Yes                       |
-| Notion       | `notion`       | Yes                       |
-| PostHog      | `posthog`      | Yes                       |
-| Salesforce   | `salesforce`   | No                        |
-| Slack        | `slack`        | No                        |
-| Supabase     | `supabase`     | No                        |
-| Todoist      | `todoist`      | Yes                       |
-| Vercel       | `vercel`       | Yes                       |
+| Connector    | `server_label` |
+| ------------ | -------------- |
+| Airtable     | `airtable`     |
+| Asana        | `asana`        |
+| Atlassian    | `atlassian`    |
+| BigQuery     | `bigquery`     |
+| Box          | `box`          |
+| Braintrust   | `braintrust`   |
+| Canva        | `canva`        |
+| Dropbox      | `dropbox`      |
+| Framer       | `framer`       |
+| GitHub       | `github`       |
+| Granola      | `granola`      |
+| HubSpot      | `hubspot`      |
+| Hugging Face | `huggingface`  |
+| Linear       | `linear`       |
+| monday.com   | `monday`       |
+| Notion       | `notion`       |
+| PostHog      | `posthog`      |
+| Salesforce   | `salesforce`   |
+| Slack        | `slack`        |
+| Supabase     | `supabase`     |
+| Todoist      | `todoist`      |
+| Vercel       | `vercel`       |
 
 To use connectors by default on a stack, see [Enable a connector on a stack](/inference-stacks/key-concepts#enable-a-connector-on-a-stack).
 
@@ -81,9 +82,18 @@ Some features depend on your plan in the app, not on Adaption. A tool your plan 
 
 ## Disconnect
 
-Select **Disconnect** on the connector in [**Settings → Connectors**](https://adaptionlabs.ai/app/settings?tab=connectors). Adaption deletes its stored credentials and, where the app supports it, revokes its access there too.
+Select **Disconnect** on the connector in [**Settings → Connectors**](https://adaptionlabs.ai/app/settings?tab=connectors). Adaption deletes its stored credentials and revokes its access in the app, so its tokens stop working there too. Revocation is best effort: if the app can't be reached, the disconnect still goes through.
 
-Where **Disconnect revokes access** is **No** in the [table](#use-a-connector-with-the-api), the app has no way for Adaption to revoke its own access. To remove the authorization fully, also remove Adaption from the app's connected or authorized apps.
+Some apps give Adaption no way to revoke its own access, or revoking it would disconnect more than you asked for. For these, Adaption deletes its credentials, and you can remove Adaption in the app's own settings:
+
+- **Airtable, Braintrust, Canva, Framer, and Hugging Face** — remove Adaption from the app's connected or authorized apps.
+- **HubSpot** — remove Adaption under **Settings → Connected Apps**.
+- **Supabase** — remove Adaption from your organization's authorized apps in the Supabase dashboard.
+- **BigQuery** — remove Adaption from your [Google account's third-party connections](https://myaccount.google.com/connections). This also stops dataset imports from Google Sheets and Drive. See [BigQuery](#bigquery).
+
+**GitHub** — disconnecting revokes Adaption's tokens, but Adaption stays listed under **Settings → Applications → Authorized GitHub Apps** until you revoke it there.
+
+**Slack** — Slack issues one token per Slack user. If you connected the same Slack account in more than one Adaption account, disconnecting any of them disconnects all of them.
 
 ## Connector notes
 
@@ -175,6 +185,12 @@ Brand templates, brand kits, autofill, and resize need Canva Pro or higher. On t
 ### Dropbox
 
 The connection reaches your whole Dropbox, limited by your own sharing rights. Team admin actions are not included.
+
+### Framer
+
+One connection reaches every Framer project your account can open, with your permissions. Name a project by its link. Workspace admins may need to approve MCP connections first.
+
+Edits stay in the project or a branch until they are published, and publishing makes them live. Framer's file upload tool is withheld, because it needs a local file to upload.
 
 ### GitHub
 
