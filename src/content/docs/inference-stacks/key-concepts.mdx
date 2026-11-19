@@ -50,7 +50,7 @@ Tools let a model fetch information and take actions during a response. Adaption
 
 Open [**Settings → Connectors**](https://adaptionlabs.ai/app/settings?tab=connectors), choose a connector, and select **Connect**. Adaption manages the authorization and stores the encrypted credentials, so you do not need to handle them in your code. The same connection works with the Responses API and Adaption Chat.
 
-Connector availability depends on your account. List the tool catalog to see each connector's `server_label` and whether you can use it:
+List the tool catalog to see each connector's `server_label`:
 
 ```python
 from adaption import Adaption
@@ -60,6 +60,8 @@ client = Adaption()
 for tool in client.tools.list().data:
     print(tool.name, tool.server_label, tool.available)
 ```
+
+Some connectors need an admin step or work differently from the rest. See [Connectors](/inference-stacks/connectors/) for the full list and each connector's notes.
 
 Missing a connector? Email [support@adaptionlabs.ai](mailto:support@adaptionlabs.ai).
 
@@ -90,7 +92,6 @@ response = client.responses.create(
 ```
 
 A connector requested in `tools` must be enabled on the stack.
-
 
 ## File search
 
