@@ -140,8 +140,8 @@ response = client.responses.create(
 
 ### Web search options
 
-- `search_context_size` — how many results the model gets per search: `low` (3), `medium` (5, the default), or `high` (10).
-- `filters.allowed_domains` — return results only from these domains and their subdomains, such as `python.org`. Up to 100 domains.
+- `search_context_size` — how many results the model gets per search: `low`, `medium` (the default), or `high`.
+- `filters.allowed_domains` — return results only from these domains and their subdomains, such as `python.org`.
 - `user_location.country` — a two-letter ISO country code, such as `US`. Results lean towards this country.
 
 ```python
@@ -183,24 +183,40 @@ response = client.responses.create(
 
 Code runs in an isolated sandbox:
 
-- **Languages** — Python, JavaScript (Node 22), TypeScript, and Bash.
-- **Python packages** — NumPy, pandas, PyArrow, DuckDB, SciPy, scikit-learn, matplotlib, and openpyxl. You cannot install other packages.
+- **Languages** — Python, JavaScript, TypeScript, and Bash.
+- **Python packages** — common data packages, such as NumPy and pandas. You cannot install other packages.
 - **No network** — code cannot reach the internet or your other services, and the sandbox holds no credentials.
-- **Limits** — each run stops after at most 120 seconds. Output over 32,000 characters is cut, and the item marks it with `stdout_truncated` or `stderr_truncated`.
+- **Long output** — long output is cut, and the item marks it with `stdout_truncated` or `stderr_truncated`.
 
 ### Keep files across responses
 
 By default, each response gets its own sandbox. Files that code writes under `/workspace` stay for the rest of that response.
 
-To keep files across responses, pass the same `session_id` in each request. A session belongs to your user, so another user with the same `session_id` gets a different sandbox. A session ends after 30 minutes without use, or 6 hours after it starts:
+To keep files across responses, pass the same `session_id` in each request. A session belongs to your user, so another user with the same `session_id` gets a different sandbox. The first request below writes a file, and the second one reads it:
 
 ```python
+from typing import Any
+
+from adaption import Adaption
+
+client = Adaption()
+
+tools: list[Any] = [{"type": "code_execution", "session_id": "notes"}]
+
+client.responses.create(
+    model="qwen3.5-397b",
+    input="Write the first 10 prime numbers to /workspace/primes.txt.",
+    tools=tools,
+)
+
 response = client.responses.create(
     model="qwen3.5-397b",
-    input="Load sales.csv into a DataFrame and save it as sales.parquet.",
-    tools=[{"type": "code_execution", "session_id": "sales-report"}],
+    input="Read /workspace/primes.txt and return the sum of the numbers.",
+    tools=tools,
 )
 ```
+
+A session ends after a period without use. The next request starts with an empty `/workspace`.
 
 Set `session_mode` to `"ephemeral"` to start every run in a fresh sandbox. If your organization uses zero data retention, every run is ephemeral and `session_id` is ignored.
 
@@ -218,9 +234,9 @@ for item in response.output:
 
 ## Use web search and code execution on a stack
 
-Enable **Web Search** or **Code executor** in a stack's tools. Requests that call the stack without `tools` can then use them. To use one for a single request, add `{"type": "web_search"}` or `{"type": "code_execution"}` to `tools`.
+Enable **Web Search** or **Code executor** in a stack's tools. Requests that call the stack without `tools` can then use them.
 
-If you call the API with a scoped API key, the key needs the `tools:web_search` or `tools:code_execution` scope.
+You can also add `{"type": "web_search"}` or `{"type": "code_execution"}` to `tools` in a stack request. Unlike a connector, these tools do not need to be enabled on the stack.
 
 ## Memory
 
