@@ -1,11 +1,11 @@
 ---
 title: Key concepts
-description: Understand stacks, tools and connectors, file search, and memory in the Adaption Responses API.
+description: Understand stacks, tools and connectors, file search, web search, code execution, and memory in the Adaption Responses API.
 ---
 
 import { Callout } from "@stainless-api/docs/components";
 
-The Responses API builds on a few core concepts: stacks group a model with its tools and data, tools and connectors let the model act on external systems, file search grounds answers in your datasets, and memory carries useful context across turns.
+The Responses API builds on a few core concepts: stacks group a model with its tools and data, tools and connectors let the model act on external systems, file search grounds answers in your datasets, web search and code execution let the model look things up and run code, and memory carries useful context across turns.
 
 ## Stacks
 
@@ -121,6 +121,106 @@ A dataset must have a ready retrieval index before it can be searched. In the ap
 Each search appears in the response's `output` as a `file_search_call` item containing the model's query and the rows it found. Citations appear as `file_citation` annotations on the response text and identify the source dataset and row.
 
 Use `max_tool_calls` to limit the number of tool calls a response can make. When the limit is reached, the model answers with the information it already has.
+
+## Web search
+
+`web_search` lets a model search the public web. Use it for current facts, recent events, and questions that need sources. The model decides when to search and how to phrase each query, can search more than once, and cites the pages it uses in its answer.
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What is new in the latest Python release?",
+    tools=[{"type": "web_search"}],
+)
+```
+
+### Web search options
+
+- `search_context_size` — how many results the model gets per search: `low` (3), `medium` (5, the default), or `high` (10).
+- `filters.allowed_domains` — return results only from these domains and their subdomains, such as `python.org`. Up to 100 domains.
+- `user_location.country` — a two-letter ISO country code, such as `US`. Results lean towards this country.
+
+```python
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What is new in the latest Python release?",
+    tools=[
+        {
+            "type": "web_search",
+            "search_context_size": "high",
+            "filters": {"allowed_domains": ["python.org"]},
+            "user_location": {"type": "approximate", "country": "US"},
+        }
+    ],
+)
+```
+
+### Web results in the response
+
+Each search appears in the response's `output` as a `web_search_call` item. Its `action` holds the model's query and the result URLs. Its `results` hold each page's `citation_id`, `title`, and `url`, and when available a `summary`, `highlights`, `published_date`, and `author`. Citations appear as `url_citation` annotations on the response text and carry the page's `url` and `title`.
+
+## Code execution
+
+`code_execution` lets a model write and run code. Use it for calculations, data transformation, and checking code. The model decides when to run code, reads the output, and can run more code before it answers.
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What is the standard deviation of 4, 8, 15, 16, 23, and 42?",
+    tools=[{"type": "code_execution"}],
+)
+```
+
+### The sandbox
+
+Code runs in an isolated sandbox:
+
+- **Languages** — Python, JavaScript (Node 22), TypeScript, and Bash.
+- **Python packages** — NumPy, pandas, PyArrow, DuckDB, SciPy, scikit-learn, matplotlib, and openpyxl. You cannot install other packages.
+- **No network** — code cannot reach the internet or your other services, and the sandbox holds no credentials.
+- **Limits** — each run stops after at most 120 seconds. Output over 32,000 characters is cut, and the item marks it with `stdout_truncated` or `stderr_truncated`.
+
+### Keep files across responses
+
+By default, each response gets its own sandbox. Files that code writes under `/workspace` stay for the rest of that response.
+
+To keep files across responses, pass the same `session_id` in each request. A session belongs to your user, so another user with the same `session_id` gets a different sandbox. A session ends after 30 minutes without use, or 6 hours after it starts:
+
+```python
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="Load sales.csv into a DataFrame and save it as sales.parquet.",
+    tools=[{"type": "code_execution", "session_id": "sales-report"}],
+)
+```
+
+Set `session_mode` to `"ephemeral"` to start every run in a fresh sandbox. If your organization uses zero data retention, every run is ephemeral and `session_id` is ignored.
+
+### Code runs in the response
+
+Each run appears in the response's `output` as a `code_execution_call` item. It holds the `language`, the `code`, its `stdout` and `stderr`, the `exit_code`, and the `session_id`. Its `status` is `completed`, `failed`, or `timed_out`:
+
+```python
+for item in response.output:
+    if item.type == "code_execution_call":
+        run = item.to_dict()
+        print(run["code"])
+        print(run["stdout"])
+```
+
+## Use web search and code execution on a stack
+
+Enable **Web Search** or **Code executor** in a stack's tools. Requests that call the stack without `tools` can then use them. To use one for a single request, add `{"type": "web_search"}` or `{"type": "code_execution"}` to `tools`.
+
+If you call the API with a scoped API key, the key needs the `tools:web_search` or `tools:code_execution` scope.
 
 ## Memory
 
