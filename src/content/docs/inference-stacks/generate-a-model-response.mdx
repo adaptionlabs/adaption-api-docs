@@ -158,6 +158,8 @@ Common events include:
 - **`response.created`** — the response starts.
 - **`response.output_text.delta`** — the model generates more text.
 - **`response.file_search_call.completed`** — a file search finishes.
+- **`response.web_search_call.completed`** — a web search finishes.
+- **`response.code_execution_call.completed`** — a code run finishes.
 - **`response.completed`** — the response finishes.
 - **`error`** — the request fails.
 
@@ -167,7 +169,7 @@ Tools let a model call functions and services while it generates a response. The
 
 - **Function tools** run in your code.
 - **Remote MCP servers** are MCP servers you host or choose.
-- **Hosted tools**, such as `file_search`, run on Adaption.
+- **Hosted tools**, such as `file_search`, `web_search`, and `code_execution`, run on Adaption.
 - **Connectors** are services you connect in the Adaption app, such as Slack or Linear.
 
 Adaption runs remote MCP, hosted, and connector tool calls and returns the final answer. Function tool calls are returned for your code to run.
@@ -317,7 +319,9 @@ print(final.output_text)
 
 ### Hosted tools
 
-Hosted tools run on Adaption and need no connector setup. Use `file_search` to ground answers in your authorized, indexed datasets:
+Hosted tools run on Adaption and need no connector setup.
+
+Use `file_search` to ground answers in your authorized, indexed datasets:
 
 ```python
 from adaption import Adaption
@@ -335,9 +339,27 @@ print(response.output_text)
 
 `file_search` uses semantic search to retrieve relevant rows, passes them to the model as context, and adds citations to the response.
 
-<Callout variant="note">
-  Web search and code execution are upcoming hosted tools.
-</Callout>
+Use `web_search` to answer with current information from the public web. The response cites the pages it uses:
+
+```python
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What is new in the latest Python release?",
+    tools=[{"type": "web_search"}],
+)
+```
+
+Use `code_execution` to let the model run Python, JavaScript, TypeScript, or Bash in a sandbox without network access:
+
+```python
+response = client.responses.create(
+    model="qwen3.5-397b",
+    input="What is the standard deviation of 4, 8, 15, 16, 23, and 42?",
+    tools=[{"type": "code_execution"}],
+)
+```
+
+See [Web search](/inference-stacks/key-concepts#web-search) and [Code execution](/inference-stacks/key-concepts#code-execution) for their options and the items they add to the response.
 
 ### Connectors
 

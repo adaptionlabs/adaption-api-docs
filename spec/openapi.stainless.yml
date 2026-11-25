@@ -197,6 +197,24 @@ resources:
           list:
             endpoint: get /api/v1/responses/{response_id}/input_items
             paginated: cursor_after
+  # OpenAI-compatible, so the call reads `client.chat.completions.create(...)`
+  # like the OpenAI SDK. `chat` holds no methods of its own; it exists only to
+  # give `completions` that path.
+  chat:
+    subresources:
+      completions:
+        models:
+          chat_completion: "#/components/schemas/ChatCompletionDto"
+          chat_completion_chunk: "#/components/schemas/ChatCompletionChunkDto"
+          chat_completion_message: "#/components/schemas/ChatCompletionMessageDto"
+          chat_completion_usage: "#/components/schemas/ChatCompletionUsageDto"
+          chat_completion_error: "#/components/schemas/ChatCompletionErrorDto"
+        methods:
+          create:
+            endpoint: post /api/v1/chat/completions
+            streaming:
+              param_discriminator: stream
+              stream_event_model: chat.completions.chat_completion_chunk
   tools:
     methods:
       list: get /api/v1/tools
