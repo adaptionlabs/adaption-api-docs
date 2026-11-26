@@ -1464,6 +1464,96 @@
         ]
       }
     },
+    "/api/v1/datasets/{dataset_id}/retrieval-index": {
+      "post": {
+        "description": "Embeds the selected text columns of every row so the dataset can be searched. `text_columns` names the columns to search, in the order they are combined into each row’s text. Indexing runs in the background: poll GET /datasets/{dataset_id}/retrieval-index until `status` is `succeeded`, then pass the dataset id in `file_search.dataset_ids` on POST /responses. A dataset has one index. Repeating the request with the same `text_columns` returns the existing index instead of starting another, and different columns return 409. Once an index has `failed`, POST again, with the same or different `text_columns`, to rebuild it.",
+        "operationId": "RetrievalIndexController_create",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRetrievalIndexDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalIndexResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed: `text_columns` is empty, has duplicates or blank names, or names a column that cannot be indexed (the message lists the columns that can); or the dataset has no data that can be indexed yet."
+          },
+          "404": {
+            "description": "Dataset not found."
+          },
+          "409": {
+            "description": "The dataset is already indexed with different `text_columns`, or its data changed since it was indexed. Replacing an index is not supported."
+          },
+          "429": {
+            "description": "A rate limit was reached. See the `Retry-After` header."
+          },
+          "503": {
+            "description": "Indexing could not be started. Retry the request."
+          }
+        },
+        "summary": "Index a dataset for retrieval",
+        "tags": [
+          "datasets"
+        ]
+      },
+      "get": {
+        "description": "Poll after POST /datasets/{dataset_id}/retrieval-index. Once `status` is `succeeded`, the dataset can be searched with `file_search` on POST /responses. A `failed` index carries an `error`; repeat the POST to retry it.",
+        "operationId": "RetrievalIndexController_get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalIndexResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found, or the dataset has not been indexed."
+          }
+        },
+        "summary": "Get the retrieval index status of a dataset",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
     "/api/v1/autoscientist": {
       "post": {
         "description": "Starts an iterative AutoScientist loop on a dataset you own. The loop runs up to max_iterations training cycles, stopping early when target_win_rate is achieved. Omitted parameters are resolved to platform defaults for the selected model and returned in the response. Poll GET /autoscientist/{experiment_id} for status, then GET /autoscientist/{experiment_id}/download once it succeeds. The dataset must have finished processing: adapt it first with [POST /datasets/{dataset_id}/adapt](/api/python/resources/datasets/methods/adapt), or ingest it raw with [POST /datasets](/api/python/resources/datasets/methods/create) when it already holds prompt and completion columns.",
@@ -1491,13 +1581,13 @@
             }
           },
           "400": {
-            "description": "Invalid request — dataset has too few training rows, or an unsupported configuration was supplied."
+            "description": "Invalid request — dataset has too few training rows, an unsupported configuration was supplied, or the `warm_start` checkpoint cannot be used with `model` (code `TRAINING_WARM_START_INVALID`; `details.mismatches` lists each architecture field that disagreed)."
           },
           "402": {
             "description": "Insufficient credits to start this run."
           },
           "403": {
-            "description": "Fine-tuning is not available on your current plan. Upgrade to unlock this feature."
+            "description": "Fine-tuning is not available on your current plan, or `warm_start` is not available for your organization."
           },
           "404": {
             "description": "Dataset not found or not owned by caller."
@@ -1507,6 +1597,9 @@
           },
           "429": {
             "description": "Too many training jobs in flight. Wait for an existing run to complete before starting another."
+          },
+          "502": {
+            "description": "The `warm_start` checkpoint could not be verified: Hugging Face was unreachable (retry), or the base model's reference config is gated (the message says which). Nothing was launched."
           },
           "503": {
             "description": "AutoScientist is currently unavailable."
@@ -1761,6 +1854,256 @@
         "summary": "List available base models for training (deprecated)",
         "tags": [
           "training-models"
+        ]
+      }
+    },
+    "/api/v1/stacks": {
+      "post": {
+        "description": "Creates a stack: a model with tools and defaults you call by its `model_id` through POST /responses. It is active unless created `inactive`.",
+        "operationId": "InferenceStacksPublicController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicCreateStackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStackDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request: an unknown tool, a stack put in service without a model, or agentic memory on a team with zero data retention."
+          },
+          "403": {
+            "description": "The model is not available to your account, or the API key is scoped: changing stacks needs a full-access key."
+          },
+          "409": {
+            "description": "Another stack with the same name was saved at the same time; retry."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "503": {
+            "description": "The models available to your account could not be read; retry later."
+          }
+        },
+        "summary": "Create a stack",
+        "tags": [
+          "stacks"
+        ]
+      },
+      "get": {
+        "description": "Lists your stacks, newest first.",
+        "operationId": "InferenceStacksPublicController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "after",
+            "required": false,
+            "in": "query",
+            "description": "The `last_id` of the previous page. Stacks are listed newest first.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStackListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`after` names no stack of yours, for example one deleted since; list again from the first page."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "List stacks",
+        "tags": [
+          "stacks"
+        ]
+      }
+    },
+    "/api/v1/stacks/{stack_id}": {
+      "get": {
+        "operationId": "InferenceStacksPublicController_retrieve",
+        "parameters": [
+          {
+            "name": "stack_id",
+            "required": true,
+            "in": "path",
+            "description": "The `id` of the stack.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStackDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No stack with this id in your organization."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "Retrieve a stack",
+        "tags": [
+          "stacks"
+        ]
+      },
+      "patch": {
+        "description": "Changes the fields you send and leaves the rest as they are. Renaming a stack changes its `model_id`.",
+        "operationId": "InferenceStacksPublicController_update",
+        "parameters": [
+          {
+            "name": "stack_id",
+            "required": true,
+            "in": "path",
+            "description": "The `id` of the stack.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicUpdateStackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStackDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request: an unknown tool, a stack put in service without a model, or agentic memory on a team with zero data retention."
+          },
+          "403": {
+            "description": "The model is not available to your account, or the API key is scoped: changing stacks needs a full-access key."
+          },
+          "404": {
+            "description": "No stack with this id in your organization."
+          },
+          "409": {
+            "description": "Another stack with the same name was saved at the same time; retry."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          },
+          "503": {
+            "description": "The models available to your account could not be read; retry later."
+          }
+        },
+        "summary": "Update a stack",
+        "tags": [
+          "stacks"
+        ]
+      },
+      "delete": {
+        "description": "Deletes the stack for good; requests naming its `model_id` fail afterwards. To stop it serving and keep it, update its `status` to `inactive`.",
+        "operationId": "InferenceStacksPublicController_delete",
+        "parameters": [
+          {
+            "name": "stack_id",
+            "required": true,
+            "in": "path",
+            "description": "The `id` of the stack.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStackDeletedDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key is scoped: changing stacks needs a full-access key."
+          },
+          "404": {
+            "description": "No stack with this id in your organization."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "Delete a stack",
+        "tags": [
+          "stacks"
         ]
       }
     },
@@ -2040,14 +2383,140 @@
               }
             }
           },
+          "400": {
+            "description": "The request is invalid, or the model rejected it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization has no credits left.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not use this model or endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "The endpoint is not available."
+            "description": "The endpoint is not available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A rate limit was reached. See the `Retry-After` header. When a tool-loop turn fails after a model call finished, `error.usage` carries the usage of the finished calls.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
           },
           "502": {
-            "description": "The model provider could not complete the request."
+            "description": "The model provider could not complete the request. When a tool-loop turn fails after a model call finished, `error.usage` carries the usage of the finished calls.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
           },
           "503": {
-            "description": "Model inference is not configured for this environment."
+            "description": "Model inference is not configured for this environment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The model provider or the tool loop timed out. When a tool-loop turn fails after a model call finished, `error.usage` carries the usage of the finished calls.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesErrorDto"
+                }
+              }
+            }
           }
         },
         "summary": "Generate a model response",
@@ -2287,7 +2756,7 @@
   "info": {
     "title": "Adaption API",
     "description": "Public API for the Adaption dataset augmentation platform",
-    "version": "0.1.28",
+    "version": "0.1.36",
     "contact": {}
   },
   "tags": [],
@@ -3365,7 +3834,7 @@
             "type": "string",
             "description": "URL of the connector's logo, for showing it in a UI. Null for tools without one.",
             "nullable": true,
-            "example": "https://proteus-prod-public.s3.us-east-1.amazonaws.com/connectors/slack.svg"
+            "example": "https://example.com/logos/slack.svg"
           },
           "mode": {
             "type": "string",
@@ -4239,15 +4708,16 @@
               "augmented",
               "translated",
               "localized",
-              "extended"
+              "extended",
+              "adapted"
             ],
-            "description": "How this dataset came about. `uploaded` was supplied by you, `combined` merges several datasets, `invented` was generated from a prompt, `augmented` adds rows retrieved from the curated pool to another dataset, `translated` / `localized` add translated copies of another dataset’s rows, and `extended` adds a next user turn to each of another dataset’s conversations.",
+            "description": "How this dataset came about. `uploaded` was supplied by you, `combined` merges several datasets, `invented` was generated from a prompt, `augmented` adds rows retrieved from the curated pool to another dataset, `translated` / `localized` add translated copies of another dataset’s rows, `extended` adds a next user turn to each of another dataset’s conversations, and `adapted` is one adapt run of an uploaded or invented dataset, returned only when you request that run’s id directly.",
             "example": "augmented"
           },
           "source_dataset_id": {
             "type": "string",
             "nullable": true,
-            "description": "The dataset this one was derived from. Set when `kind` is `augmented`, `translated`, `localized` or `extended`. Null for `uploaded` and `invented`, and for `combined`, which has several sources rather than one.",
+            "description": "The dataset this one was derived from. Set when `kind` is `augmented`, `translated`, `localized`, `extended` or `adapted` (the dataset that was adapted). Null for `uploaded` and `invented`, and for `combined`, which has several sources rather than one.",
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           "name": {
@@ -5293,6 +5763,13 @@
             "example": "dataset-550e8400-e29b-41d4-a716-446655440000-1712234567890",
             "nullable": true
           },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The dataset the run writes to. Poll GET /datasets/{dataset_id}/status and download from GET /datasets/{dataset_id}/download with this id. Null for estimate-only requests.",
+            "example": "7d1f3c2a-9b4e-4f60-8a1d-2e5c6b7a8f90",
+            "nullable": true
+          },
           "estimatedMinutes": {
             "type": "number",
             "description": "Estimated processing time in minutes"
@@ -5315,6 +5792,7 @@
           }
         },
         "required": [
+          "dataset_id",
           "estimatedMinutes",
           "estimatedCreditsConsumed",
           "estimate",
@@ -5376,6 +5854,13 @@
             "example": "dataset-550e8400-e29b-41d4-a716-446655440000-1712234567890",
             "nullable": true
           },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The dataset the run writes to. Poll GET /datasets/{dataset_id}/status and download from GET /datasets/{dataset_id}/download with this id. Null for estimate-only requests.",
+            "example": "7d1f3c2a-9b4e-4f60-8a1d-2e5c6b7a8f90",
+            "nullable": true
+          },
           "estimatedMinutes": {
             "type": "number",
             "description": "Estimated processing time in minutes"
@@ -5395,21 +5880,14 @@
           "creditMultiplier": {
             "type": "number",
             "description": "10 credits per 100 output rows when multimodalPricingApplied is true. Omitted for text-only pricing."
-          },
-          "dataset_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The new dataset holding the extended trajectories. Poll GET /datasets/{dataset_id}/status and download from GET /datasets/{dataset_id}/download with this id, not the source dataset's. Null for estimate-only requests.",
-            "example": "7d1f3c2a-9b4e-4f60-8a1d-2e5c6b7a8f90",
-            "nullable": true
           }
         },
         "required": [
+          "dataset_id",
           "estimatedMinutes",
           "estimatedCreditsConsumed",
           "estimate",
-          "multimodalPricingApplied",
-          "dataset_id"
+          "multimodalPricingApplied"
         ]
       },
       "OriginalImageEmbeddedDto": {
@@ -5950,6 +6428,73 @@
           "items"
         ]
       },
+      "CreateRetrievalIndexDto": {
+        "type": "object",
+        "properties": {
+          "text_columns": {
+            "description": "Columns whose text is searched, combined into each row’s text in this order. For most uploaded datasets these are the file’s column headers, even after adaptation. An unknown column returns 400 listing the columns that can be indexed.",
+            "minItems": 1,
+            "maxItems": 32,
+            "example": [
+              "question",
+              "answer"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "text_columns"
+        ]
+      },
+      "RetrievalIndexResponseDto": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "description": "The dataset can be searched with `file_search` once this is `succeeded`."
+          },
+          "error": {
+            "type": "string",
+            "description": "Why indexing failed. Present only when `status` is `failed`."
+          }
+        },
+        "required": [
+          "dataset_id",
+          "status"
+        ]
+      },
+      "PublicWarmStartDto": {
+        "type": "object",
+        "properties": {
+          "hf_repo": {
+            "type": "string",
+            "description": "Hugging Face model repo holding the checkpoint to train from, as `owner/repo` or `https://huggingface.co/owner/repo` (a `/tree/<revision>` URL also pins the revision). Either full weights in `.safetensors` or a LoRA adapter (`adapter_config.json` + `adapter_model.safetensors`) trained on `model`. Private and gated repos are read with the Hugging Face token saved in Settings → API keys.",
+            "example": "acme/qwen3.5-4b-legal",
+            "maxLength": 512
+          },
+          "revision": {
+            "type": "string",
+            "description": "Branch, tag or commit to train from. Defaults to `main`. Resolved to a commit SHA when the run is created, so every iteration trains the same weights; the SHA is returned in the response `warm_start.revision`.",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "hf_repo"
+        ]
+      },
       "PublicTrainingColumnMappingDto": {
         "type": "object",
         "properties": {
@@ -6122,6 +6667,14 @@
             "type": "string",
             "description": "Base model id from GET /autoscientist/models. By default, AutoScientist selects a suitable model. The resolved model is returned in the response `model` field."
           },
+          "warm_start": {
+            "description": "Train from your own checkpoint instead of the stock weights of `model`. `model` is required with it and must be the base the checkpoint was derived from: the checkpoint is checked against that base's architecture (layer count, hidden size, attention heads, vocabulary, …) before anything is launched, and a mismatch is rejected with 400 — a Qwen3-4B checkpoint cannot train on Qwen/Qwen3.5-4B. Evaluation compares each trained iteration against your checkpoint itself, not the stock `model`, so the win rate measures what training added. Before the first iteration trains, the checkpoint is prepared for serving so it can be evaluated; a checkpoint that cannot be served fails the run before any training is billed. For a LoRA adapter, training continues as LoRA with the adapter's own shape; hyperparams that contradict it are rejected.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicWarmStartDto"
+              }
+            ]
+          },
           "training_method": {
             "type": "string",
             "enum": [
@@ -6194,6 +6747,32 @@
         },
         "required": [
           "dataset_id"
+        ]
+      },
+      "PublicWarmStartWeightsDto": {
+        "type": "object",
+        "properties": {
+          "hf_repo": {
+            "type": "string",
+            "description": "Normalized Hugging Face repo, `owner/repo`."
+          },
+          "revision": {
+            "type": "string",
+            "description": "Commit SHA the run trains from, resolved when it was created."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "full",
+              "lora_adapter"
+            ],
+            "description": "`full` for a full-weights checkpoint; `lora_adapter` for a LoRA adapter, whose `lora_r`, `lora_alpha`, `lora_dropout` and `lora_trainable_modules` are fixed for every iteration."
+          }
+        },
+        "required": [
+          "hf_repo",
+          "revision",
+          "kind"
         ]
       },
       "PublicAutoScientistRunDto": {
@@ -6276,6 +6855,15 @@
               }
             ]
           },
+          "warm_start": {
+            "nullable": true,
+            "description": "The custom checkpoint this run trains from, with the commit it was pinned to. Null when the run trains from the stock `model` weights.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicWarmStartWeightsDto"
+              }
+            ]
+          },
           "download_available": {
             "type": "boolean",
             "description": "True when the best trained artifact can be downloaded."
@@ -6299,6 +6887,7 @@
           "training_method",
           "best_hyperparams",
           "column_mapping",
+          "warm_start",
           "download_available"
         ]
       },
@@ -6432,6 +7021,264 @@
         },
         "required": [
           "runs"
+        ]
+      },
+      "PublicCreateStackDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Display name. The stack is called through `model_id`, which is derived from the name, so renaming a stack changes its `model_id`. Defaults to the model name and a number."
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "The model the stack serves: a hosted model `id` from `GET /models?type=hosted`.",
+            "example": "glm-5.2"
+          },
+          "tools": {
+            "maxItems": 64,
+            "description": "Tools the stack runs on each request, by `server_label` from `GET /tools`, plus `web_search` and `code_execution`. Omitted: `web_search` and `code_execution`, the ones you can run now. Send `[]` for none.",
+            "example": [
+              "slack"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agentic_memory": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether requests to the stack use agentic memory unless they set it themselves. Teams with zero data retention cannot turn it on."
+          },
+          "self_improvement": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether requests to the stack use self-improvement unless they set it themselves."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "default": "active",
+            "description": "Create the stack `inactive` to turn it on later."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "A key you choose for this create. Sending the same key again returns the stack it created instead of making a second one."
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "PublicStackToolDto": {
+        "type": "object",
+        "properties": {
+          "server_label": {
+            "type": "string",
+            "example": "slack"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "needs_connection",
+              "unavailable"
+            ],
+            "description": "`enabled` runs on requests to the stack. `needs_connection` waits for you to connect the account the tool acts as. `unavailable` is not available to you, e.g. not on your plan."
+          }
+        },
+        "required": [
+          "server_label",
+          "status"
+        ]
+      },
+      "PublicStackDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "stack"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name. The stack is called through `model_id`, which is derived from the name, so renaming a stack changes its `model_id`.",
+            "example": "Support bot"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "What to pass as `model` to POST /responses to call the stack. Use it as is.",
+            "example": "stack/support-bot"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "inactive"
+            ],
+            "description": "`active` serves requests, `inactive` keeps its configuration but refuses them. `draft` is a stack started in the dashboard whose configuration is not finished."
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "description": "The model the stack serves. Null only for a draft without one yet.",
+            "example": "glm-5.2"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackToolDto"
+            }
+          },
+          "agentic_memory": {
+            "type": "boolean",
+            "description": "Whether requests to the stack use agentic memory unless they set it themselves. Teams with zero data retention cannot turn it on."
+          },
+          "self_improvement": {
+            "type": "boolean",
+            "description": "Whether requests to the stack use self-improvement unless they set it themselves."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "name",
+          "model_id",
+          "status",
+          "model",
+          "tools",
+          "agentic_memory",
+          "self_improvement",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "PublicStackListDto": {
+        "type": "object",
+        "properties": {
+          "object": {
+            "type": "string",
+            "enum": [
+              "list"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicStackDto"
+            }
+          },
+          "first_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "last_id": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "Pass as `after` to read the next page."
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object",
+          "data",
+          "first_id",
+          "last_id",
+          "has_more"
+        ]
+      },
+      "PublicUpdateStackDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Display name. The stack is called through `model_id`, which is derived from the name, so renaming a stack changes its `model_id`."
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "The model the stack serves: a hosted model `id` from `GET /models?type=hosted`."
+          },
+          "tools": {
+            "maxItems": 64,
+            "description": "Tools the stack runs on each request, by `server_label` from `GET /tools`, plus `web_search` and `code_execution`. Replaces the whole selection; send `[]` for none.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agentic_memory": {
+            "type": "boolean",
+            "description": "Whether requests to the stack use agentic memory unless they set it themselves. Teams with zero data retention cannot turn it on."
+          },
+          "self_improvement": {
+            "type": "boolean",
+            "description": "Whether requests to the stack use self-improvement unless they set it themselves."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "description": "`active` puts the stack in service, `inactive` takes it out. A draft needs a model before it can be active, and stays a draft when turned off."
+          }
+        }
+      },
+      "PublicStackDeletedDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "stack.deleted"
+            ]
+          },
+          "deleted": {
+            "type": "boolean",
+            "example": true,
+            "description": "Always `true`."
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "deleted"
         ]
       },
       "PublicInventSubdomainDto": {
@@ -7274,7 +8121,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "Item type, such as `message`, `reasoning`, `function_call`, `mcp_call`, `file_search_call` or `web_search_call`. Fields beyond the ones listed depend on the type.",
+            "description": "Item type, such as `message`, `reasoning`, `function_call`, `mcp_call`, `file_search_call`, `web_search_call` or `code_execution_call`. Fields beyond the ones listed depend on the type.",
             "example": "message"
           },
           "id": {
@@ -7283,7 +8130,7 @@
           },
           "status": {
             "type": "string",
-            "description": "Status of the item, such as `completed` or `in_progress`.",
+            "description": "Status of the item, such as `completed` or `in_progress`. A `code_execution_call` is `completed`, `failed` or `timed_out`.",
             "example": "completed"
           },
           "role": {
@@ -7376,6 +8223,58 @@
               "additionalProperties": true
             },
             "nullable": true
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Sandbox session of a `code_execution_call` item. Send it as the `session_id` of a `code_execution` tool to keep its files."
+          },
+          "execution_id": {
+            "type": "string",
+            "description": "Identifier of the run, on a `code_execution_call` item."
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the code, on a `code_execution_call` item.",
+            "enum": [
+              "python",
+              "javascript",
+              "typescript",
+              "bash"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "Code the model ran, on a `code_execution_call` item."
+          },
+          "exit_code": {
+            "type": "integer",
+            "description": "Exit code of the program, on a `code_execution_call` item. Null when the program did not run.",
+            "nullable": true
+          },
+          "stdout": {
+            "type": "string",
+            "description": "Standard output, on a `code_execution_call` item."
+          },
+          "stderr": {
+            "type": "string",
+            "description": "Standard error, on a `code_execution_call` item, or why the run failed."
+          },
+          "stdout_truncated": {
+            "type": "boolean",
+            "description": "Whether `stdout` was cut to the output limit."
+          },
+          "stderr_truncated": {
+            "type": "boolean",
+            "description": "Whether `stderr` was cut to the output limit."
+          },
+          "sandbox_reused": {
+            "type": "boolean",
+            "description": "Whether the run reused a sandbox from an earlier run in the session."
+          },
+          "timing": {
+            "type": "object",
+            "description": "Run timing in milliseconds, on a `code_execution_call` item: `sandbox_ms`, `execution_ms` and `total_ms`.",
+            "additionalProperties": true
           }
         },
         "required": [
@@ -7437,6 +8336,11 @@
             "example": {
               "reasoning_tokens": 0
             }
+          },
+          "cost": {
+            "type": "number",
+            "description": "Cost of the request in US dollars. Missing when a model call did not report its cost.",
+            "example": 0.0012
           }
         },
         "required": [
@@ -7760,7 +8664,7 @@
             "example": "file_search"
           },
           "dataset_ids": {
-            "description": "Adapted dataset identifiers to search. Omit with `model: stack:<id>` to use the datasets configured on that stack.",
+            "description": "Adapted dataset identifiers to search. Omit with `model: stack/<slug>` to use the datasets configured on that stack.",
             "minItems": 1,
             "maxItems": 32,
             "type": "array",
@@ -7905,7 +8809,7 @@
         "properties": {
           "model": {
             "type": "string",
-            "description": "Hosted model identifier, or `stack:<slug>` to call one of your inference stacks. A stack supplies its model and default tools; explicitly requested MCP tools must be enabled on the stack, while file_search can name any of the caller's authorized adapted datasets.",
+            "description": "Hosted model identifier, or `stack/<slug>` to call one of your inference stacks (`stack:<slug>` is still accepted). A stack supplies its model and default tools; explicitly requested MCP tools must be enabled on the stack, while file_search can name any of the caller's authorized adapted datasets.",
             "example": "qwen3.5-397b"
           },
           "input": {
@@ -7969,7 +8873,7 @@
           },
           "tools": {
             "type": "array",
-            "description": "Responses API tools. Catalog MCP entries are hosted by Adaption; MCP entries with server_url are called by Adaption with caller-owned authorization; file_search runs over authorized adapted datasets; web_search searches the public web; code_execution runs in an owner-scoped, network-blocked sandbox. With `model: stack:<id>`, omitted tools means the stack's configured tools (none when tool_choice is \"none\"), and an empty array means no tools; requested hosted MCP labels must be enabled on the stack, and file_search uses the stack dataset scope when dataset_ids is omitted. connector_id MCP tools are not supported.",
+            "description": "Responses API tools. Catalog MCP entries are hosted by Adaption; MCP entries with server_url are called by Adaption with caller-owned authorization; file_search runs over authorized adapted datasets; web_search searches the public web; code_execution runs in an owner-scoped, network-blocked sandbox. With `model: stack/<slug>`, omitted tools means the stack's configured tools (none when tool_choice is \"none\"), and an empty array means no tools; requested hosted MCP labels must be enabled on the stack, and file_search uses the stack dataset scope when dataset_ids is omitted. connector_id MCP tools are not supported.",
             "items": {
               "oneOf": [
                 {
@@ -8065,6 +8969,52 @@
         },
         "required": [
           "model"
+        ]
+      },
+      "ResponsesErrorDetailDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "The model provider could not complete the request."
+          },
+          "type": {
+            "type": "string",
+            "example": "server_error"
+          },
+          "param": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "usage": {
+            "description": "Usage of the model calls that finished before a tool-loop turn failed. Present only when one of them reported usage.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResponseUsageDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "message",
+          "type",
+          "param",
+          "code"
+        ]
+      },
+      "ResponsesErrorDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ResponsesErrorDetailDto"
+          }
+        },
+        "required": [
+          "error"
         ]
       }
     }

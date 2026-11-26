@@ -3,7 +3,7 @@
 edition: 2026-02-23
 organization:
   name: adaption
-  docs: ""
+  docs: https://docs.adaptionlabs.ai
   contact: ""
 targets:
   python:
@@ -94,6 +94,7 @@ resources:
   datasets:
     models:
       dataset: "#/components/schemas/PublicDatasetDto"
+      retrieval_index: "#/components/schemas/RetrievalIndexResponseDto"
     methods:
       create: post /api/v1/datasets
       get: get /api/v1/datasets/{dataset_id}
@@ -135,6 +136,11 @@ resources:
       get_best_launch_config: get /api/v1/datasets/{dataset_id}/finetune/best-launch-config
       get_preprocessing_credits: get /api/v1/datasets/{dataset_id}/preprocessing-credits
       launch_preprocessing: post /api/v1/datasets/{dataset_id}/launch-preprocessing
+      # Indexing runs in the background: `index` starts it and returns the index
+      # status, `get_retrieval_index` reads it back until `status` is `succeeded`
+      # or `failed`.
+      index: post /api/v1/datasets/{dataset_id}/retrieval-index
+      get_retrieval_index: get /api/v1/datasets/{dataset_id}/retrieval-index
     subresources:
       upload:
         methods:
@@ -218,6 +224,19 @@ resources:
   tools:
     methods:
       list: get /api/v1/tools
+  # A stack is called by passing its `model_id` as `model` to `responses.create`.
+  stacks:
+    models:
+      stack: "#/components/schemas/PublicStackDto"
+      stack_tool: "#/components/schemas/PublicStackToolDto"
+    methods:
+      create: post /api/v1/stacks
+      list:
+        endpoint: get /api/v1/stacks
+        paginated: cursor_after
+      get: get /api/v1/stacks/{stack_id}
+      update: patch /api/v1/stacks/{stack_id}
+      delete: delete /api/v1/stacks/{stack_id}
   models:
     methods:
       list:
