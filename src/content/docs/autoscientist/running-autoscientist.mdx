@@ -29,6 +29,7 @@ print(run.id, run.status)  # pending
 | `augmentation_general_rows` | No       | General-purpose rows added before training.                                                                                                                                        |
 | `idempotency_key`           | No       | Repeated requests with the same key return the existing run.                                                                                                                       |
 | `column_mapping`            | No       | Maps `prompt` and `completion` for SFT, or `prompt`, `chosen`, and `rejected` for DPO. Omit it to let the platform infer the mapping.                                              |
+| `warm_start`                | No       | Train from your own Hugging Face checkpoint or LoRA adapter instead of the stock base model. Requires `model`. See [Train from your checkpoint](/autoscientist/train-from-your-checkpoint). |
 
 `column_mapping` is validated against the **adapted dataset's schema**, not the uploaded file's original headers. Adaptation can add columns such as `enhanced_prompt`. A mapping to a missing column fails with `Selected column '...' for prompt is not in this dataset`.
 

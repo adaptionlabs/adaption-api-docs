@@ -182,6 +182,7 @@ export default defineConfig({
             "autoscientist/overview",
             "autoscientist/data-augmentation",
             "autoscientist/running-autoscientist",
+            "autoscientist/train-from-your-checkpoint",
             "autoscientist/interpreting-results",
             "autoscientist/download-the-model",
             "autoscientist/run-on-non-adapted-data",

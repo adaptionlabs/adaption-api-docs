@@ -39,6 +39,8 @@ A run returned with `training_method="alignment"` includes an SFT stage followed
 
 The **Training Winrates** chart compares the base model with the adapted model on evaluations derived from your dataset. A 70% adapted-model win rate means the adapted model won roughly 70% of the head-to-head comparisons.
 
+For a run created with [`warm_start`](/autoscientist/train-from-your-checkpoint), the comparison is against your checkpoint rather than the stock base model, so the win rate measures what training added on top of it. `run.warm_start` shows the repo and the exact commit the run trained from.
+
 `best_win_rate` is the best result across all iterations. A `succeeded` run may have reached `target_win_rate` early or simply completed `max_iterations`, so compare those values rather than treating success as proof that the target was reached.
 
 ## Train and evaluation metrics
@@ -57,4 +59,5 @@ Read these curves together. A smooth loss curve is not enough if win rate is fla
 - **No downloadable checkpoint:** confirm the run succeeded and `download_available` is true before following [Download the model](/autoscientist/download-the-model) or calling the [`download` method](/api/python/resources/autoscientist/methods/download).
 - **DPO metrics temporarily missing:** if the run is still `running`, it can be moving from SFT to DPO. Continue polling the same run ID.
 - **Unclear run state:** retrieve the run and inspect `status`; `pending` is queued, `running` is active, and `failed` includes the reason in `error`.
+- **Run with `warm_start` failed before training:** read `error`. It names the problem with the checkpoint. See [what your checkpoint needs](/autoscientist/train-from-your-checkpoint#what-your-checkpoint-needs).
 - **Need original rather than adapted rows:** create a [raw dataset](/autoscientist/run-on-non-adapted-data) or select original columns when configuring the run.

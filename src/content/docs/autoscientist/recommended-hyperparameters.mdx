@@ -37,7 +37,7 @@ These hyperparameters apply to both SFT and DPO runs.
 
 ### LoRA
 
-These hyperparameters configure Low-Rank Adaptation and are only applicable when `training_type` is `"lora"`. In alignment (SFT → DPO) pipelines, LoRA settings are frozen from the winning SFT iteration and cannot be changed during DPO.
+These hyperparameters configure Low-Rank Adaptation and are only applicable when `training_type` is `"lora"`. In alignment (SFT → DPO) pipelines, LoRA settings are frozen from the winning SFT iteration and cannot be changed during DPO. When you [train from a LoRA adapter](/autoscientist/train-from-your-checkpoint#lora-adapters-keep-their-shape), all four LoRA settings come from the adapter and cannot be overridden.
 
 | Hyperparameter           | Definition                                                                                                                                                                | Valid Values                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |

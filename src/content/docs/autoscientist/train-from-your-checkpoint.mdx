@@ -1,0 +1,95 @@
+---
+title: Train from your checkpoint
+description: Start an AutoScientist run from your own Hugging Face model or LoRA adapter instead of the stock base model.
+---
+
+By default, AutoScientist trains the stock base model you pick. With `warm_start`, it trains from a checkpoint you have already fine-tuned instead, and each iteration builds on what that checkpoint already knows.
+
+Both instruction (SFT) and alignment (SFT → DPO) runs support it, with either kind of checkpoint:
+
+- **Full weights:** a complete model saved in `.safetensors`.
+- **LoRA adapter:** `adapter_config.json` plus `adapter_model.safetensors`.
+
+## Create a run
+
+Pass `warm_start` along with `model`, the base model your checkpoint was derived from:
+
+```python
+from adaption import Adaption
+
+client = Adaption()
+
+run = client.autoscientist.create(
+    dataset_id="dataset_abc123",
+    model="Qwen/Qwen3.5-4B",
+    warm_start={"hf_repo": "acme/qwen3.5-4b-legal"},
+)
+print(run.id, run.warm_start.kind, run.warm_start.revision)
+# 9c1e… full 3f2a9c…
+```
+
+| Field      | Required | Notes                                                                                                                                       |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hf_repo`  | Yes      | `owner/repo`, or a `https://huggingface.co/owner/repo` URL. A `/tree/<revision>` URL also sets the revision.                                |
+| `revision` | No       | Branch, tag, or commit. Defaults to `main`.                                                                                                 |
+
+`model` is required with `warm_start`. Pick it from [`client.autoscientist.list_models()`](/api/python/resources/autoscientist/methods/list_models).
+
+`run.warm_start` echoes the checkpoint with three fields, and is `None` for a run without one:
+
+- `hf_repo`: the normalized repo, as `owner/repo`.
+- `revision`: the exact commit the run trains from.
+- `kind`: `full` or `lora_adapter`.
+
+The revision is resolved to a commit when the run is created, so every iteration trains the same weights even if you push to the repo while the run is going.
+
+## What your checkpoint needs
+
+AutoScientist checks the checkpoint before anything is launched or billed. If any check fails, `create` returns `400` and says what was wrong.
+
+**A base model that supports warm starts.** Not every model in `list_models()` does. For one that doesn't, `create` returns `400` saying warm starts are not available for that model yet, and nothing is launched.
+
+**Same architecture as `model`.** The checkpoint's `config.json` must match the base model's: architecture, layer count, hidden size, attention heads, vocabulary, and so on. The repo's name doesn't matter. A model renamed "Qwen3.8" that is a Qwen3.5-4B underneath is accepted, and a Qwen3-4B checkpoint is rejected for `Qwen/Qwen3.5-4B`.
+
+**Full weights:**
+
+- Weights in `.safetensors`. Pickle `.bin` files are not accepted.
+- No custom modeling code: no `auto_map` in `config.json`.
+- Saved with Hugging Face Transformers 5.10 or earlier, with `transformers_version` set in `config.json`. Some exporters leave it out. Re-saving with `save_pretrained` fixes that.
+- For vision-language bases such as Qwen3.5, the full model, not a text-only export.
+
+**LoRA adapter:**
+
+- A standard LoRA adapter. Other PEFT types and DoRA are not supported.
+- `base_model_name_or_path` in `adapter_config.json` names the base model, or a repo with the same architecture.
+- Trained on the full base model. For vision-language bases, an adapter trained on a text-only load of the model has different layer names and is rejected.
+- `r` between 1 and 64, and `lora_alpha` equal to `r` or `2 × r`.
+- `target_modules` that the base model allows for LoRA. See [supported models](/autoscientist/supported-models).
+
+## LoRA adapters keep their shape
+
+Training continues as LoRA with the adapter's own `lora_r`, `lora_alpha`, `lora_dropout` and `lora_trainable_modules`, fixed for every iteration. You can still set other [hyperparameters](/autoscientist/recommended-hyperparameters), such as `learning_rate` or `n_epochs`.
+
+Leave the LoRA fields out of `hyperparams`. If you pass one that contradicts the adapter, or set `training_type` to `full`, `create` returns `400`.
+
+## Private and gated repos
+
+AutoScientist reads private and gated repos with the Hugging Face token saved in **Settings → API keys**. The token's account needs read access to the repo. Public repos need no token.
+
+If the token is removed while a run that needs it is still going, the run stops with an error asking you to save one and start a new run.
+
+## How evaluation works
+
+Each iteration is compared against **your checkpoint**, not the stock base model. So `best_win_rate` measures what training added on top of what you brought. See [Interpreting results](/autoscientist/interpreting-results).
+
+To be evaluated, the checkpoint is prepared for serving before the first iteration trains. If it can't be served, the run stops before any training is billed.
+
+## Errors
+
+| Code                               | When                                                                                                                                                                       | What to do                                                                       |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `TRAINING_WARM_START_INVALID`      | `400` from `create`: the checkpoint failed a check above, or the base model doesn't support warm starts yet. For an architecture mismatch, `details.mismatches` lists the fields that differ. | Fix the checkpoint, or pick the base model it was derived from.                  |
+| `TRAINING_WARM_START_UNVERIFIABLE` | `502` from `create`: Hugging Face couldn't be reached, or a gated base model's files couldn't be read.                                                                     | Retry later. If the message says the base model is gated, save a Hugging Face token whose account has accepted that model's license in **Settings → API keys**. Nothing was launched. |
+| `TRAINING_WARM_START_DISABLED`     | `403` from `create`: warm starts are not available for your organization right now.                                                                                         | Create the run without `warm_start`, or contact support@adaptionlabs.ai.         |
+
+If the checkpoint passes these checks but still can't be loaded once the run has started, the run fails and `error` begins with "Training stopped because the warm_start checkpoint could not be loaded". Re-save the checkpoint with Transformers' `save_pretrained`, then start a new run. Your dataset was not the cause.
