@@ -47,7 +47,7 @@ The revision is resolved to a commit when the run is created, so every iteration
 
 AutoScientist checks the checkpoint before anything is launched or billed. If any check fails, `create` returns `400` and says what was wrong.
 
-**A base model that supports warm starts.** Not every model in `list_models()` does. For one that doesn't, `create` returns `400` saying warm starts are not available for that model yet, and nothing is launched.
+**A base model that supports warm starts.** Not every model in `list_models()` does; see [which models support warm start](/autoscientist/supported-models#warm-start). For one that doesn't, `create` returns `400` saying warm starts are not available for that model yet, and nothing is launched.
 
 **Same architecture as `model`.** The checkpoint's `config.json` must match the base model's: architecture, layer count, hidden size, attention heads, vocabulary, and so on. The repo's name doesn't matter. A model renamed "Qwen3.8" that is a Qwen3.5-4B underneath is accepted, and a Qwen3-4B checkpoint is rejected for `Qwen/Qwen3.5-4B`.
 

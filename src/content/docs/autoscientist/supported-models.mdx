@@ -51,6 +51,24 @@ See the [`autoscientist.list_models` API reference](/api/python/resources/autosc
 
 A `full` value for `training_type` means full fine-tuning is available in addition to `lora`.
 
+## Warm start
+
+These base models accept [`warm_start`](/autoscientist/train-from-your-checkpoint), so a run can start from your own checkpoint or LoRA adapter instead of the stock weights:
+
+| `model` ID                             |
+| -------------------------------------- |
+| `Qwen/Qwen3.5-2B`                      |
+| `Qwen/Qwen3.5-4B`                      |
+| `Qwen/Qwen3.5-9B`                      |
+| `Qwen/Qwen3.6-35B-A3B`                 |
+| `Qwen/Qwen3-4B-Base`                   |
+| `openai/gpt-oss-20b`                   |
+| `google/gemma-4-26B-A4B-it`            |
+| `google/gemma-4-31B-it`                |
+| `mistralai/Mixtral-8x7B-Instruct-v0.1` |
+
+Other models don't support warm starts yet: models over 100B parameters, models that need custom modeling code, and the multimodal `-VLM` IDs. For one of these, `create` returns `400` and nothing is launched.
+
 ## Per-model training limits
 
 These limits are properties of the model and training hardware. AutoScientist accounts for them automatically; they matter primarily when you [override its recommended hyperparameters](/autoscientist/recommended-hyperparameters).
